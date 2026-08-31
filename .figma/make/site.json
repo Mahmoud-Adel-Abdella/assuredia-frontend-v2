@@ -1,0 +1,17 @@
+{
+  "title": "Assuredia",
+  "description": "Monitor application quality with real-time test health, recent runs, failure insights, and AI-powered analysis for reliable enterprise QA assurance.",
+  "icons": {
+    "icon": "/native-logo.png"
+  },
+  "openGraph": {
+    "image": "/native-logo.png"
+  },
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

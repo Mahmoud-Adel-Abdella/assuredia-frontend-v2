@@ -1,0 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Brand — royal blue accent ramp (light defaults) */
+  --color-brand-950: #172554;
+  --color-brand-900: #2563eb; /* primary / active nav / primary button */
+  --color-brand-800: #2563eb;
+  --color-brand-700: #3b82f6; /* accent, dots */
+  --color-brand-600: #3b82f6;
+  --color-brand-500: #60a5fa;
+  --color-brand-400: #2563eb; /* icon/link accent, readable on light */
+  --color-brand-300: #1d4ed8; /* active text, readable on light */
+  --color-brand-200: #bfdbfe; /* light: subtle blue border */
+  --color-brand-100: #dbeafe;
+  --color-brand-50: #eff6ff; /* light: blue-tinted surface for accents */
+
+  /* Neutral scale + semantic families use Tailwind defaults in light mode;
+     only aliases and overrides live here. */
+  --color-navy: #0f172a; /* heading text (light) */
+  --color-muted: #64748b;
+
+  /* Semantic — status dots/icons keep their true hues in both themes */
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+
+  /* Semantic aliases used across the app (light defaults) */
+  --color-background: #f1f5f9; /* page background */
+  --color-surface: #ffffff; /* cards & main containers */
+  --color-elevated: #f8fafc; /* elevated/secondary surfaces */
+  --color-foreground: #0f172a;
+
+  --radius-card: 14px;
+}
+
+:root {
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.05);
+  --shadow-card-hover: 0 2px 4px rgba(15, 23, 42, 0.06), 0 8px 28px rgba(15, 23, 42, 0.09);
+  color-scheme: light;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark theme — near-black navy with royal-blue accents               */
+/* Overrides the same CSS variables so plain utilities switch cleanly */
+/* ------------------------------------------------------------------ */
+.dark {
+  color-scheme: dark;
+
+  /* Brand accents tuned for dark surfaces */
+  --color-brand-400: #60a5fa;
+  --color-brand-300: #93c5fd;
+  --color-brand-200: #1e3a5f; /* subtle blue border */
+  --color-brand-100: #17293f;
+  --color-brand-50: #111d33; /* blue-tinted accent surface */
+
+  /* Neutrals — inverted near-black navy ramp (low = surfaces, high = text) */
+  --color-navy: #f4f7fb;
+  --color-muted: #7b8496;
+  --color-slate-50: #151b29; /* elevated surface / subtle fills */
+  --color-slate-100: #1a2130; /* raised surface / tracks */
+  --color-slate-200: #1e2536; /* borders */
+  --color-slate-300: #2c3547; /* strong borders, faint marks */
+  --color-slate-400: #7b8496; /* muted text */
+  --color-slate-500: #9aa3b5; /* secondary text */
+  --color-slate-600: #b6bece;
+  --color-slate-700: #d3d9e3;
+  --color-slate-800: #e9edf3;
+  --color-slate-900: #f4f7fb; /* primary text */
+
+  /* Semantic status tints (dark backgrounds + bright text) */
+  --color-emerald-50: #0f2e22;
+  --color-emerald-200: #1f5138;
+  --color-emerald-600: #34d399;
+  --color-emerald-700: #4ade80;
+  --color-emerald-800: #86efac;
+
+  --color-red-50: #33191b;
+  --color-red-100: #431d1f;
+  --color-red-200: #5a2529;
+  --color-red-500: #f87171;
+  --color-red-600: #f87171;
+  --color-red-700: #fca5a5;
+  --color-red-800: #fecaca;
+
+  --color-amber-50: #33260f;
+  --color-amber-200: #5a3f16;
+  --color-amber-800: #fcd34d;
+
+  /* Surfaces */
+  --color-background: #0a0e17;
+  --color-surface: #0f1420;
+  --color-elevated: #151b29;
+  --color-foreground: #f4f7fb;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.6), 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Hide scrollbars until scrolling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+*:hover,
+*:focus-within {
+  scrollbar-color: #cbd5e1 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 999px;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+}
+.dark *:hover,
+.dark *:focus-within {
+  scrollbar-color: #2c3547 transparent;
+}
+.dark *:hover::-webkit-scrollbar-thumb {
+  background-color: #2c3547;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* RTL support (Phase 9 language preference).                          */
+/* Setting dir="rtl" on <html> already mirrors flex/grid layout order; */
+/* these rules additionally flip explicit text-alignment utilities so   */
+/* labels follow the reading direction.                                */
+/* ------------------------------------------------------------------ */
+[dir='rtl'] .text-left {
+  text-align: right;
+}
+[dir='rtl'] .text-right {
+  text-align: left;
+}
