@@ -2700,6 +2700,14 @@ const dict: Record<string, Entry> = {
     en: "Link this definition to a flow first",
     ar: "اربط هذا التعريف بتدفق أولاً",
   },
+  "testdef.reason.loading": {
+    en: "Loading the active version…",
+    ar: "جارٍ تحميل الإصدار النشط…",
+  },
+  "testdef.action.unavailable": {
+    en: "That action is not available yet",
+    ar: "هذا الإجراء غير متاح بعد",
+  },
   "testdef.readyHint": {
     en: "READY is reached only by a passing proving run — it is never set by hand.",
     ar: "لا يتم الوصول إلى \"جاهز\" إلا بتشغيل إثبات ناجح — ولا يُحدد يدوياً.",

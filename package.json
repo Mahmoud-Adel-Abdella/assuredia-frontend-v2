@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "npx tsx --test src/components/admin/__tests__/*.test.ts src/components/testdefinitions/__tests__/*.test.ts",
     "test:e2e": "playwright test",
-    "format": "oxfmt"
+    "format": "oxfmt",
+    "test:live": "node e2e/live/real-stack.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

@@ -94,6 +94,7 @@ export function TestDefinitionDetail({
 
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null)
   const [version, setVersion] = useState<TestDefinitionVersion | null>(null)
+  const [versionLoading, setVersionLoading] = useState(false)
   const [versionError, setVersionError] = useState<string | null>(null)
 
   const [draft, setDraft] = useState("")
@@ -156,10 +157,12 @@ export function TestDefinitionDetail({
       setVersion(null)
       setDraft("")
       setEngineReport(null)
+      setVersionLoading(false)
       return
     }
     const rid = ++versionRequestRef.current
     setVersionError(null)
+    setVersionLoading(true)
     apiGetTestDefinitionVersion(clientId, definitionId, selectedVersionId)
       .then((loaded) => {
         if (rid !== versionRequestRef.current) return
@@ -167,9 +170,11 @@ export function TestDefinitionDetail({
         setDraft(loaded.sourceJson)
         setDraftError(null)
         setEngineReport(parseStoredReport(loaded.validationReportJson))
+        setVersionLoading(false)
       })
       .catch((err) => {
         if (rid !== versionRequestRef.current) return
+        setVersionLoading(false)
         const failure = mapTestDefinitionFailure(err)
         if (failure.kind === "unauthenticated") {
           onUnauthorized()
@@ -181,6 +186,15 @@ export function TestDefinitionDetail({
       versionRequestRef.current++
     }
   }, [clientId, definitionId, selectedVersionId, onUnauthorized])
+
+  /* Lifecycle actions describe the ACTIVE version: until it is on screen they
+     stay disabled (with a visible reason) instead of briefly offering DRAFT
+     actions that their handlers would have to ignore. */
+  const versionLoaded = version !== null
+  const lifecycleGate =
+    versionLoading || !versionLoaded
+      ? { disabled: true, reason: t("testdef.reason.loading") as string }
+      : { disabled: false, reason: null as string | null }
 
   /* A dirty draft is protected against a full page unload as well as in-app
      navigation; this is the only guard the dashboard has, so it is explicit. */
@@ -253,7 +267,13 @@ export function TestDefinitionDetail({
   /* ---- Draft editing ------------------------------------------------- */
 
   async function handleSave() {
-    if (!version || pending) return
+    if (pending) return
+    if (!version) {
+      // Unreachable through the UI (the bar is disabled while loading); kept as a
+      // deterministic refusal so a programmatic click can never be silently ignored.
+      toast({ title: t("testdef.action.unavailable"), description: t("testdef.reason.loading"), variant: "warning" })
+      return
+    }
     const local = validateDefinitionSource(draft)
     const syntaxFailure = local.errors.find((f) => f.ruleId.startsWith("FE-JSON"))
     if (syntaxFailure) {
@@ -296,7 +316,13 @@ export function TestDefinitionDetail({
   async function runSimpleAction(
     action: Extract<LifecycleAction, "validate" | "approve" | "archive" | "newVersion">,
   ) {
-    if (!version || pending) return
+    if (pending) return
+    if (!version) {
+      // Unreachable through the UI (the bar is disabled while loading); kept as a
+      // deterministic refusal so a programmatic click can never be silently ignored.
+      toast({ title: t("testdef.action.unavailable"), description: t("testdef.reason.loading"), variant: "warning" })
+      return
+    }
     setPending(action)
     try {
       if (action === "validate") {
@@ -341,7 +367,13 @@ export function TestDefinitionDetail({
    * engine has answered definitively.
    */
   async function runExecution(purpose: "TRIAL" | "PROVING") {
-    if (!version || pending) return
+    if (pending) return
+    if (!version) {
+      // Unreachable through the UI (the bar is disabled while loading); kept as a
+      // deterministic refusal so a programmatic click can never be silently ignored.
+      toast({ title: t("testdef.action.unavailable"), description: t("testdef.reason.loading"), variant: "warning" })
+      return
+    }
     const identity: OperationIdentity = { purpose, versionId: version.id }
     const key = idempotencyRef.current.acquire(identity)
     if (key === null) return
@@ -435,16 +467,21 @@ export function TestDefinitionDetail({
     const info = availabilityOf(availability, action)
     if (!info.visible) return null
     const isPending = pending === action
+    // While the active version is loading the buttons stay in place (no layout
+    // shift) but disabled with a visible reason — handlers can never silently
+    // ignore a click, because none reaches them.
+    const gated = lifecycleGate.disabled
+    const reason = gated ? lifecycleGate.reason : info.reason
     return (
       <Button
         key={action}
         variant={variant}
         size="sm"
         data-action={action}
-        disabled={!info.enabled || (busy && !isPending)}
+        disabled={!info.enabled || gated || (busy && !isPending)}
         loading={isPending}
-        title={info.reason ?? undefined}
-        aria-describedby={info.reason ? `testdef-reason-${action}` : undefined}
+        title={reason ?? undefined}
+        aria-describedby={reason ? `testdef-reason-${action}` : undefined}
         onClick={onPress}
       >
         {isPending ? busyLabel : label}
@@ -490,10 +527,10 @@ export function TestDefinitionDetail({
           {actionButton("newVersion", t("testdef.action.newVersion"), t("testdef.action.newVersionWorking"), "outline", () => void runSimpleAction("newVersion"))}
         </div>
         {availability
-          .filter((info) => info.visible && !info.enabled && info.reason)
+          .filter((info) => info.visible && ((!info.enabled && info.reason) || lifecycleGate.disabled))
           .map((info) => (
             <p key={info.action} id={`testdef-reason-${info.action}`} className="mt-2 text-[11px] text-slate-400">
-              {t(`testdef.action.${info.action}`)}: {info.reason}
+              {t(`testdef.action.${info.action}`)}: {(lifecycleGate.disabled ? lifecycleGate.reason : info.reason) ?? info.reason}
             </p>
           ))}
         <p className="mt-2 text-[11px] text-slate-400">{t("testdef.readyHint")}</p>
