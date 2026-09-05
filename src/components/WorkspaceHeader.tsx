@@ -12,6 +12,7 @@ export const WORKSPACE_NAV = [
   { key: "overview", labelKey: "nav.overview" },
   { key: "flows", labelKey: "nav.flows" },
   { key: "automations", labelKey: "nav.automations" },
+  { key: "test-definitions", labelKey: "nav.testDefinitions" },
   { key: "requests", labelKey: "nav.requests" },
   { key: "history", labelKey: "nav.runHistory" },
 ]

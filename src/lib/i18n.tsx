@@ -2496,6 +2496,315 @@ const dict: Record<string, Entry> = {
   },
   "admin.navFeedback": { en: "Feedback", ar: "الملاحظات" },
 
+  /* ---------- Test Definitions (PR 5: declarative definition lifecycle) ---------- */
+  "nav.testDefinitions": { en: "Test Definitions", ar: "تعريفات الاختبار" },
+  "admin.navTestDefinitions": { en: "Test Definitions", ar: "تعريفات الاختبار" },
+
+  "testdef.eyebrow": { en: "Quality Assets", ar: "أصول الجودة" },
+  "testdef.title": { en: "Test Definitions", ar: "تعريفات الاختبار" },
+  "testdef.subtitle": {
+    en: "Author, validate and prove declarative test definitions before they go live.",
+    ar: "أنشئ تعريفات اختبار وصفية وتحقّق منها وأثبتها قبل تشغيلها.",
+  },
+  "testdef.admin.subtitle": {
+    en: "Review and promote declarative test definitions for any client environment.",
+    ar: "راجع تعريفات الاختبار الوصفية واعتمدها لأي بيئة عميل.",
+  },
+  "testdef.new": { en: "New Definition", ar: "تعريف جديد" },
+  "testdef.searchPlaceholder": { en: "Search by name…", ar: "ابحث بالاسم…" },
+
+  "testdef.status.draft": { en: "Draft", ar: "مسودة" },
+  "testdef.status.validated": { en: "Validated", ar: "تم التحقق" },
+  "testdef.status.approved": { en: "Approved", ar: "معتمد" },
+  "testdef.status.ready": { en: "Ready", ar: "جاهز" },
+  "testdef.status.archived": { en: "Archived", ar: "مؤرشف" },
+
+  "testdef.th.name": { en: "Definition", ar: "التعريف" },
+  "testdef.th.client": { en: "Client", ar: "العميل" },
+  "testdef.th.flow": { en: "Flow", ar: "التدفق" },
+  "testdef.th.version": { en: "Version", ar: "الإصدار" },
+  "testdef.th.status": { en: "Status", ar: "الحالة" },
+  "testdef.th.implementation": { en: "Type", ar: "النوع" },
+  "testdef.th.updated": { en: "Last updated", ar: "آخر تحديث" },
+  "testdef.th.actions": { en: "Actions", ar: "الإجراءات" },
+
+  "testdef.implementation.testDefinition": { en: "Definition JSON", ar: "تعريف JSON" },
+  "testdef.noFlow": { en: "Not linked", ar: "غير مرتبط" },
+  "testdef.flowNumber": { en: "Flow #{id}", ar: "تدفق #{id}" },
+  "testdef.versionNumber": { en: "v{number}", ar: "الإصدار {number}" },
+  "testdef.noVersions": { en: "No versions", ar: "لا إصدارات" },
+
+  "testdef.empty": { en: "No test definitions yet", ar: "لا توجد تعريفات اختبار بعد" },
+  "testdef.emptyHint": {
+    en: "Create a definition to describe a user journey in JSON and prove it before release.",
+    ar: "أنشئ تعريفاً لوصف رحلة مستخدم بصيغة JSON وأثبتها قبل الإصدار.",
+  },
+  "testdef.noMatch": { en: "No definitions match this search", ar: "لا توجد تعريفات تطابق هذا البحث" },
+  "testdef.noMatchHint": { en: "Try a shorter search term.", ar: "جرّب مصطلح بحث أقصر." },
+  "testdef.loadFailed": { en: "Could not load test definitions", ar: "تعذّر تحميل تعريفات الاختبار" },
+  "testdef.back": { en: "Back to Test Definitions", ar: "العودة إلى تعريفات الاختبار" },
+  "testdef.prevPage": { en: "Previous", ar: "السابق" },
+  "testdef.nextPage": { en: "Next", ar: "التالي" },
+  "testdef.pageRange": { en: "{from}–{to} of {total}", ar: "{from}–{to} من {total}" },
+
+  /* Create form */
+  "testdef.create.title": { en: "New Test Definition", ar: "تعريف اختبار جديد" },
+  "testdef.create.subtitle": {
+    en: "A definition starts as a DRAFT you can edit freely until it is validated.",
+    ar: "يبدأ التعريف كمسودة يمكنك تعديلها بحرية حتى يتم التحقق منها.",
+  },
+  "testdef.create.name": { en: "Definition name", ar: "اسم التعريف" },
+  "testdef.create.namePlaceholder": { en: "Checkout happy path", ar: "مسار الشراء الناجح" },
+  "testdef.create.nameHint": {
+    en: "Up to 120 characters, unique within this client.",
+    ar: "حتى 120 حرفاً، وفريد داخل هذا العميل.",
+  },
+  "testdef.create.nameRequired": { en: "A definition name is required", ar: "اسم التعريف مطلوب" },
+  "testdef.create.nameTooLong": {
+    en: "The name cannot exceed 120 characters",
+    ar: "لا يمكن أن يتجاوز الاسم 120 حرفاً",
+  },
+  "testdef.create.duplicateName": {
+    en: "A definition with this name already exists for this client",
+    ar: "يوجد بالفعل تعريف بهذا الاسم لهذا العميل",
+  },
+  "testdef.create.description": { en: "Description", ar: "الوصف" },
+  "testdef.create.descriptionPlaceholder": {
+    en: "What this journey proves (optional)",
+    ar: "ما تثبته هذه الرحلة (اختياري)",
+  },
+  "testdef.create.descriptionTooLong": {
+    en: "The description cannot exceed 2000 characters",
+    ar: "لا يمكن أن يتجاوز الوصف 2000 حرف",
+  },
+  "testdef.create.client": { en: "Client environment", ar: "بيئة العميل" },
+  "testdef.create.flow": { en: "Flow binding", ar: "ارتباط التدفق" },
+  "testdef.create.flowNone": { en: "Not linked yet", ar: "غير مرتبط بعد" },
+  "testdef.create.flowHint": {
+    en: "A flow binding is required before a trial or proving run.",
+    ar: "ارتباط التدفق مطلوب قبل تشغيل تجريبي أو إثبات.",
+  },
+  "testdef.create.flowLoadFailed": {
+    en: "Flows could not be loaded; you can bind one later.",
+    ar: "تعذّر تحميل التدفقات؛ يمكنك الربط لاحقاً.",
+  },
+  "testdef.create.source": { en: "Definition source (JSON)", ar: "مصدر التعريف (JSON)" },
+  "testdef.create.sourceHint": {
+    en: "Schema 1.0. Leave the starter document to fill it in after creating.",
+    ar: "المخطط 1.0. اترك المستند المبدئي لإكماله بعد الإنشاء.",
+  },
+  "testdef.create.insertStarter": { en: "Insert starter document", ar: "إدراج مستند مبدئي" },
+  "testdef.create.format": { en: "Format JSON", ar: "تنسيق JSON" },
+  "testdef.create.formatFailed": {
+    en: "Fix the JSON syntax before formatting",
+    ar: "أصلح صيغة JSON قبل التنسيق",
+  },
+  "testdef.create.submit": { en: "Create definition", ar: "إنشاء التعريف" },
+  "testdef.create.submitting": { en: "Creating…", ar: "جارٍ الإنشاء…" },
+  "testdef.create.createdTitle": { en: "Definition created", ar: "تم إنشاء التعريف" },
+  "testdef.create.createdDesc": {
+    en: "\"{name}\" is a DRAFT at version {version}.",
+    ar: "\"{name}\" مسودة في الإصدار {version}.",
+  },
+  "testdef.create.failedTitle": { en: "Could not create the definition", ar: "تعذّر إنشاء التعريف" },
+
+  /* Validation panel */
+  "testdef.validation.localTitle": { en: "Checked in your browser", ar: "تم التحقق في متصفحك" },
+  "testdef.validation.localHint": {
+    en: "A local schema pre-check. The engine's validation is the one that counts.",
+    ar: "تحقّق أولي محلي من المخطط. تحقّق المحرك هو المُعتبر.",
+  },
+  "testdef.validation.engineTitle": { en: "Engine validation", ar: "تحقّق المحرك" },
+  "testdef.validation.passed": { en: "No problems found", ar: "لم تُكتشف أي مشكلات" },
+  "testdef.validation.errorCount": { en: "{count} error(s)", ar: "{count} خطأ" },
+  "testdef.validation.warningCount": { en: "{count} warning(s)", ar: "{count} تحذير" },
+  "testdef.validation.atRoot": { en: "document", ar: "المستند" },
+  "testdef.validation.notRunYet": {
+    en: "This version has not been validated yet.",
+    ar: "لم يتم التحقق من هذا الإصدار بعد.",
+  },
+
+  /* Detail + editor */
+  "testdef.detail.metadata": { en: "Definition", ar: "التعريف" },
+  "testdef.detail.versions": { en: "Version history", ar: "سجل الإصدارات" },
+  "testdef.detail.currentVersion": { en: "Selected version", ar: "الإصدار المحدد" },
+  "testdef.detail.source": { en: "Definition source", ar: "مصدر التعريف" },
+  "testdef.detail.readOnly": {
+    en: "Read-only: content is immutable once a version leaves DRAFT.",
+    ar: "للقراءة فقط: المحتوى غير قابل للتغيير بعد خروج الإصدار من المسودة.",
+  },
+  "testdef.detail.archivedReadOnly": {
+    en: "This definition is archived and cannot be changed or executed.",
+    ar: "هذا التعريف مؤرشف ولا يمكن تغييره أو تنفيذه.",
+  },
+  "testdef.detail.provingRun": { en: "Proving run", ar: "تشغيل الإثبات" },
+  "testdef.detail.provingRunNone": { en: "Not proven yet", ar: "لم يُثبت بعد" },
+  "testdef.detail.created": { en: "Created", ar: "أُنشئ" },
+  "testdef.detail.validatedAt": { en: "Validated", ar: "تم التحقق" },
+  "testdef.detail.approvedAt": { en: "Approved", ar: "تم الاعتماد" },
+  "testdef.detail.readyAt": { en: "Ready", ar: "أصبح جاهزاً" },
+  "testdef.detail.archivedAt": { en: "Archived", ar: "أُرشف" },
+  "testdef.detail.versionLock": { en: "Lock", ar: "قفل التزامن" },
+  "testdef.detail.loadFailed": { en: "Could not load this definition", ar: "تعذّر تحميل هذا التعريف" },
+  "testdef.detail.versionLoadFailed": { en: "Could not load this version", ar: "تعذّر تحميل هذا الإصدار" },
+  "testdef.detail.save": { en: "Save draft", ar: "حفظ المسودة" },
+  "testdef.detail.saving": { en: "Saving…", ar: "جارٍ الحفظ…" },
+  "testdef.detail.savedTitle": { en: "Draft saved", ar: "تم حفظ المسودة" },
+  "testdef.detail.savedDesc": {
+    en: "Validation was cleared, so validate the draft again.",
+    ar: "تم إلغاء نتيجة التحقق، لذا تحقّق من المسودة مرة أخرى.",
+  },
+  "testdef.detail.saveFailedTitle": { en: "Could not save the draft", ar: "تعذّر حفظ المسودة" },
+  "testdef.detail.revert": { en: "Discard changes", ar: "تجاهل التغييرات" },
+  "testdef.detail.unsavedBadge": { en: "Unsaved changes", ar: "تغييرات غير محفوظة" },
+  "testdef.detail.unsavedTitle": { en: "Leave without saving?", ar: "الخروج دون حفظ؟" },
+  "testdef.detail.unsavedDesc": {
+    en: "The edits to this draft have not been sent to the engine and will be lost.",
+    ar: "لم تُرسل تعديلات هذه المسودة إلى المحرك وسيتم فقدانها.",
+  },
+  "testdef.detail.unsavedConfirm": { en: "Discard and leave", ar: "تجاهل واخرج" },
+  "testdef.detail.unsavedStay": { en: "Keep editing", ar: "متابعة التعديل" },
+  "testdef.detail.jsonInvalid": {
+    en: "Fix the JSON syntax before saving",
+    ar: "أصلح صيغة JSON قبل الحفظ",
+  },
+
+  /* Lifecycle actions */
+  "testdef.action.validate": { en: "Validate", ar: "تحقّق" },
+  "testdef.action.validating": { en: "Validating…", ar: "جارٍ التحقق…" },
+  "testdef.action.trial": { en: "Run trial", ar: "تشغيل تجريبي" },
+  "testdef.action.trialRunning": { en: "Running trial…", ar: "جارٍ التشغيل التجريبي…" },
+  "testdef.action.approve": { en: "Approve", ar: "اعتماد" },
+  "testdef.action.approving": { en: "Approving…", ar: "جارٍ الاعتماد…" },
+  "testdef.action.proving": { en: "Run proving", ar: "تشغيل الإثبات" },
+  "testdef.action.provingRunning": { en: "Running proving…", ar: "جارٍ تشغيل الإثبات…" },
+  "testdef.action.archive": { en: "Archive", ar: "أرشفة" },
+  "testdef.action.archiving": { en: "Archiving…", ar: "جارٍ الأرشفة…" },
+  "testdef.action.newVersion": { en: "New draft version", ar: "إصدار مسودة جديد" },
+  "testdef.action.newVersionWorking": { en: "Creating version…", ar: "جارٍ إنشاء الإصدار…" },
+  "testdef.action.adminBadge": { en: "Admin", ar: "مسؤول" },
+
+  "testdef.reason.adminOnly": {
+    en: "Only an administrator can perform this step",
+    ar: "لا يمكن تنفيذ هذه الخطوة إلا لمسؤول",
+  },
+  "testdef.reason.archived": {
+    en: "Archived definitions are read-only",
+    ar: "التعريفات المؤرشفة للقراءة فقط",
+  },
+  "testdef.reason.wrongStatus": {
+    en: "Not available while this version is {status}",
+    ar: "غير متاح وحالة هذا الإصدار {status}",
+  },
+  "testdef.reason.noFlow": {
+    en: "Link this definition to a flow first",
+    ar: "اربط هذا التعريف بتدفق أولاً",
+  },
+  "testdef.readyHint": {
+    en: "READY is reached only by a passing proving run — it is never set by hand.",
+    ar: "لا يتم الوصول إلى \"جاهز\" إلا بتشغيل إثبات ناجح — ولا يُحدد يدوياً.",
+  },
+
+  /* Lifecycle confirmations and outcomes */
+  "testdef.confirm.approveTitle": { en: "Approve this version?", ar: "اعتماد هذا الإصدار؟" },
+  "testdef.confirm.approveDesc": {
+    en: "Approving \"{name}\" v{version} allows a proving run, which is the only way it can become READY.",
+    ar: "اعتماد \"{name}\" الإصدار {version} يسمح بتشغيل إثبات، وهو الطريق الوحيد ليصبح جاهزاً.",
+  },
+  "testdef.confirm.provingTitle": { en: "Run the proving execution?", ar: "تشغيل تنفيذ الإثبات؟" },
+  "testdef.confirm.provingDesc": {
+    en: "This runs \"{name}\" v{version} against the client's real environment. A passing run promotes it to READY.",
+    ar: "سيتم تشغيل \"{name}\" الإصدار {version} على بيئة العميل الحقيقية. التشغيل الناجح يرفعه إلى \"جاهز\".",
+  },
+  "testdef.confirm.archiveTitle": { en: "Archive this definition?", ar: "أرشفة هذا التعريف؟" },
+  "testdef.confirm.archiveDesc": {
+    en: "Archiving \"{name}\" is permanent: the version and the whole definition become read-only and can no longer run.",
+    ar: "أرشفة \"{name}\" نهائية: يصبح الإصدار والتعريف بالكامل للقراءة فقط ولا يمكن تشغيلهما.",
+  },
+  "testdef.validated.title": { en: "Version validated", ar: "تم التحقق من الإصدار" },
+  "testdef.validated.invalidTitle": { en: "Validation found problems", ar: "اكتشف التحقق مشكلات" },
+  "testdef.validated.invalidDesc": {
+    en: "The version stays in DRAFT until the reported errors are fixed.",
+    ar: "يبقى الإصدار مسودة حتى إصلاح الأخطاء المذكورة.",
+  },
+  "testdef.approved.title": { en: "Version approved", ar: "تم اعتماد الإصدار" },
+  "testdef.archived.title": { en: "Definition archived", ar: "تم أرشفة التعريف" },
+  "testdef.newVersion.title": { en: "Draft version created", ar: "تم إنشاء إصدار مسودة" },
+  "testdef.newVersion.desc": {
+    en: "Version {version} is a DRAFT copied from the version you were viewing.",
+    ar: "الإصدار {version} مسودة منسوخة من الإصدار الذي كنت تعرضه.",
+  },
+  "testdef.actionFailed": { en: "The action did not complete", ar: "لم يكتمل الإجراء" },
+  "testdef.reloadNeeded": {
+    en: "This definition changed on the server. Reloading the latest state.",
+    ar: "تغيّر هذا التعريف على الخادم. جارٍ تحميل أحدث حالة.",
+  },
+
+  /* Run results and evidence */
+  "testdef.run.title": { en: "Run result", ar: "نتيجة التشغيل" },
+  "testdef.run.trial": { en: "Trial", ar: "تجريبي" },
+  "testdef.run.proving": { en: "Proving", ar: "إثبات" },
+  "testdef.run.runId": { en: "Run", ar: "التشغيل" },
+  "testdef.run.startedAt": { en: "Started", ar: "بدأ" },
+  "testdef.run.duration": { en: "Duration", ar: "المدة" },
+  "testdef.run.replayed": { en: "Replayed result", ar: "نتيجة معادة" },
+  "testdef.run.replayedHint": {
+    en: "This request repeated an earlier operation, so the original run is shown.",
+    ar: "أعاد هذا الطلب عملية سابقة، لذا يتم عرض التشغيل الأصلي.",
+  },
+  "testdef.run.becameReady": {
+    en: "The proving run passed and the version is now READY.",
+    ar: "نجح تشغيل الإثبات وأصبح الإصدار جاهزاً.",
+  },
+  "testdef.run.notReady": {
+    en: "The proving run did not pass, so the version stays APPROVED.",
+    ar: "لم ينجح تشغيل الإثبات، لذا يبقى الإصدار معتمداً.",
+  },
+  "testdef.run.pending": { en: "Waiting for the engine…", ar: "في انتظار المحرك…" },
+  "testdef.run.steps": { en: "Steps", ar: "الخطوات" },
+  "testdef.run.noSteps": { en: "The engine reported no steps", ar: "لم يبلّغ المحرك عن أي خطوات" },
+  "testdef.run.thStep": { en: "#", ar: "#" },
+  "testdef.run.thAction": { en: "Action", ar: "الإجراء" },
+  "testdef.run.thStatus": { en: "Status", ar: "الحالة" },
+  "testdef.run.thDetail": { en: "Detail", ar: "التفاصيل" },
+  "testdef.run.thDuration": { en: "Took", ar: "استغرق" },
+  "testdef.run.expectedOutcome": { en: "Expected outcome", ar: "النتيجة المتوقعة" },
+  "testdef.run.status.passed": { en: "Passed", ar: "نجح" },
+  "testdef.run.status.failed": { en: "Failed", ar: "فشل" },
+  "testdef.run.status.error": { en: "Error", ar: "خطأ" },
+  "testdef.run.status.cancelled": { en: "Cancelled", ar: "أُلغي" },
+  "testdef.run.status.notExecuted": { en: "Not executed", ar: "لم يُنفّذ" },
+  "testdef.run.status.unknown": { en: "Unknown", ar: "غير معروف" },
+  "testdef.run.reload": { en: "Refresh run", ar: "تحديث التشغيل" },
+  "testdef.run.loadFailed": { en: "Could not load the run", ar: "تعذّر تحميل التشغيل" },
+
+  "testdef.artifacts.title": { en: "Evidence", ar: "الأدلة" },
+  "testdef.artifacts.none": { en: "This run produced no evidence files", ar: "لم يُنتج هذا التشغيل أي ملفات أدلة" },
+  "testdef.artifacts.unknown": {
+    en: "Evidence is recorded with the stored run. Refresh the run to list it.",
+    ar: "تُسجَّل الأدلة مع التشغيل المخزّن. حدّث التشغيل لعرضها.",
+  },
+  "testdef.artifacts.download": { en: "Download", ar: "تنزيل" },
+  "testdef.artifacts.downloading": { en: "Downloading…", ar: "جارٍ التنزيل…" },
+  "testdef.artifacts.step": { en: "Step {index}", ar: "الخطوة {index}" },
+  "testdef.artifacts.runScope": { en: "Whole run", ar: "التشغيل بالكامل" },
+  "testdef.artifacts.missingTitle": { en: "Evidence file unavailable", ar: "ملف الأدلة غير متاح" },
+  "testdef.artifacts.missingDesc": {
+    en: "The engine has the record but could not return the file.",
+    ar: "لدى المحرك السجل لكنه لم يتمكن من إرجاع الملف.",
+  },
+  "testdef.artifacts.deniedTitle": { en: "Evidence access denied", ar: "تم رفض الوصول إلى الأدلة" },
+  "testdef.artifacts.failedTitle": { en: "Download failed", ar: "فشل التنزيل" },
+
+  /* Admin client scope */
+  "testdef.admin.pickClient": { en: "Client environment", ar: "بيئة العميل" },
+  "testdef.admin.pickClientHint": {
+    en: "Test definitions belong to one client environment. Choose which one to work in.",
+    ar: "تنتمي تعريفات الاختبار إلى بيئة عميل واحدة. اختر البيئة التي تعمل فيها.",
+  },
+  "testdef.admin.noClients": { en: "No client environments exist yet", ar: "لا توجد بيئات عملاء بعد" },
+  "testdef.admin.clientsFailed": { en: "Could not load client environments", ar: "تعذّر تحميل بيئات العملاء" },
+
   /* ---------- Landing (Figma: public marketing entry) ---------- */
   "landing.badge": { en: "Continuous QA Monitoring", ar: "مراقبة جودة مستمرة" },
   "landing.heroAlways": { en: "Always", ar: "دائماً" },

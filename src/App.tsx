@@ -17,6 +17,7 @@ import { AutomationRunView } from "./components/AutomationRunView"
 import { Feedback } from "./components/Feedback"
 import { Help } from "./components/Help"
 import { Landing } from "./components/Landing"
+import { TestDefinitionsPage } from "./components/testdefinitions/TestDefinitionsPage"
 import { cx, Spinner, ToastProvider, useToast } from "./components/primitives"
 import { AuthProvider, useAuth } from "./lib/auth"
 import { LanguageProvider, useLang } from "./lib/i18n"
@@ -482,6 +483,18 @@ function AppInner() {
               active={active}
               onSelect={setActive}
               onOpenRun={(target, name) => setAutomationRun({ target, name })}
+            />
+          ) : active === "test-definitions" && user?.clientId != null ? (
+            <TestDefinitionsPage
+              active={active}
+              onSelect={setActive}
+              showWorkspaceHeader
+              clientId={user.clientId}
+              clientName={user.clientName ?? ""}
+              /* The engine reserves Approve, Proving and Archive for an ADMIN and
+                 answers 403 regardless of what this flag shows. */
+              isAdmin={user.role === "ADMIN"}
+              onUnauthorized={logout}
             />
           ) : active === "alerts" ? (
             <Alerts

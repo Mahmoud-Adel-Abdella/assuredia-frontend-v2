@@ -41,6 +41,13 @@ const Icon = {
       />
     </svg>
   ),
+  testDefinitions: (p: IconProps) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 3v5h5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 13.5L11 15l-1.5 1.5M13 16.5h2" />
+    </svg>
+  ),
   alerts: (p: IconProps) => (
     <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path strokeLinecap="round" strokeLinejoin="round" d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -95,6 +102,7 @@ const groups: NavGroup[] = [
       { key: "overview", labelKey: "nav.overview", icon: Icon.overview },
       { key: "flows", labelKey: "nav.flows", icon: Icon.flows },
       { key: "automations", labelKey: "nav.automations", icon: Icon.automations },
+      { key: "test-definitions", labelKey: "nav.testDefinitions", icon: Icon.testDefinitions },
       { key: "requests", labelKey: "nav.requests", icon: Icon.requests },
       { key: "history", labelKey: "nav.runHistory", icon: Icon.history },
     ],
