@@ -13,6 +13,7 @@ import { AdminSettings } from "./AdminSettings"
 import { AdminRequests } from "./AdminRequests"
 import { AdminAssetRequests } from "./AdminAssetRequests"
 import { AdminFeedback } from "./AdminFeedback"
+import { AdminCreationQueue } from "../testcreation/AdminCreationQueue"
 import { ComponentShowcase } from "../ComponentShowcase"
 
 /* ------------------------------------------------------------------ */
@@ -124,6 +125,20 @@ const GROUPS: NavGroup[] = [
         icon: (
           <svg className="size-[18px]" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2l1.6 4.9L18.5 8.5 13.6 10 12 15l-1.6-5L5.5 8.5 10.4 6.9 12 2zM19 14l.9 2.6L22.5 17.5 20 18.4 19 21l-.9-2.6L15.5 17.5 18 16.6 19 14z" />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    titleKey: "nav.testCreation",
+    items: [
+      {
+        key: "creation-queue",
+        labelKey: "admin.navCreationQueue",
+        icon: (
+          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
           </svg>
         ),
       },
@@ -285,6 +300,7 @@ function AdminSidebar({
 export function AdminShell({ onExit }: { onExit: () => void }) {
   const [active, setActive] = useState("dashboard")
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [pendingDefinition, setPendingDefinition] = useState<{ clientId: number; definitionId: number } | null>(null)
   const { t } = useLang()
 
   /* Real pending Onboarding Requests count behind the sidebar badge. */
@@ -427,7 +443,18 @@ export function AdminShell({ onExit }: { onExit: () => void }) {
           ) : active === "runs" ? (
             <AdminRuns />
           ) : active === "test-definitions" ? (
-            <AdminTestDefinitions />
+            <AdminTestDefinitions
+              initialClientId={pendingDefinition?.clientId ?? null}
+              initialDefinitionId={pendingDefinition?.definitionId ?? null}
+            />
+          ) : active === "creation-queue" ? (
+            <AdminCreationQueue
+              onOpenDefinition={(clientId, definitionId) => {
+                setPendingDefinition({ clientId, definitionId })
+                setActive("test-definitions")
+              }}
+              onUnauthorized={onExit}
+            />
           ) : active === "alerts" ? (
             <AdminAlerts onAlertsChanged={refreshAlertsUnread} />
           ) : active === "ai-analysis" ? (

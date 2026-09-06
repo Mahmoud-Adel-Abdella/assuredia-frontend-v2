@@ -2543,3 +2543,175 @@ export async function apiDownloadTestDefinitionArtifact(
     `${testDefinitionsPath(clientId)}/${definitionId}/runs/${runId}/artifacts/${artifactId}`,
   )
 }
+
+/* ------------------------------------------------------------------ */
+/* Test Creation Requests (PR10A unified manual creation foundation)   */
+/* Backend: engine.testdefinition.creation.TestCreationRequestController */
+/* ------------------------------------------------------------------ */
+
+export type TestCreationJourneyType = "UI" | "API" | "MIXED"
+export type TestCreationMethod = "MANUAL_REQUEST" | "MANUAL_EDITOR"
+export type TestCreationStatus =
+  | "SUBMITTED"
+  | "IN_REVIEW"
+  | "IN_PROGRESS"
+  | "DRAFT_CREATED"
+  | "REJECTED"
+  | "CANCELLED"
+  | "FAILED"
+
+export type TestCreationRequestRow = {
+  id: number
+  clientId: number
+  flowId: number | null
+  journeyType: TestCreationJourneyType
+  creationMethod: TestCreationMethod
+  status: TestCreationStatus
+  requestedBy: number
+  assignedTo: number | null
+  definitionId: number | null
+  title: string
+  description: string | null
+  decisionReason: string | null
+  failureCode: string | null
+  failureMessage: string | null
+  versionLock: number
+  createdAt: string
+  updatedAt: string
+  completedAt: string | null
+}
+
+export type TestCreationListResponse = {
+  items: TestCreationRequestRow[]
+  total?: number
+  limit: number
+  offset: number
+}
+
+function testCreationPath(clientId: number): string {
+  return `/dashboard-api/clients/${clientId}/test-creation-requests`
+}
+
+export async function apiCreateManualRequest(
+  clientId: number,
+  body: { journeyType: TestCreationJourneyType; title: string; description?: string | null; flowId?: number | null },
+  idempotencyKey: string,
+): Promise<TestCreationRequestRow> {
+  return request<TestCreationRequestRow>(testCreationPath(clientId), {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: {
+      journeyType: body.journeyType,
+      title: body.title.trim().slice(0, 120),
+      description: body.description ?? null,
+      flowId: body.flowId ?? null,
+    },
+  })
+}
+
+export async function apiListCreationRequests(
+  clientId: number,
+  params?: { status?: string; limit?: number; offset?: number },
+): Promise<TestCreationListResponse> {
+  const query = new URLSearchParams()
+  if (params?.status) query.set("status", params.status)
+  if (params?.limit !== undefined) query.set("limit", String(params.limit))
+  if (params?.offset !== undefined) query.set("offset", String(params.offset))
+  const suffix = query.toString() ? `?${query.toString()}` : ""
+  return request<TestCreationListResponse>(`${testCreationPath(clientId)}${suffix}`)
+}
+
+export async function apiGetCreationRequest(
+  clientId: number,
+  requestId: number,
+): Promise<TestCreationRequestRow> {
+  return request<TestCreationRequestRow>(`${testCreationPath(clientId)}/${requestId}`)
+}
+
+export async function apiCancelCreationRequest(
+  clientId: number,
+  requestId: number,
+): Promise<TestCreationRequestRow> {
+  return request<TestCreationRequestRow>(`${testCreationPath(clientId)}/${requestId}/cancel`, {
+    method: "POST",
+  })
+}
+
+export async function apiListAdminCreationRequests(params?: {
+  status?: string
+  limit?: number
+  offset?: number
+}): Promise<TestCreationListResponse> {
+  const query = new URLSearchParams()
+  if (params?.status) query.set("status", params.status)
+  if (params?.limit !== undefined) query.set("limit", String(params.limit))
+  if (params?.offset !== undefined) query.set("offset", String(params.offset))
+  const suffix = query.toString() ? `?${query.toString()}` : ""
+  return request<TestCreationListResponse>(`/dashboard-api/admin/test-creation-requests${suffix}`)
+}
+
+export async function apiAssignCreationRequest(requestId: number, assignedTo: number): Promise<TestCreationRequestRow> {
+  return request<TestCreationRequestRow>(
+    `/dashboard-api/admin/test-creation-requests/${requestId}/assign`,
+    { method: "POST", body: { assignedTo } },
+  )
+}
+
+export async function apiStartCreationRequest(requestId: number): Promise<TestCreationRequestRow> {
+  return request<TestCreationRequestRow>(
+    `/dashboard-api/admin/test-creation-requests/${requestId}/start`,
+    { method: "POST" },
+  )
+}
+
+export async function apiRejectCreationRequest(
+  requestId: number,
+  decisionReason: string,
+): Promise<TestCreationRequestRow> {
+  return request<TestCreationRequestRow>(
+    `/dashboard-api/admin/test-creation-requests/${requestId}/reject`,
+    { method: "POST", body: { decisionReason } },
+  )
+}
+
+export async function apiCreateDraftFromRequest(
+  requestId: number,
+  body: { name: string; description?: string | null; flowId?: number | null; initialSourceJson?: string | null },
+): Promise<TestCreationRequestRow> {
+  return request<TestCreationRequestRow>(
+    `/dashboard-api/admin/test-creation-requests/${requestId}/create-draft`,
+    {
+      method: "POST",
+      body: {
+        name: body.name.trim().slice(0, 120),
+        description: body.description ?? null,
+        flowId: body.flowId ?? null,
+        initialSourceJson: body.initialSourceJson ?? null,
+      },
+    },
+  )
+}
+
+export async function apiCreateManualEditorDraft(
+  clientId: number,
+  body: {
+    journeyType: TestCreationJourneyType
+    name: string
+    description?: string | null
+    flowId?: number | null
+    initialSourceJson?: string | null
+  },
+  idempotencyKey?: string,
+): Promise<TestCreationRequestRow & { definitionId: number }> {
+  return request<TestCreationRequestRow & { definitionId: number }>(testDefinitionsPath(clientId), {
+    method: "POST",
+    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+    body: {
+      name: body.name.trim().slice(0, 120),
+      description: body.description ?? null,
+      flowId: body.flowId ?? null,
+      initialSourceJson: body.initialSourceJson ?? null,
+      journeyType: body.journeyType,
+    },
+  })
+}

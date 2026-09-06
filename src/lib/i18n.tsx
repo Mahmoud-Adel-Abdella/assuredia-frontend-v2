@@ -2500,6 +2500,12 @@ const dict: Record<string, Entry> = {
   "nav.testDefinitions": { en: "Test Definitions", ar: "تعريفات الاختبار" },
   "admin.navTestDefinitions": { en: "Test Definitions", ar: "تعريفات الاختبار" },
 
+  /* ---------- Test Creation (PR10A: unified manual creation workflow) ---------- */
+  "nav.testCreation": { en: "Test Creation", ar: "إنشاء الاختبار" },
+  "nav.newTest": { en: "New Test", ar: "اختبار جديد" },
+  "nav.creationRequests": { en: "Creation Requests", ar: "طلبات الإنشاء" },
+  "admin.navCreationQueue": { en: "Review Queue", ar: "قائمة المراجعة" },
+
   "testdef.eyebrow": { en: "Quality Assets", ar: "أصول الجودة" },
   "testdef.title": { en: "Test Definitions", ar: "تعريفات الاختبار" },
   "testdef.subtitle": {

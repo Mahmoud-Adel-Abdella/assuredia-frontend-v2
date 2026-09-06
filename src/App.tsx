@@ -18,6 +18,8 @@ import { Feedback } from "./components/Feedback"
 import { Help } from "./components/Help"
 import { Landing } from "./components/Landing"
 import { TestDefinitionsPage } from "./components/testdefinitions/TestDefinitionsPage"
+import { TestCreationWizard } from "./components/testcreation/TestCreationWizard"
+import { CreationRequestsPage } from "./components/testcreation/CreationRequestsPage"
 import { cx, Spinner, ToastProvider, useToast } from "./components/primitives"
 import { AuthProvider, useAuth } from "./lib/auth"
 import { LanguageProvider, useLang } from "./lib/i18n"
@@ -199,6 +201,8 @@ function AppInner() {
   const [pendingRunId, setPendingRunId] = useState<string | null>(null)
   /** Preselected request type when the Flows page opens a request form. */
   const [pendingRequest, setPendingRequest] = useState<{ type: AssetRequestType; flowId?: number } | null>(null)
+  /** Test Definition deep-linked from a DRAFT_CREATED creation request. */
+  const [pendingDefinitionId, setPendingDefinitionId] = useState<number | null>(null)
   /** Run/execution deep-linked via "View AI Analysis" — consumed by the AI Analysis page. */
   const [aiOpenRunId, setAiOpenRunId] = useState<string | null>(null)
   /** True when the page loaded on the OAuth callback route (/oauth/complete). */
@@ -486,14 +490,39 @@ function AppInner() {
             />
           ) : active === "test-definitions" && user?.clientId != null ? (
             <TestDefinitionsPage
+              key={pendingDefinitionId ?? "list"}
               active={active}
-              onSelect={setActive}
+              onSelect={(k) => {
+                setPendingDefinitionId(null)
+                setActive(k)
+              }}
               showWorkspaceHeader
               clientId={user.clientId}
               clientName={user.clientName ?? ""}
               /* The engine reserves Approve, Proving and Archive for an ADMIN and
                  answers 403 regardless of what this flag shows. */
               isAdmin={user.role === "ADMIN"}
+              onUnauthorized={logout}
+              initialDefinitionId={pendingDefinitionId}
+            />
+          ) : active === "test-creation" && user?.clientId != null ? (
+            <TestCreationWizard
+              clientId={user.clientId}
+              onViewRequests={() => setActive("creation-requests")}
+              onOpenDefinition={(definitionId) => {
+                setPendingDefinitionId(definitionId)
+                setActive("test-definitions")
+              }}
+              onUnauthorized={logout}
+            />
+          ) : active === "creation-requests" && user?.clientId != null ? (
+            <CreationRequestsPage
+              clientId={user.clientId}
+              onNewTest={() => setActive("test-creation")}
+              onOpenDefinition={(definitionId) => {
+                setPendingDefinitionId(definitionId)
+                setActive("test-definitions")
+              }}
               onUnauthorized={logout}
             />
           ) : active === "alerts" ? (

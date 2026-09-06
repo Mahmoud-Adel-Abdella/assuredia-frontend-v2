@@ -15,14 +15,20 @@ import { FieldHint, FieldLabel, SelectInput } from "../testdefinitions/shared"
  * to work in first. There is no global "acting as client" context in the
  * dashboard, which is the same approach `AdminClients` takes.
  */
-export function AdminTestDefinitions() {
+export function AdminTestDefinitions({
+  initialClientId,
+  initialDefinitionId,
+}: {
+  initialClientId?: number | null
+  initialDefinitionId?: number | null
+} = {}) {
   const { t } = useLang()
   const { logout } = useAuth()
 
   const [clients, setClients] = useState<BackendClientListRow[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(initialClientId ?? null)
 
   const load = useCallback(async () => {
     setLoadError(null)
@@ -31,6 +37,7 @@ export function AdminTestDefinitions() {
       setClients(rows)
       setSelectedId((current) => {
         if (current != null && rows.some((row) => row.id === current)) return current
+        if (initialClientId != null && rows.some((row) => row.id === initialClientId)) return initialClientId
         return rows[0]?.id ?? null
       })
     } catch (err) {
@@ -91,12 +98,13 @@ export function AdminTestDefinitions() {
       ) : selected ? (
         <TestDefinitionsPage
           /* Remount on tenant change so no list, draft or run leaks across clients. */
-          key={selected.id}
+          key={`${selected.id}:${selected.id === initialClientId ? (initialDefinitionId ?? "list") : "list"}`}
           clientId={selected.id}
           clientName={selected.client_name}
           isAdmin
           onUnauthorized={logout}
           showPageHeader={false}
+          initialDefinitionId={selected.id === initialClientId ? (initialDefinitionId ?? null) : null}
         />
       ) : clients !== null && clients.length === 0 ? (
         <Card className="flex items-center justify-center px-6 py-16">

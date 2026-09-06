@@ -43,6 +43,10 @@ if (!fs.existsSync(path.join(BACKEND_DIR, "src", "main", "resources", "migration
   console.error("ASSUREDIA_BACKEND_DIR does not look like the automation-engine repository (migration 015 missing).")
   process.exit(2)
 }
+if (!fs.existsSync(path.join(BACKEND_DIR, "src", "main", "resources", "migration-016-test-creation-requests.sql"))) {
+  console.error("ASSUREDIA_BACKEND_DIR does not include the PR10A foundation (migration 016 missing).")
+  process.exit(2)
+}
 
 const HEADED = process.env.HEADED === "1"
 const PG_IMAGE = "postgres:16-alpine"
@@ -185,8 +189,8 @@ async function main() {
     }
     if (!migrated) throw new Error("Migration application failed after retries: " + lastMigrationError)
     const ledger = runCapture("docker", ["exec", containerName, "psql", "-U", "assuredia_live", "-d", dbName, "-tA", "-c", "SELECT COUNT(*) FROM assuredia_schema_migrations"]).trim()
-    if (ledger !== "15") throw new Error(`Expected 15 ledger entries, found ${ledger}`)
-    console.log(`  ledger entries: ${ledger} (migration 015 applied)`)
+    if (ledger !== "16") throw new Error(`Expected 16 ledger entries, found ${ledger}`)
+    console.log(`  ledger entries: ${ledger} (migration 016 applied)`)
 
     /* ---- 3. synthetic fixtures ---- */
     console.log("[3/7] seeding synthetic fixtures (pgcrypto bcrypt, per-run password)")

@@ -115,6 +115,13 @@ const groups: NavGroup[] = [
     ],
   },
   {
+    titleKey: "nav.testCreation",
+    items: [
+      { key: "test-creation", labelKey: "nav.newTest", icon: Icon.testDefinitions },
+      { key: "creation-requests", labelKey: "nav.creationRequests", icon: Icon.requests },
+    ],
+  },
+  {
     titleKey: "nav.system",
     items: [{ key: "settings", labelKey: "nav.settings", icon: Icon.settings }],
   },
