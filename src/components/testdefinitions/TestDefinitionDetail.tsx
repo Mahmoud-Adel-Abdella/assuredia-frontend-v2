@@ -30,7 +30,12 @@ import {
   runViewFromExecutionResponse,
   type DefinitionRunView,
 } from "../../lib/testDefinitionRuns"
-import { formatDefinitionSource, validateDefinitionSource } from "../../lib/testDefinitionSchema"
+import {
+  formatDefinitionSource,
+  parseDefinitionSource,
+  resolveSaveSchemaVersion,
+  validateDefinitionSource,
+} from "../../lib/testDefinitionSchema"
 import { ConfirmDialog } from "./ConfirmDialog"
 import { TestDefinitionRunPanel } from "./TestDefinitionRunPanel"
 import {
@@ -280,13 +285,25 @@ export function TestDefinitionDetail({
       setDraftError(syntaxFailure.message)
       return
     }
+    // The edited source owns its schemaVersion: it must be supported, the DTO
+    // must match it, and a stored 1.1 draft must never slide back to 1.0.
+    const parsed = parseDefinitionSource(draft)
+    if (!parsed.ok) {
+      setDraftError(parsed.finding.message)
+      return
+    }
+    const resolved = resolveSaveSchemaVersion(parsed.value, version.schemaVersion)
+    if (!resolved.ok) {
+      setDraftError(resolved.message)
+      return
+    }
     setDraftError(null)
     setPending("save")
     try {
       await apiEditTestDefinitionDraft(clientId, definitionId, version.id, {
         versionLock: version.versionLock,
         sourceJson: draft,
-        schemaVersion: version.schemaVersion,
+        schemaVersion: resolved.schemaVersion,
       })
       toast({
         title: t("testdef.detail.savedTitle"),

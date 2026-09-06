@@ -158,18 +158,25 @@ export function AdminCreationQueue({
           reason.trim(),
         )) as TestCreationRequest)
       } else {
-        updated = ((await apiCreateDraftFromRequest(detail.id, {
+        // The create-draft endpoint answers the lifecycle draft shape, not the
+        // request row, so the queue is re-read instead of splicing the response.
+        await apiCreateDraftFromRequest(detail.id, {
           name: detail.title.slice(0, 120),
           description: detail.description,
           flowId: detail.flowId,
-          initialSourceJson: starterDefinitionSource(detail.title),
-        })) as TestCreationRequest)
+          initialSourceJson: starterDefinitionSource(detail.title, detail.journeyType),
+        })
+        updated = null
       }
-      setRows((prev) =>
-        prev.map((r) =>
-          r.id === detail.id ? updated as TestCreationRequest : r,
-        ),
-      )
+      if (updated) {
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === detail.id ? updated as TestCreationRequest : r,
+          ),
+        )
+      } else {
+        await load()
+      }
       setAction(null)
       setReason("")
       setReasonError(null)

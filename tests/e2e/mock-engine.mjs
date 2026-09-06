@@ -582,11 +582,30 @@ const server = createServer(async (req, res) => {
       if (body?.journeyType != null && body.journeyType !== "") {
         const jt = String(body.journeyType).trim()
         if (!["UI", "API", "MIXED"].includes(jt)) return error(res, 400, "Invalid journeyType")
+        // Mirror the backend's journey/definition compatibility gate: a journeyed
+        // draft must carry a matching schema or it is rejected before persistence.
+        const rawSource = typeof body?.initialSourceJson === "string" ? body.initialSourceJson.trim() : ""
+        if (rawSource !== "") {
+          let doc = null
+          try {
+            doc = JSON.parse(rawSource)
+          } catch {
+            return error(res, 400, "Definition source is not a valid test definition")
+          }
+          const version = doc?.schemaVersion === "1.1" ? "1.1" : "1.0"
+          const hasApi = rawSource.includes('"action": "api.')
+          const hasUi = rawSource.includes('"action": "ui.')
+          const compatible =
+            jt === "UI" ? hasUi && !hasApi
+            : jt === "API" ? version === "1.1" && hasApi && !hasUi
+            : version === "1.1" && hasApi && hasUi
+          if (!compatible) return error(res, 400, `Definition is not compatible with journey type ${jt}`)
+        }
         const key = req.headers["idempotency-key"]
-        const fp = JSON.stringify([jt, (body?.name ?? "").trim(), body?.description ?? null, body?.flowId ?? null])
+        const fp = JSON.stringify([jt, (body?.name ?? "").trim(), body?.description ?? null, body?.flowId ?? null, body?.initialSourceJson ?? null])
         if (key) {
           const hit = state.creationIdempotency.get(`${CLIENT.id}:${key}`)
-          if (hit && hit.fingerprint === fp) return json(res, 201, creationRow(hit.row))
+          if (hit && hit.fingerprint === fp) return json(res, 200, creationRow(hit.row))
           if (hit) return error(res, 409, "Idempotency key reused with different request parameters")
         }
       }
@@ -614,15 +633,48 @@ const server = createServer(async (req, res) => {
       }
       state.definitions.set(definition.id, definition)
 
+      const journeyForFallback =
+        body?.journeyType != null && body.journeyType !== "" ? String(body.journeyType).trim() : "UI"
+      const fallbackSource =
+        journeyForFallback === "API"
+          ? {
+              schemaVersion: "1.1",
+              metadata: { name, tags: ["api"] },
+              steps: [
+                { action: "api.request", method: "GET", url: "/api/v1/health", headers: { Accept: "application/json" } },
+                { action: "api.extract", jsonPath: "$.status", variable: "healthStatus" },
+              ],
+              expectedOutcomes: [
+                { action: "api.assertStatus", expected: 200 },
+                { action: "api.assertHeader", header: "Content-Type", expected: "application/json", matcher: "contains" },
+                { action: "api.assertJsonPath", path: "$.status", expected: "UP" },
+                { action: "api.assertResponseTime", maxDurationMs: 2000 },
+              ],
+            }
+          : journeyForFallback === "MIXED"
+            ? {
+                schemaVersion: "1.1",
+                metadata: { name, tags: ["mixed"] },
+                steps: [
+                  { action: "api.request", method: "POST", url: "/api/auth/token", body: '{"user":"admin"}' },
+                  { action: "api.extract", jsonPath: "$.token", variable: "sessionToken", sensitive: true },
+                  { action: "ui.navigate", url: "/app/dashboard" },
+                ],
+                expectedOutcomes: [
+                  { action: "api.assertStatus", expected: 200 },
+                  { action: "ui.assertUrl", expected: "/app/dashboard" },
+                ],
+              }
+            : {
+                schemaVersion: "1.0",
+                metadata: { name },
+                steps: [{ action: "ui.wait", for: "duration", durationMs: 100 }],
+                expectedOutcomes: [{ action: "ui.assertVisible", locator: { strategy: "css", value: "body" } }],
+              }
       const sourceJson = body?.initialSourceJson?.trim()
         ? body.initialSourceJson.trim()
         : JSON.stringify(
-            {
-              schemaVersion: "1.0",
-              metadata: { name },
-              steps: [{ action: "ui.wait", for: "duration", durationMs: 100 }],
-              expectedOutcomes: [{ action: "ui.assertVisible", locator: { strategy: "css", value: "body" } }],
-            },
+            fallbackSource,
             null,
             2,
           )
@@ -676,10 +728,10 @@ const server = createServer(async (req, res) => {
         if (key) {
           state.creationIdempotency.set(`${CLIENT.id}:${key}`, {
             row,
-            fingerprint: JSON.stringify([row.journeyType, name, definition.description, definition.flowId]),
+            fingerprint: JSON.stringify([row.journeyType, name, definition.description, definition.flowId, body?.initialSourceJson ?? null]),
           })
         }
-        return json(res, 201, { ...creationRow(row), creationRequestId: row.id })
+        return json(res, 200, { ...creationRow(row), creationRequestId: row.id })
       }
 
       return json(res, 200, {

@@ -2692,6 +2692,23 @@ export async function apiCreateDraftFromRequest(
   )
 }
 
+/**
+ * The Manual Editor response is the lifecycle draft result plus the request link
+ * (there is no request `id` in this shape — the link is `creationRequestId`).
+ */
+export type ManualEditorDraftResult = {
+  definitionId: number
+  clientId: number
+  name: string
+  description: string | null
+  flowId: number | null
+  /** Absent on idempotent replay, which returns the stored link shape instead. */
+  initialVersionId?: number
+  versionNumber?: number
+  status: "DRAFT"
+  creationRequestId: number
+}
+
 export async function apiCreateManualEditorDraft(
   clientId: number,
   body: {
@@ -2702,8 +2719,8 @@ export async function apiCreateManualEditorDraft(
     initialSourceJson?: string | null
   },
   idempotencyKey?: string,
-): Promise<TestCreationRequestRow & { definitionId: number }> {
-  return request<TestCreationRequestRow & { definitionId: number }>(testDefinitionsPath(clientId), {
+): Promise<ManualEditorDraftResult> {
+  return request<ManualEditorDraftResult>(testDefinitionsPath(clientId), {
     method: "POST",
     headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
     body: {

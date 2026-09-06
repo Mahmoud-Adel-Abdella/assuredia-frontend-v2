@@ -81,7 +81,7 @@ test("client Manual Editor creates one request and one Draft", async ({
       },
     },
   )
-  expect(res.status()).toBe(201)
+  expect(res.status()).toBe(200)
   const row = await res.json()
   expect(row.status).toBe("DRAFT_CREATED")
   expect(row.definitionId).toBeTruthy()
@@ -219,6 +219,42 @@ test("admin review transitions and client cancellation work", async ({
   expect((await cancel.json()).status).toBe("CANCELLED")
 })
 
+async function createEditorDraftThroughWizard(
+  page: Page,
+  journey: "UI" | "API" | "MIXED",
+  title: string,
+) {
+  await page.getByRole("button", { name: "New Test" }).first().click()
+  await page.getByRole("button", { name: "Open Manual Editor" }).click()
+  await page
+    .getByRole("radio", {
+      name: journey === "UI" ? /UI Journey/ : journey === "API" ? /API Journey/ : /Mixed Journey/,
+    })
+    .click()
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.locator("#tc-title").fill(title)
+  await page.locator("#tc-desc").fill(`Verify ${title}`)
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.getByRole("button", { name: "Create Draft" }).click()
+  await expect(page.getByRole("heading", { name: "Draft Created" })).toBeVisible()
+}
+
+async function submitEditorDraftExpectingFailure(page: Page, title: string) {
+  await page.getByRole("button", { name: "New Test" }).first().click()
+  await page.getByRole("button", { name: "Open Manual Editor" }).click()
+  await page.getByRole("radio", { name: /API Journey/ }).click()
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.locator("#tc-title").fill(title)
+  await page.locator("#tc-desc").fill(`Verify ${title}`)
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.getByRole("button", { name: "Create Draft" }).click()
+  await expect(page.getByRole("heading", { name: "Submission failed" })).toBeVisible()
+}
+
 test("client wizard submits a Manual Request through the UI", async ({
   page,
 }) => {
@@ -253,4 +289,111 @@ test("client wizard submits a Manual Request through the UI", async ({
   ).toBeVisible()
   await page.getByRole("button", { name: "View Creation Requests" }).click()
   await expect(page.getByText("E2E guest checkout").first()).toBeVisible()
+})
+
+for (const journey of ["UI", "API", "MIXED"] as const) {
+  test(`${journey} Manual Editor creates a Draft and opens it`, async ({ page }) => {
+    await openAsClient(page)
+    page.on("pageerror", (err) => {
+      throw new Error(`Dashboard error: ${err.message}`)
+    })
+    await expect(
+      page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ }),
+    ).toBeVisible()
+    const title = `E2E ${journey} editor ${Date.now()}`
+    await createEditorDraftThroughWizard(page, journey, title)
+    await page.getByRole("button", { name: "Open Test Definition" }).click()
+    const editor = page.locator("#testdef-source-editor")
+    await expect(editor).toBeVisible()
+    const source = await editor.inputValue()
+    const doc = JSON.parse(source)
+    if (journey === "UI") {
+      expect(doc.schemaVersion).toBe("1.0")
+      expect(source).toContain("ui.wait")
+      expect(source).not.toContain("api.")
+    } else {
+      expect(doc.schemaVersion).toBe("1.1")
+      expect(source).toContain("api.request")
+      if (journey === "MIXED") expect(source).toContain("ui.navigate")
+      else expect(source).not.toContain('"action": "ui.')
+    }
+  })
+}
+
+async function reopenDraftThroughRequests(page: Page, title: string) {
+  await page.getByRole("button", { name: "Creation Requests" }).first().click()
+  await page.getByRole("button", { name: title }).first().click()
+  await page.getByRole("button", { name: "Open Test Definition" }).click()
+  const editor = page.locator("#testdef-source-editor")
+  await expect(editor).toBeVisible()
+  return editor.inputValue()
+}
+
+test("API Draft retains Schema 1.1 across save and reopen", async ({ page }) => {
+  await openAsClient(page)
+  page.on("pageerror", (err) => {
+    throw new Error(`Dashboard error: ${err.message}`)
+  })
+  await expect(
+    page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ }),
+  ).toBeVisible()
+  const title = `E2E API retain ${Date.now()}`
+  await createEditorDraftThroughWizard(page, "API", title)
+  await page.getByRole("button", { name: "Open Test Definition" }).click()
+  const editor = page.locator("#testdef-source-editor")
+  await expect(editor).toBeVisible()
+  const source = await editor.inputValue()
+  const doc = JSON.parse(source)
+  doc.metadata.description = "edited in the browser"
+  await editor.fill(JSON.stringify(doc, null, 2))
+  await page.getByRole("button", { name: "Save draft" }).click()
+  await expect(page.getByText("Draft saved").first()).toBeVisible()
+  const again = await reopenDraftThroughRequests(page, title)
+  expect(JSON.parse(again).schemaVersion).toBe("1.1")
+  expect(again).toContain("api.request")
+  expect(again).toContain("edited in the browser")
+})
+
+test("Mixed Draft keeps UI/API order across save and reopen", async ({ page }) => {
+  await openAsClient(page)
+  page.on("pageerror", (err) => {
+    throw new Error(`Dashboard error: ${err.message}`)
+  })
+  await expect(
+    page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ }),
+  ).toBeVisible()
+  const title = `E2E mixed order ${Date.now()}`
+  await createEditorDraftThroughWizard(page, "MIXED", title)
+  await page.getByRole("button", { name: "Open Test Definition" }).click()
+  const editor = page.locator("#testdef-source-editor")
+  await expect(editor).toBeVisible()
+  const source = await editor.inputValue()
+  expect(source.indexOf("api.request")).toBeLessThan(source.indexOf("ui.navigate"))
+  const doc = JSON.parse(source)
+  doc.metadata.description = "mixed edit"
+  await editor.fill(JSON.stringify(doc, null, 2))
+  await page.getByRole("button", { name: "Save draft" }).click()
+  await expect(page.getByText("Draft saved").first()).toBeVisible()
+  const reopened = await reopenDraftThroughRequests(page, title)
+  expect(JSON.parse(reopened).schemaVersion).toBe("1.1")
+  expect(reopened.indexOf("api.request")).toBeLessThan(reopened.indexOf("ui.navigate"))
+})
+
+test("journey mismatch is shown as a safe submission error", async ({ page }) => {
+  await openAsClient(page)
+  page.on("pageerror", (err) => {
+    throw new Error(`Dashboard error: ${err.message}`)
+  })
+  await page.route("**/dashboard-api/clients/*/test-definitions", (route) =>
+    route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Definition is not compatible with journey type API" }),
+    }),
+  )
+  await expect(
+    page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ }),
+  ).toBeVisible()
+  await submitEditorDraftExpectingFailure(page, `E2E mismatch ${Date.now()}`)
+  await expect(page.getByText("Definition is not compatible with journey type API")).toBeVisible()
 })

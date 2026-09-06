@@ -31,7 +31,40 @@ export type LocalValidation = {
 const ROOT_KEYS = ["schemaVersion", "metadata", "defaults", "variables", "steps", "expectedOutcomes"]
 const COMMON_STEP_KEYS = ["id", "name", "timeoutMs"]
 
-const SCHEMA_VERSION_PATTERN = /^1\.(0|[1-9][0-9]*)$/
+/** The schema versions the engine supports (StructuralValidator: 1.0 and 1.1). */
+export const SUPPORTED_SCHEMA_VERSIONS = ["1.0", "1.1"] as const
+export type SupportedSchemaVersion = (typeof SUPPORTED_SCHEMA_VERSIONS)[number]
+
+/** Native API steps (Schema 1.1 only). */
+export const API_STEP_ACTIONS = ["api.request", "api.extract"]
+/** Native API assertions (Schema 1.1 only, steps and expectedOutcomes). */
+export const API_ASSERTION_ACTIONS = [
+  "api.assertStatus",
+  "api.assertHeader",
+  "api.assertJsonPath",
+  "api.assertResponseTime",
+]
+/** apiMatcher enum from Schema 1.1 (UI matchers are the 4-value subset). */
+export const API_MATCHERS = [
+  "equals",
+  "notEquals",
+  "contains",
+  "startsWith",
+  "endsWith",
+  "greaterThan",
+  "lessThan",
+  "greaterOrEqual",
+  "lessOrEqual",
+  "isNull",
+  "isNotNull",
+  "exists",
+  "notExists",
+]
+/** Valid HTTP methods for api.request (V-E-13). */
+export const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
+
+const JSON_PATH_MAX = 256
+const HEADER_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/
 const STEP_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/
 const TAG_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/
 const VARIABLE_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/
@@ -65,6 +98,12 @@ export const STEP_ACTIONS = [
 
 /** The subset accepted inside `expectedOutcomes` (assertions only). */
 export const OUTCOME_ACTIONS = [...STATE_ASSERTIONS, ...ELEMENT_TEXT_ASSERTIONS, ...PAGE_TEXT_ASSERTIONS]
+
+/** Schema 1.1 steps: every 1.0 step plus the native API steps. */
+export const STEP_ACTIONS_11 = [...STEP_ACTIONS, ...API_STEP_ACTIONS]
+
+/** Schema 1.1 outcomes: every 1.0 assertion plus the native API assertions. */
+export const OUTCOME_ACTIONS_11 = [...OUTCOME_ACTIONS, ...API_ASSERTION_ACTIONS]
 
 /* ------------------------------------------------------------------ */
 /* Finding helpers                                                     */
@@ -268,6 +307,89 @@ function checkMatcherFields(sink: FindingSink, node: Record<string, unknown>, at
   }
 }
 
+function checkApiMatcherFields(sink: FindingSink, node: Record<string, unknown>, at: string) {
+  if (node.matcher !== undefined
+    && (typeof node.matcher !== "string" || !API_MATCHERS.includes(node.matcher))) {
+    sink.error("FE-API-MATCHER", "SCHEMA_INVALID", `${at}${pointer("matcher")}`,
+      `matcher must be one of ${API_MATCHERS.join(", ")}.`)
+  }
+  if (node.ignoreCase !== undefined && typeof node.ignoreCase !== "boolean") {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", `${at}${pointer("ignoreCase")}`,
+      "ignoreCase must be true or false.")
+  }
+}
+
+function checkHeadersOrQuery(
+  sink: FindingSink,
+  value: unknown,
+  at: string,
+  field: string,
+) {
+  if (value === undefined) return
+  if (!isPlainObject(value)) {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", at, `${field} must be an object of string values.`)
+    return
+  }
+  const names = Object.keys(value)
+  if (names.length > 50) {
+    sink.error("FE-LENGTH", "SCHEMA_INVALID", at, `${field} cannot exceed 50 entries.`)
+  }
+  for (const name of names) {
+    const entry = (value as Record<string, unknown>)[name]
+    if (typeof entry !== "string" || entry.length > 2048) {
+      sink.error("FE-TYPE", "SCHEMA_INVALID", `${at}${pointer(name)}`,
+        `${field} values must be strings up to 2048 characters.`)
+    }
+  }
+}
+
+function checkJsonPathField(sink: FindingSink, value: unknown, at: string, field: string) {
+  if (typeof value !== "string" || !value.startsWith("$") || value.length < 1 || value.length > JSON_PATH_MAX) {
+    sink.error("FE-API-JSONPATH", "SCHEMA_INVALID", at,
+      `${field} must start with "$" and use 1 to ${JSON_PATH_MAX} characters.`)
+  }
+}
+
+function checkApiRequestStep(sink: FindingSink, node: Record<string, unknown>, at: string) {
+  if (typeof node.method !== "string" || !HTTP_METHODS.includes(node.method)) {
+    sink.error("FE-API-METHOD", "SCHEMA_INVALID", `${at}${pointer("method")}`,
+      `method must be one of ${HTTP_METHODS.join(", ")}.`)
+  }
+  if (typeof node.url !== "string" || node.url.length === 0) {
+    sink.error("FE-REQUIRED", "SCHEMA_INVALID", `${at}${pointer("url")}`,
+      "api.request requires a url.")
+  } else if (
+    !node.url.startsWith("/") && !node.url.startsWith("http://")
+    && !node.url.startsWith("https://") && !node.url.startsWith("${")
+  ) {
+    sink.error("FE-API-URL", "SCHEMA_INVALID", `${at}${pointer("url")}`,
+      "api.request url must start with /, http://, https://, or ${.")
+  } else if (node.url.length > 2048) {
+    sink.error("FE-LENGTH", "SCHEMA_INVALID", `${at}${pointer("url")}`,
+      "url cannot exceed 2048 characters.")
+  }
+  checkHeadersOrQuery(sink, node.headers, `${at}${pointer("headers")}`, "headers")
+  checkHeadersOrQuery(sink, node.query, `${at}${pointer("query")}`, "query")
+  if (node.body !== undefined) {
+    checkBoundedString(sink, node.body, `${at}${pointer("body")}`, "body", 0, 1048576)
+  }
+  if (node.contentType !== undefined) {
+    checkBoundedString(sink, node.contentType, `${at}${pointer("contentType")}`, "contentType", 1, 128)
+  }
+}
+
+function checkApiExtractStep(sink: FindingSink, node: Record<string, unknown>, at: string) {
+  checkJsonPathField(sink, node.jsonPath, `${at}${pointer("jsonPath")}`, "jsonPath")
+  if (typeof node.variable !== "string" || !VARIABLE_NAME_PATTERN.test(node.variable)) {
+    sink.error("FE-VARIABLE-NAME", "SCHEMA_INVALID", `${at}${pointer("variable")}`,
+      "variable must be a bare name starting with a letter (no ${extracted.} prefix).")
+  }
+  if (node.sensitive !== undefined && typeof node.sensitive !== "boolean") {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", `${at}${pointer("sensitive")}`,
+      "sensitive must be true or false.")
+  }
+}
+
 /** Validates one step or expected outcome. `allowedActions` narrows the union. */
 function checkStep(sink: FindingSink, node: unknown, at: string, allowedActions: string[]) {
   if (!isPlainObject(node)) {
@@ -331,6 +453,48 @@ function checkStep(sink: FindingSink, node: unknown, at: string, allowedActions:
     allowed.push("expected", "matcher", "ignoreCase")
     requireInterpolated(sink, node, at, "expected")
     checkMatcherFields(sink, node, at)
+  } else if (action === "api.request") {
+    allowed.push("method", "url", "headers", "query", "body", "contentType")
+    checkApiRequestStep(sink, node, at)
+  } else if (action === "api.extract") {
+    allowed.push("jsonPath", "variable", "sensitive")
+    checkApiExtractStep(sink, node, at)
+  } else if (action === "api.assertStatus") {
+    allowed.push("expected", "matcher")
+    if (!isInteger(node.expected) || node.expected < 100 || node.expected > 599) {
+      sink.error("FE-API-STATUS", "SCHEMA_INVALID", `${at}${pointer("expected")}`,
+        "api.assertStatus expected must be a whole HTTP status between 100 and 599.")
+    }
+    checkApiMatcherFields(sink, node, at)
+  } else if (action === "api.assertHeader") {
+    allowed.push("header", "expected", "matcher", "ignoreCase")
+    if (typeof node.header !== "string" || node.header.length < 1 || node.header.length > 64
+      || !HEADER_NAME_PATTERN.test(node.header)) {
+      sink.error("FE-API-HEADER", "SCHEMA_INVALID", `${at}${pointer("header")}`,
+        "header must use letters, digits, _ or -, 1 to 64 characters.")
+    }
+    requireInterpolated(sink, node, at, "expected")
+    checkApiMatcherFields(sink, node, at)
+  } else if (action === "api.assertJsonPath") {
+    allowed.push("path", "expected", "matcher", "ignoreCase")
+    checkJsonPathField(sink, node.path, `${at}${pointer("path")}`, "path")
+    if (node.expected !== undefined) {
+      const expectedType = typeof node.expected
+      if (expectedType !== "string" && expectedType !== "number" && expectedType !== "boolean") {
+        sink.error("FE-TYPE", "SCHEMA_INVALID", `${at}${pointer("expected")}`,
+          "expected must be a string, number or boolean.")
+      } else if (expectedType === "string" && (node.expected as string).length > 2048) {
+        sink.error("FE-LENGTH", "SCHEMA_INVALID", `${at}${pointer("expected")}`,
+          "expected cannot exceed 2048 characters.")
+      }
+    }
+    checkApiMatcherFields(sink, node, at)
+  } else if (action === "api.assertResponseTime") {
+    allowed.push("maxDurationMs")
+    if (!isInteger(node.maxDurationMs) || node.maxDurationMs < 1 || node.maxDurationMs > 120000) {
+      sink.error("FE-API-RESPONSETIME", "SCHEMA_INVALID", `${at}${pointer("maxDurationMs")}`,
+        "maxDurationMs must be a whole number of milliseconds between 1 and 120000.")
+    }
   }
 
   rejectUnknownKeys(sink, node, allowed, at, `a "${action}" step`)
@@ -517,9 +681,10 @@ export function validateDefinitionDocument(doc: unknown): LocalValidation {
     return { valid: false, errors: sink.errors, warnings: sink.warnings }
   }
 
-  if (typeof doc.schemaVersion !== "string" || !SCHEMA_VERSION_PATTERN.test(doc.schemaVersion)) {
+  const schema11 = doc.schemaVersion === "1.1"
+  if (doc.schemaVersion !== "1.0" && !schema11) {
     sink.error("FE-SCHEMA-VERSION", "UNSUPPORTED_SCHEMA_VERSION", pointer("schemaVersion"),
-      "schemaVersion must be \"1.0\" or another 1.x version.")
+      "schemaVersion must be \"1.0\" or \"1.1\".")
   }
 
   if (doc.metadata === undefined) {
@@ -534,14 +699,14 @@ export function validateDefinitionDocument(doc: unknown): LocalValidation {
   if (doc.steps === undefined) {
     sink.error("FE-REQUIRED", "SCHEMA_INVALID", "", "steps is required.")
   } else {
-    checkStepArray(sink, doc.steps, "steps", 200, STEP_ACTIONS)
+    checkStepArray(sink, doc.steps, "steps", 200, schema11 ? STEP_ACTIONS_11 : STEP_ACTIONS)
   }
 
   if (doc.expectedOutcomes === undefined) {
     sink.error("FE-REQUIRED", "SCHEMA_INVALID", "",
       "expectedOutcomes is required — a definition must assert something.")
   } else {
-    checkStepArray(sink, doc.expectedOutcomes, "expectedOutcomes", 50, OUTCOME_ACTIONS)
+    checkStepArray(sink, doc.expectedOutcomes, "expectedOutcomes", 50, schema11 ? OUTCOME_ACTIONS_11 : OUTCOME_ACTIONS)
   }
 
   checkDuplicateStepIds(sink, doc)
@@ -598,12 +763,74 @@ export function formatDefinitionSource(text: string): string | null {
 }
 
 /**
- * The starter document, matching the template the engine seeds when a definition
- * is created without source (`TestDefinitionLifecycleService.defaultDraftTemplate`),
- * so a locally-seeded editor and a server-seeded one agree.
+ * The starter document for one journey, matching the engine's journey-aware
+ * template authority (`JourneyDraftTemplates.templateFor`), so a locally-seeded
+ * editor and a server-seeded one agree.
+ *
+ * UI keeps the historical Schema 1.0 starter; API and MIXED produce valid
+ * Schema 1.1 starters with native api.* actions and relative URLs only.
  */
-export function starterDefinitionSource(name: string): string {
+export function starterDefinitionSource(name: string, journeyType: "UI" | "API" | "MIXED" = "UI"): string {
   const safeName = name.replace(/["\r\n]/g, " ").trim().slice(0, 120) || "New Test Definition"
+  if (journeyType === "API") {
+    return `${JSON.stringify(
+      {
+        schemaVersion: "1.1",
+        metadata: { name: safeName, tags: ["api"] },
+        steps: [
+          {
+            action: "api.request",
+            method: "GET",
+            url: "/api/v1/health",
+            headers: { Accept: "application/json" },
+          },
+          { action: "api.extract", jsonPath: "$.status", variable: "healthStatus" },
+        ],
+        expectedOutcomes: [
+          { action: "api.assertStatus", expected: 200 },
+          {
+            action: "api.assertHeader",
+            header: "Content-Type",
+            expected: "application/json",
+            matcher: "contains",
+          },
+          { action: "api.assertJsonPath", path: "$.status", expected: "UP" },
+          { action: "api.assertResponseTime", maxDurationMs: 2000 },
+        ],
+      },
+      null,
+      2,
+    )}\n`
+  }
+  if (journeyType === "MIXED") {
+    return `${JSON.stringify(
+      {
+        schemaVersion: "1.1",
+        metadata: { name: safeName, tags: ["mixed"] },
+        steps: [
+          {
+            action: "api.request",
+            method: "POST",
+            url: "/api/auth/token",
+            body: '{"user":"admin"}',
+          },
+          {
+            action: "api.extract",
+            jsonPath: "$.token",
+            variable: "sessionToken",
+            sensitive: true,
+          },
+          { action: "ui.navigate", url: "/app/dashboard" },
+        ],
+        expectedOutcomes: [
+          { action: "api.assertStatus", expected: 200 },
+          { action: "ui.assertUrl", expected: "/app/dashboard" },
+        ],
+      },
+      null,
+      2,
+    )}\n`
+  }
   return `${JSON.stringify(
     {
       schemaVersion: "1.0",
@@ -616,4 +843,27 @@ export function starterDefinitionSource(name: string): string {
     null,
     2,
   )}\n`
+}
+
+/**
+ * Resolves the schemaVersion to send when saving a draft.
+ *
+ * The edited source is authoritative: it must declare a supported version, and
+ * the DTO must match it. A stored 1.1 draft is never silently downgraded to 1.0.
+ */
+export function resolveSaveSchemaVersion(
+  doc: unknown,
+  storedVersion: string | null,
+): { ok: true; schemaVersion: SupportedSchemaVersion } | { ok: false; message: string } {
+  const declared = isPlainObject(doc) ? doc.schemaVersion : undefined
+  if (declared !== "1.0" && declared !== "1.1") {
+    return { ok: false, message: "schemaVersion must be \"1.0\" or \"1.1\"." }
+  }
+  if (storedVersion === "1.1" && declared === "1.0") {
+    return {
+      ok: false,
+      message: "Saving would downgrade this draft from schema 1.1 to 1.0. Restore 1.1 to save.",
+    }
+  }
+  return { ok: true, schemaVersion: declared }
 }

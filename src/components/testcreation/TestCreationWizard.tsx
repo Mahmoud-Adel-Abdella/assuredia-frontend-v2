@@ -269,14 +269,14 @@ export function TestCreationWizard({
             name: title.trim(),
             description: description.trim(),
             flowId: parsedFlowId,
-            initialSourceJson: starterDefinitionSource(title.trim()),
+            initialSourceJson: starterDefinitionSource(title.trim(), journeyType),
           },
           key,
         )
         setResult({
-          requestId: created.id,
-          status: created.status,
-          definitionId: created.definitionId ?? null,
+          requestId: created.creationRequestId,
+          status: "DRAFT_CREATED",
+          definitionId: created.definitionId,
         })
       }
       setStep(5)
@@ -287,6 +287,9 @@ export function TestCreationWizard({
       }
       const mapped = mapCreationFailure(err)
       setSubmitError(failureText(mapped))
+      // Move to the result step so the failure is announced with a safe
+      // retry affordance; the idempotency key is retained for the retry.
+      setStep(5)
       if (mapped.kind === "conflict" && mapped.requiresReload) {
         toast({
           title: "Conflict",
