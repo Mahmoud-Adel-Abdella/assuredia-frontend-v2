@@ -1,0 +1,619 @@
+/**
+ * Browser-side pre-check for Test Definition source JSON, schema version 1.0.
+ *
+ * Mirrors `src/main/resources/schemas/test-definition/1.0.json` in the engine so
+ * the editor can point at a broken node before a round trip. It is deliberately
+ * advisory: `POST …/validate` in the engine remains the authority, and a
+ * document this module accepts can still be rejected there (semantic rules such
+ * as variable-reference legality are not reproduced here). Findings therefore
+ * carry `FE-` rule ids, so a local finding is never mistaken for an engine one.
+ *
+ * The finding shape matches the engine's `ValidationFinding` (`ruleId`, `code`,
+ * `jsonPointer`, `message`) so both sets render through the same component.
+ */
+
+/** One local error or warning. `code` mirrors the engine's ReasonCode vocabulary. */
+export type SchemaFinding = {
+  ruleId: string
+  code: string | null
+  jsonPointer: string
+  message: string
+}
+
+/** Outcome of checking one source document. */
+export type LocalValidation = {
+  /** True when no errors were found. Warnings never block. */
+  valid: boolean
+  errors: SchemaFinding[]
+  warnings: SchemaFinding[]
+}
+
+const ROOT_KEYS = ["schemaVersion", "metadata", "defaults", "variables", "steps", "expectedOutcomes"]
+const COMMON_STEP_KEYS = ["id", "name", "timeoutMs"]
+
+const SCHEMA_VERSION_PATTERN = /^1\.(0|[1-9][0-9]*)$/
+const STEP_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/
+const TAG_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/
+const VARIABLE_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/
+const ATTRIBUTE_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9:_.-]{0,63}$/
+const ROLE_PATTERN = /^[a-z]+$/
+
+const ORIGINS = ["HUMAN_AUTHORED", "AI_GENERATED", "AI_GENERATED_EDITED"]
+const MATCHERS = ["equals", "contains", "startsWith", "endsWith"]
+const LOCATOR_STRATEGIES = ["role", "label", "text", "testId", "placeholder", "css"]
+const WEAK_STRATEGIES = ["placeholder", "css"]
+const WAIT_STATES = ["visible", "hidden", "attached", "detached"]
+
+const STATE_ASSERTIONS = ["ui.assertVisible", "ui.assertHidden", "ui.assertEnabled", "ui.assertDisabled"]
+const ELEMENT_TEXT_ASSERTIONS = ["ui.assertText", "ui.assertValue"]
+const PAGE_TEXT_ASSERTIONS = ["ui.assertUrl", "ui.assertTitle"]
+const ELEMENT_ACTIONS = ["ui.click", "ui.hover", "ui.check", "ui.uncheck"]
+
+/** Every action the 1.0 schema accepts inside `steps`. */
+export const STEP_ACTIONS = [
+  "ui.navigate",
+  ...ELEMENT_ACTIONS,
+  "ui.fill",
+  "ui.select",
+  "ui.wait",
+  "ui.extract",
+  "ui.screenshot",
+  ...STATE_ASSERTIONS,
+  ...ELEMENT_TEXT_ASSERTIONS,
+  ...PAGE_TEXT_ASSERTIONS,
+]
+
+/** The subset accepted inside `expectedOutcomes` (assertions only). */
+export const OUTCOME_ACTIONS = [...STATE_ASSERTIONS, ...ELEMENT_TEXT_ASSERTIONS, ...PAGE_TEXT_ASSERTIONS]
+
+/* ------------------------------------------------------------------ */
+/* Finding helpers                                                     */
+/* ------------------------------------------------------------------ */
+
+/** Builds an RFC 6901 pointer; `~` and `/` inside a key are escaped. */
+function pointer(...segments: (string | number)[]): string {
+  if (segments.length === 0) return ""
+  return segments
+    .map((s) => `/${String(s).split("~").join("~0").split("/").join("~1")}`)
+    .join("")
+}
+
+class FindingSink {
+  readonly errors: SchemaFinding[] = []
+  readonly warnings: SchemaFinding[] = []
+
+  error(ruleId: string, code: string, jsonPointer: string, message: string) {
+    this.errors.push({ ruleId, code, jsonPointer, message })
+  }
+
+  warn(ruleId: string, jsonPointer: string, message: string) {
+    this.warnings.push({ ruleId, code: null, jsonPointer, message })
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function isInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value)
+}
+
+/** Reports every key that the schema does not evaluate (`unevaluatedProperties: false`). */
+function rejectUnknownKeys(
+  sink: FindingSink,
+  node: Record<string, unknown>,
+  allowed: string[],
+  at: string,
+  what: string,
+) {
+  for (const key of Object.keys(node)) {
+    if (!allowed.includes(key)) {
+      sink.error("FE-UNKNOWN-FIELD", "SCHEMA_INVALID", `${at}${pointer(key)}`,
+        `"${key}" is not a field of ${what}.`)
+    }
+  }
+}
+
+function checkTimeout(sink: FindingSink, value: unknown, at: string, field: string) {
+  if (value === undefined) return
+  if (!isInteger(value) || value < 100 || value > 120000) {
+    sink.error("FE-TIMEOUT-RANGE", "SCHEMA_INVALID", at,
+      `${field} must be a whole number of milliseconds between 100 and 120000.`)
+  }
+}
+
+function checkBoundedString(
+  sink: FindingSink,
+  value: unknown,
+  at: string,
+  field: string,
+  min: number,
+  max: number,
+) {
+  if (typeof value !== "string") {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", at, `${field} must be a string.`)
+    return false
+  }
+  if (value.length < min) {
+    sink.error("FE-LENGTH", "SCHEMA_INVALID", at,
+      min === 1 ? `${field} cannot be empty.` : `${field} must be at least ${min} characters.`)
+    return false
+  }
+  if (value.length > max) {
+    sink.error("FE-LENGTH", "SCHEMA_INVALID", at, `${field} cannot exceed ${max} characters.`)
+    return false
+  }
+  return true
+}
+
+/* ------------------------------------------------------------------ */
+/* Locators                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Checks one locator. Scoping is one level deep by design (§3.5), so a locator
+ * reached through `within` may not carry its own `within`.
+ */
+function checkLocator(sink: FindingSink, node: unknown, at: string, allowWithin: boolean) {
+  if (!isPlainObject(node)) {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", at, "locator must be an object.")
+    return
+  }
+
+  const strategy = node.strategy
+  if (typeof strategy !== "string" || !LOCATOR_STRATEGIES.includes(strategy)) {
+    sink.error("FE-LOCATOR-STRATEGY", "SCHEMA_INVALID", `${at}${pointer("strategy")}`,
+      `locator strategy must be one of ${LOCATOR_STRATEGIES.join(", ")}.`)
+    return
+  }
+
+  const allowed = ["strategy", "exact", "nth"]
+  if (allowWithin) allowed.push("within")
+
+  switch (strategy) {
+    case "role":
+      allowed.push("role", "name")
+      if (typeof node.role !== "string" || !ROLE_PATTERN.test(node.role) || node.role.length > 40) {
+        sink.error("FE-LOCATOR-ROLE", "SCHEMA_INVALID", `${at}${pointer("role")}`,
+          "role must be lowercase letters only, up to 40 characters.")
+      }
+      if (node.name !== undefined) {
+        checkBoundedString(sink, node.name, `${at}${pointer("name")}`, "locator name", 0, 2048)
+      }
+      break
+    case "testId":
+      allowed.push("value")
+      checkBoundedString(sink, node.value, `${at}${pointer("value")}`, "locator value", 1, 200)
+      break
+    case "css":
+      allowed.push("value")
+      checkBoundedString(sink, node.value, `${at}${pointer("value")}`, "locator value", 1, 512)
+      break
+    default:
+      allowed.push("value")
+      checkBoundedString(sink, node.value, `${at}${pointer("value")}`, "locator value", 1, 2048)
+      break
+  }
+
+  if (WEAK_STRATEGIES.includes(strategy)) {
+    sink.warn("FE-WEAK-LOCATOR", `${at}${pointer("strategy")}`,
+      `The "${strategy}" strategy is a weak fallback; prefer role, label, text or testId.`)
+  }
+
+  if (node.exact !== undefined && typeof node.exact !== "boolean") {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", `${at}${pointer("exact")}`, "exact must be true or false.")
+  }
+  if (node.nth !== undefined && (!isInteger(node.nth) || node.nth < 0 || node.nth > 999)) {
+    sink.error("FE-RANGE", "SCHEMA_INVALID", `${at}${pointer("nth")}`,
+      "nth must be a whole number between 0 and 999.")
+  }
+  if (node.within !== undefined) {
+    if (!allowWithin) {
+      sink.error("FE-LOCATOR-NESTING", "SCHEMA_INVALID", `${at}${pointer("within")}`,
+        "A scoping locator cannot itself be scoped; nesting is limited to one level.")
+    } else {
+      checkLocator(sink, node.within, `${at}${pointer("within")}`, false)
+    }
+  }
+
+  rejectUnknownKeys(sink, node, allowed, at, `a "${strategy}" locator`)
+}
+
+/* ------------------------------------------------------------------ */
+/* Steps                                                               */
+/* ------------------------------------------------------------------ */
+
+function checkCommonStepFields(sink: FindingSink, node: Record<string, unknown>, at: string) {
+  if (node.id !== undefined && (typeof node.id !== "string" || !STEP_ID_PATTERN.test(node.id))) {
+    sink.error("FE-STEP-ID", "SCHEMA_INVALID", `${at}${pointer("id")}`,
+      "id must start with a lowercase letter or digit and use only lowercase letters, digits, - or _.")
+  }
+  if (node.name !== undefined) {
+    checkBoundedString(sink, node.name, `${at}${pointer("name")}`, "step name", 0, 200)
+  }
+  checkTimeout(sink, node.timeoutMs, `${at}${pointer("timeoutMs")}`, "timeoutMs")
+}
+
+function requireLocator(sink: FindingSink, node: Record<string, unknown>, at: string) {
+  if (node.locator === undefined) {
+    sink.error("FE-REQUIRED", "SCHEMA_INVALID", at, "This action requires a locator.")
+    return
+  }
+  checkLocator(sink, node.locator, `${at}${pointer("locator")}`, true)
+}
+
+function requireInterpolated(
+  sink: FindingSink,
+  node: Record<string, unknown>,
+  at: string,
+  field: string,
+) {
+  if (node[field] === undefined) {
+    sink.error("FE-REQUIRED", "SCHEMA_INVALID", at, `This action requires "${field}".`)
+    return
+  }
+  checkBoundedString(sink, node[field], `${at}${pointer(field)}`, field, 0, 2048)
+}
+
+function checkMatcherFields(sink: FindingSink, node: Record<string, unknown>, at: string) {
+  if (node.matcher !== undefined
+    && (typeof node.matcher !== "string" || !MATCHERS.includes(node.matcher))) {
+    sink.error("FE-MATCHER", "SCHEMA_INVALID", `${at}${pointer("matcher")}`,
+      `matcher must be one of ${MATCHERS.join(", ")}. Regular expressions are not supported in v1.`)
+  }
+  if (node.ignoreCase !== undefined && typeof node.ignoreCase !== "boolean") {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", `${at}${pointer("ignoreCase")}`,
+      "ignoreCase must be true or false.")
+  }
+}
+
+/** Validates one step or expected outcome. `allowedActions` narrows the union. */
+function checkStep(sink: FindingSink, node: unknown, at: string, allowedActions: string[]) {
+  if (!isPlainObject(node)) {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", at, "Each step must be an object.")
+    return
+  }
+
+  const action = node.action
+  if (typeof action !== "string" || !allowedActions.includes(action)) {
+    sink.error("FE-UNKNOWN-ACTION", "UNKNOWN_ACTION", `${at}${pointer("action")}`,
+      typeof action === "string"
+        ? `"${action}" is not a supported action here.`
+        : "Every step needs an \"action\".")
+    return
+  }
+
+  checkCommonStepFields(sink, node, at)
+  const allowed = [...COMMON_STEP_KEYS, "action"]
+
+  if (action === "ui.navigate") {
+    allowed.push("url")
+    requireInterpolated(sink, node, at, "url")
+  } else if (ELEMENT_ACTIONS.includes(action)) {
+    allowed.push("locator")
+    requireLocator(sink, node, at)
+  } else if (action === "ui.fill") {
+    allowed.push("locator", "value")
+    requireLocator(sink, node, at)
+    requireInterpolated(sink, node, at, "value")
+  } else if (action === "ui.select") {
+    allowed.push("locator", "value", "by")
+    requireLocator(sink, node, at)
+    requireInterpolated(sink, node, at, "value")
+    if (node.by !== undefined && node.by !== "label" && node.by !== "value") {
+      sink.error("FE-ENUM", "SCHEMA_INVALID", `${at}${pointer("by")}`, "by must be \"label\" or \"value\".")
+    }
+  } else if (action === "ui.wait") {
+    allowed.push("for", "durationMs", "locator", "state")
+    checkWaitStep(sink, node, at)
+  } else if (action === "ui.extract") {
+    allowed.push("locator", "from", "attributeName", "variable")
+    checkExtractStep(sink, node, at)
+  } else if (action === "ui.screenshot") {
+    allowed.push("label")
+    if (node.label !== undefined) {
+      checkBoundedString(sink, node.label, `${at}${pointer("label")}`, "label", 0, 2048)
+    }
+  } else if (STATE_ASSERTIONS.includes(action)) {
+    allowed.push("locator")
+    requireLocator(sink, node, at)
+  } else if (ELEMENT_TEXT_ASSERTIONS.includes(action)) {
+    allowed.push("locator", "expected", "matcher", "ignoreCase", "normalizeWhitespace")
+    requireLocator(sink, node, at)
+    requireInterpolated(sink, node, at, "expected")
+    checkMatcherFields(sink, node, at)
+    if (node.normalizeWhitespace !== undefined && typeof node.normalizeWhitespace !== "boolean") {
+      sink.error("FE-TYPE", "SCHEMA_INVALID", `${at}${pointer("normalizeWhitespace")}`,
+        "normalizeWhitespace must be true or false.")
+    }
+  } else if (PAGE_TEXT_ASSERTIONS.includes(action)) {
+    allowed.push("expected", "matcher", "ignoreCase")
+    requireInterpolated(sink, node, at, "expected")
+    checkMatcherFields(sink, node, at)
+  }
+
+  rejectUnknownKeys(sink, node, allowed, at, `a "${action}" step`)
+}
+
+function checkWaitStep(sink: FindingSink, node: Record<string, unknown>, at: string) {
+  const waitFor = node.for
+  if (waitFor !== "duration" && waitFor !== "locatorState") {
+    sink.error("FE-ENUM", "SCHEMA_INVALID", `${at}${pointer("for")}`,
+      "ui.wait needs \"for\": \"duration\" or \"locatorState\".")
+    return
+  }
+
+  if (waitFor === "duration") {
+    if (!isInteger(node.durationMs) || node.durationMs < 100 || node.durationMs > 30000) {
+      sink.error("FE-RANGE", "SCHEMA_INVALID", `${at}${pointer("durationMs")}`,
+        "A duration wait needs durationMs between 100 and 30000.")
+    }
+    for (const forbidden of ["locator", "state"]) {
+      if (node[forbidden] !== undefined) {
+        sink.error("FE-EXCLUSIVE", "SCHEMA_INVALID", `${at}${pointer(forbidden)}`,
+          `A duration wait cannot also carry "${forbidden}".`)
+      }
+    }
+    return
+  }
+
+  requireLocator(sink, node, at)
+  if (typeof node.state !== "string" || !WAIT_STATES.includes(node.state)) {
+    sink.error("FE-ENUM", "SCHEMA_INVALID", `${at}${pointer("state")}`,
+      `A locatorState wait needs state to be one of ${WAIT_STATES.join(", ")}.`)
+  }
+  if (node.durationMs !== undefined) {
+    sink.error("FE-EXCLUSIVE", "SCHEMA_INVALID", `${at}${pointer("durationMs")}`,
+      "A locatorState wait cannot also carry durationMs.")
+  }
+}
+
+function checkExtractStep(sink: FindingSink, node: Record<string, unknown>, at: string) {
+  requireLocator(sink, node, at)
+
+  const from = node.from
+  if (from !== "text" && from !== "value" && from !== "attribute") {
+    sink.error("FE-ENUM", "SCHEMA_INVALID", `${at}${pointer("from")}`,
+      "ui.extract needs \"from\": \"text\", \"value\" or \"attribute\".")
+  } else if (from === "attribute") {
+    if (typeof node.attributeName !== "string" || !ATTRIBUTE_NAME_PATTERN.test(node.attributeName)) {
+      sink.error("FE-REQUIRED", "SCHEMA_INVALID", `${at}${pointer("attributeName")}`,
+        "Extracting an attribute requires a valid attributeName.")
+    }
+  } else if (node.attributeName !== undefined) {
+    sink.error("FE-EXCLUSIVE", "SCHEMA_INVALID", `${at}${pointer("attributeName")}`,
+      "attributeName applies only when extracting from an attribute.")
+  }
+
+  if (typeof node.variable !== "string" || !VARIABLE_NAME_PATTERN.test(node.variable)) {
+    sink.error("FE-VARIABLE-NAME", "SCHEMA_INVALID", `${at}${pointer("variable")}`,
+      "variable must be a bare name starting with a letter (no ${extracted.} prefix).")
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Document                                                            */
+/* ------------------------------------------------------------------ */
+
+function checkMetadata(sink: FindingSink, node: unknown) {
+  const at = pointer("metadata")
+  if (!isPlainObject(node)) {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", at, "metadata must be an object.")
+    return
+  }
+  checkBoundedString(sink, node.name, `${at}${pointer("name")}`, "metadata name", 1, 120)
+  if (node.description !== undefined) {
+    checkBoundedString(sink, node.description, `${at}${pointer("description")}`, "description", 0, 2000)
+  }
+  if (node.origin !== undefined && (typeof node.origin !== "string" || !ORIGINS.includes(node.origin))) {
+    sink.error("FE-ENUM", "SCHEMA_INVALID", `${at}${pointer("origin")}`,
+      `origin must be one of ${ORIGINS.join(", ")}.`)
+  }
+  if (node.tags !== undefined) {
+    if (!Array.isArray(node.tags)) {
+      sink.error("FE-TYPE", "SCHEMA_INVALID", `${at}${pointer("tags")}`, "tags must be an array.")
+    } else {
+      if (node.tags.length > 20) {
+        sink.error("FE-LENGTH", "SCHEMA_INVALID", `${at}${pointer("tags")}`, "At most 20 tags are allowed.")
+      }
+      node.tags.forEach((tag, index) => {
+        if (typeof tag !== "string" || !TAG_PATTERN.test(tag)) {
+          sink.error("FE-TAG", "SCHEMA_INVALID", `${at}${pointer("tags", index)}`,
+            "Tags use lowercase letters, digits and hyphens, up to 32 characters.")
+        }
+      })
+    }
+  }
+  rejectUnknownKeys(sink, node, ["name", "description", "origin", "tags"], at, "metadata")
+}
+
+function checkDefaults(sink: FindingSink, node: unknown) {
+  const at = pointer("defaults")
+  if (!isPlainObject(node)) {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", at, "defaults must be an object.")
+    return
+  }
+  checkTimeout(sink, node.timeoutMs, `${at}${pointer("timeoutMs")}`, "timeoutMs")
+  checkTimeout(sink, node.navigationTimeoutMs, `${at}${pointer("navigationTimeoutMs")}`,
+    "navigationTimeoutMs")
+  rejectUnknownKeys(sink, node, ["timeoutMs", "navigationTimeoutMs"], at, "defaults")
+}
+
+function checkVariables(sink: FindingSink, node: unknown) {
+  const at = pointer("variables")
+  if (!isPlainObject(node)) {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", at, "variables must be an object.")
+    return
+  }
+  const names = Object.keys(node)
+  if (names.length > 50) {
+    sink.error("FE-LENGTH", "SCHEMA_INVALID", at, "At most 50 variables are allowed.")
+  }
+  for (const name of names) {
+    if (!VARIABLE_NAME_PATTERN.test(name)) {
+      sink.error("FE-VARIABLE-NAME", "SCHEMA_INVALID", `${at}${pointer(name)}`,
+        "Variable names start with a letter and use letters, digits or underscores.")
+    }
+    const value = node[name]
+    const type = typeof value
+    if (type !== "string" && type !== "number" && type !== "boolean") {
+      sink.error("FE-TYPE", "SCHEMA_INVALID", `${at}${pointer(name)}`,
+        "Variable values must be a string, number or boolean.")
+    } else if (type === "string" && (value as string).length > 2048) {
+      sink.error("FE-LENGTH", "SCHEMA_INVALID", `${at}${pointer(name)}`,
+        "Variable values cannot exceed 2048 characters.")
+    }
+  }
+}
+
+function checkStepArray(
+  sink: FindingSink,
+  node: unknown,
+  field: "steps" | "expectedOutcomes",
+  maxItems: number,
+  allowedActions: string[],
+) {
+  const at = pointer(field)
+  if (!Array.isArray(node)) {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", at, `${field} must be an array.`)
+    return
+  }
+  if (node.length === 0) {
+    sink.error("FE-LENGTH", "SCHEMA_INVALID", at, `${field} needs at least one entry.`)
+  }
+  if (node.length > maxItems) {
+    sink.error("FE-LENGTH", "SCHEMA_INVALID", at, `${field} cannot exceed ${maxItems} entries.`)
+  }
+  node.forEach((step, index) => checkStep(sink, step, `${at}${pointer(index)}`, allowedActions))
+}
+
+/** Reports duplicate step ids, which must be unique across the document. */
+function checkDuplicateStepIds(sink: FindingSink, doc: Record<string, unknown>) {
+  const seen = new Map<string, string>()
+  for (const field of ["steps", "expectedOutcomes"] as const) {
+    const list = doc[field]
+    if (!Array.isArray(list)) continue
+    list.forEach((step, index) => {
+      if (!isPlainObject(step) || typeof step.id !== "string") return
+      const at = `${pointer(field, index)}${pointer("id")}`
+      const previous = seen.get(step.id)
+      if (previous) {
+        sink.error("FE-DUPLICATE-ID", "SCHEMA_INVALID", at,
+          `Step id "${step.id}" is already used at ${previous}.`)
+      } else {
+        seen.set(step.id, at)
+      }
+    })
+  }
+}
+
+/** Validates an already-parsed document against schema 1.0. */
+export function validateDefinitionDocument(doc: unknown): LocalValidation {
+  const sink = new FindingSink()
+
+  if (!isPlainObject(doc)) {
+    sink.error("FE-TYPE", "SCHEMA_INVALID", "", "A Test Definition must be a JSON object.")
+    return { valid: false, errors: sink.errors, warnings: sink.warnings }
+  }
+
+  if (typeof doc.schemaVersion !== "string" || !SCHEMA_VERSION_PATTERN.test(doc.schemaVersion)) {
+    sink.error("FE-SCHEMA-VERSION", "UNSUPPORTED_SCHEMA_VERSION", pointer("schemaVersion"),
+      "schemaVersion must be \"1.0\" or another 1.x version.")
+  }
+
+  if (doc.metadata === undefined) {
+    sink.error("FE-REQUIRED", "SCHEMA_INVALID", "", "metadata is required.")
+  } else {
+    checkMetadata(sink, doc.metadata)
+  }
+
+  if (doc.defaults !== undefined) checkDefaults(sink, doc.defaults)
+  if (doc.variables !== undefined) checkVariables(sink, doc.variables)
+
+  if (doc.steps === undefined) {
+    sink.error("FE-REQUIRED", "SCHEMA_INVALID", "", "steps is required.")
+  } else {
+    checkStepArray(sink, doc.steps, "steps", 200, STEP_ACTIONS)
+  }
+
+  if (doc.expectedOutcomes === undefined) {
+    sink.error("FE-REQUIRED", "SCHEMA_INVALID", "",
+      "expectedOutcomes is required — a definition must assert something.")
+  } else {
+    checkStepArray(sink, doc.expectedOutcomes, "expectedOutcomes", 50, OUTCOME_ACTIONS)
+  }
+
+  checkDuplicateStepIds(sink, doc)
+  rejectUnknownKeys(sink, doc, ROOT_KEYS, "", "a Test Definition")
+
+  return { valid: sink.errors.length === 0, errors: sink.errors, warnings: sink.warnings }
+}
+
+/** Parse outcome, keeping the syntax error separate from schema findings. */
+export type ParsedSource =
+  | { ok: true; value: unknown }
+  | { ok: false; finding: SchemaFinding }
+
+/** Parses source JSON, reporting a syntax error as a finding rather than throwing. */
+export function parseDefinitionSource(text: string): ParsedSource {
+  if (text.trim() === "") {
+    return {
+      ok: false,
+      finding: {
+        ruleId: "FE-JSON-EMPTY",
+        code: "SCHEMA_INVALID",
+        jsonPointer: "",
+        message: "The definition source is empty.",
+      },
+    }
+  }
+  try {
+    return { ok: true, value: JSON.parse(text) }
+  } catch (err) {
+    return {
+      ok: false,
+      finding: {
+        ruleId: "FE-JSON-SYNTAX",
+        code: "SCHEMA_INVALID",
+        jsonPointer: "",
+        message: err instanceof Error ? err.message : "The definition source is not valid JSON.",
+      },
+    }
+  }
+}
+
+/** Parses and validates in one step — what the editor and create form call. */
+export function validateDefinitionSource(text: string): LocalValidation {
+  const parsed = parseDefinitionSource(text)
+  if (!parsed.ok) return { valid: false, errors: [parsed.finding], warnings: [] }
+  return validateDefinitionDocument(parsed.value)
+}
+
+/** Re-indents valid source with two spaces; returns null when it cannot be parsed. */
+export function formatDefinitionSource(text: string): string | null {
+  const parsed = parseDefinitionSource(text)
+  if (!parsed.ok) return null
+  return `${JSON.stringify(parsed.value, null, 2)}\n`
+}
+
+/**
+ * The starter document, matching the template the engine seeds when a definition
+ * is created without source (`TestDefinitionLifecycleService.defaultDraftTemplate`),
+ * so a locally-seeded editor and a server-seeded one agree.
+ */
+export function starterDefinitionSource(name: string): string {
+  const safeName = name.replace(/["\r\n]/g, " ").trim().slice(0, 120) || "New Test Definition"
+  return `${JSON.stringify(
+    {
+      schemaVersion: "1.0",
+      metadata: { name: safeName },
+      steps: [{ action: "ui.wait", for: "duration", durationMs: 100 }],
+      expectedOutcomes: [
+        { action: "ui.assertVisible", locator: { strategy: "css", value: "body" } },
+      ],
+    },
+    null,
+    2,
+  )}\n`
+}

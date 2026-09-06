@@ -75,6 +75,12 @@ type RequestOptions = {
   body?: unknown
   /** Send Authorization header even if a token is stored. Defaults to true. */
   auth?: boolean
+  /**
+   * Extra request headers. Used by endpoints whose contract carries one, e.g.
+   * the Test Definition trial/proving `Idempotency-Key`. Values are sent
+   * verbatim; nothing here is ever logged.
+   */
+  headers?: Record<string, string>
 }
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
@@ -83,6 +89,12 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   const token = getToken()
   if (token && opts.auth !== false) headers["Authorization"] = `Bearer ${token}`
+
+  if (opts.headers) {
+    for (const [name, value] of Object.entries(opts.headers)) {
+      if (value !== undefined && value !== null && value !== "") headers[name] = value
+    }
+  }
 
   let res: Response
   try {
@@ -113,6 +125,49 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   }
 
   return payload as T
+}
+
+/**
+ * Fetches a non-JSON response body as a Blob, with the same Bearer auth and the
+ * same error mapping as {@link request}. Used for the Test Definition artifact
+ * endpoint, which answers `application/octet-stream` (or the artifact's own
+ * content type) plus `Content-Disposition: attachment` rather than JSON.
+ *
+ * The engine's CORS layer does not expose `Content-Disposition` to scripts, so
+ * the caller supplies its own download file name from artifact metadata instead
+ * of parsing the header.
+ */
+export async function requestBinary(path: string): Promise<Blob> {
+  const headers: Record<string, string> = { Accept: "*/*" }
+  const token = getToken()
+  if (token) headers["Authorization"] = `Bearer ${token}`
+
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { method: "GET", headers })
+  } catch {
+    throw new ApiError(0, translate("errors.networkUnreachable"))
+  }
+
+  if (!res.ok) {
+    // Error bodies are still JSON ({ error }); a 404 from this endpoint may also
+    // be empty (ResponseEntity.notFound().build()), which falls back by status.
+    let payload: unknown = null
+    try {
+      payload = await res.json()
+    } catch {
+      /* empty or non-JSON error body */
+    }
+    const message =
+      payload && typeof payload === "object" && typeof (payload as { error?: unknown }).error === "string"
+        ? localizeBackendMessage((payload as { error: string }).error)
+        : fallbackMessage(res.status)
+    const err = new ApiError(res.status, message)
+    if (payload && typeof payload === "object") err.body = payload as Record<string, unknown>
+    throw err
+  }
+
+  return res.blob()
 }
 
 /**
@@ -1966,5 +2021,525 @@ export async function apiGetAdminFeedbackDetail(id: string): Promise<FeedbackEnt
   return request<FeedbackEntry>(`/dashboard-api/admin/feedback/${encodeURIComponent(id)}`)
 }
 
+/* ------------------------------------------------------------------ */
+/* Test Definitions (PR 4 / 4.1 admin + tenant lifecycle APIs)         */
+/*                                                                     */
+/* Every route lives under                                             */
+/*   /dashboard-api/clients/{clientId}/test-definitions                */
+/* and resolves tenant ownership server-side, so a cross-tenant id      */
+/* answers 404 exactly like a missing one. Approve, Proving and         */
+/* Archive additionally require an ADMIN identity (403 otherwise);      */
+/* the frontend hides those controls for usability only.               */
+/*                                                                     */
+/* Shapes below mirror the real controller/service responses,          */
+/* including two deliberate irregularities the engine produces:        */
+/*  - the run row is copied straight out of `test_runs`, so those keys  */
+/*    are snake_case while nested records are camelCase;               */
+/*  - a completed idempotent replay of trial/proving answers the        */
+/*    run-details shape instead of the execution shape.                */
+/* ------------------------------------------------------------------ */
 
+/** Lifecycle states of one Test Definition version (LifecycleStatus). */
+export type TestDefinitionStatus = "DRAFT" | "VALIDATED" | "APPROVED" | "READY" | "ARCHIVED"
 
+/** Why one execution ran (ExecutionPurpose); NORMAL belongs to flow runs. */
+export type TestDefinitionExecutionPurpose = "NORMAL" | "TRIAL" | "PROVING"
+
+/** Terminal status of a run or a single step (ExecutionStatus). */
+export type TestDefinitionRunStatus = "PASSED" | "FAILED" | "ERROR" | "CANCELLED" | "NOT_EXECUTED"
+
+/** Implementation kind recorded on a run (ImplementationType). */
+export type TestDefinitionImplementationType = "LEGACY_TESTNG" | "TEST_DEFINITION"
+
+/** One validation error or warning; `code` is null on warnings (ValidationFinding). */
+export type TestDefinitionValidationFinding = {
+  ruleId: string
+  code: string | null
+  jsonPointer: string
+  message: string
+}
+
+/** Structured validation output (ValidationReport) — never a bare boolean. */
+export type TestDefinitionValidationReport = {
+  valid: boolean
+  errors: TestDefinitionValidationFinding[]
+  warnings: TestDefinitionValidationFinding[]
+  schemaVersion: string | null
+  validatorVersion: string | null
+}
+
+/** One row of `items` in GET …/test-definitions (TestDefinitionEntity). */
+export type TestDefinitionListItem = {
+  id: number
+  clientId: number
+  name: string
+  description: string | null
+  flowId: number | null
+  assetRequestId: number | null
+  isArchived: boolean
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+/** GET …/test-definitions — bounded page plus the unfiltered/filtered total. */
+export type TestDefinitionListResponse = {
+  items: TestDefinitionListItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
+/**
+ * One entry of `versions[]` inside GET …/test-definitions/{id}. Deliberately
+ * carries no `sourceJson` or validation report — those come from the
+ * single-version route.
+ */
+export type TestDefinitionVersionSummary = {
+  id: number
+  versionNumber: number
+  schemaVersion: string | null
+  status: TestDefinitionStatus
+  versionLock: number
+  createdAt: string | null
+  validatedAt: string | null
+  approvedAt: string | null
+  readyAt: string | null
+  archivedAt: string | null
+  updatedAt: string | null
+}
+
+/** GET …/test-definitions/{id} — the aggregate with its version history. */
+export type TestDefinitionDetails = {
+  id: number
+  clientId: number
+  name: string
+  description: string | null
+  flowId: number | null
+  assetRequestId: number | null
+  isArchived: boolean
+  createdAt: string | null
+  updatedAt: string | null
+  versions: TestDefinitionVersionSummary[]
+}
+
+/** GET …/versions/{versionId} — the full version record (TestDefinitionVersionEntity). */
+export type TestDefinitionVersion = {
+  id: number
+  testDefinitionId: number
+  versionNumber: number
+  schemaVersion: string | null
+  sourceJson: string
+  status: TestDefinitionStatus
+  validationReportJson: string | null
+  versionLock: number
+  createdBy: number | null
+  validatedBy: number | null
+  approvedBy: number | null
+  provingRunId: number | null
+  createdAt: string | null
+  validatedAt: string | null
+  approvedAt: string | null
+  readyAt: string | null
+  archivedAt: string | null
+  updatedAt: string | null
+}
+
+/** POST …/test-definitions — the created aggregate and its initial DRAFT version. */
+export type TestDefinitionCreated = {
+  definitionId: number
+  clientId: number
+  name: string
+  description: string | null
+  flowId: number | null
+  initialVersionId: number
+  versionNumber: number
+  status: "DRAFT"
+}
+
+/** POST …/test-definitions/{id}/versions — a fresh DRAFT copied from a base version. */
+export type TestDefinitionVersionCreated = {
+  definitionId: number
+  versionId: number
+  versionNumber: number
+  status: "DRAFT"
+  versionLock: number
+}
+
+/** PUT …/versions/{versionId} — the accepted draft edit and its next lock value. */
+export type TestDefinitionDraftSaved = {
+  definitionId: number
+  versionId: number
+  versionNumber: number
+  status: "DRAFT"
+  versionLock: number
+  updated: boolean
+}
+
+/** POST …/validate — VALIDATED when the report is valid, otherwise still DRAFT. */
+export type TestDefinitionValidated = {
+  definitionId: number
+  versionId: number
+  versionNumber: number
+  status: TestDefinitionStatus
+  valid: boolean
+  validationReport: TestDefinitionValidationReport
+}
+
+/** POST …/approve — the version after the guarded VALIDATED → APPROVED transition. */
+export type TestDefinitionApproved = {
+  definitionId: number
+  versionId: number
+  versionNumber: number
+  status: "APPROVED"
+}
+
+/** POST …/archive — terminal transition of the version and its aggregate. */
+export type TestDefinitionArchived = {
+  definitionId: number
+  versionId: number
+  versionNumber: number
+  status: "ARCHIVED"
+  aggregateArchived: boolean
+}
+
+/** One in-memory step outcome on a fresh execution response (StepResult). */
+export type TestDefinitionStepOutcome = {
+  stepIndex: number
+  stepAddress: string | null
+  /** Enum name, e.g. "UI_NAVIGATE" — the engine does not emit the "ui.navigate" wire form here. */
+  opcode: string
+  status: TestDefinitionRunStatus
+  reasonCode: string | null
+  sanitizedMessage: string | null
+  expectedValue: string | null
+  actualValue: string | null
+  effectiveTimeoutMs: number
+  elapsedMs: number
+  /** Server-side artifact label, never a browsable URL. */
+  screenshotPath: string | null
+}
+
+/** One persisted step row on a run-details response (TestRunStepResult). */
+export type TestDefinitionRunStepRow = {
+  id: number
+  testRunId: number
+  stepIndex: number
+  stepIdentifier: string | null
+  actionType: string | null
+  status: string | null
+  reasonCode: string | null
+  message: string | null
+  durationMs: number | null
+  createdAt: string | null
+}
+
+/**
+ * Artifact metadata on a run-details response (TestRunArtifact).
+ *
+ * `filePath` is a server-owned, root-relative reference ("<client>/run-<id>/<name>")
+ * and is never rendered — the UI addresses artifacts by `id` through the
+ * authenticated download route.
+ */
+export type TestDefinitionRunArtifact = {
+  id: number
+  testRunId: number
+  stepIndex: number | null
+  artifactType: string | null
+  artifactName: string
+  filePath: string
+  fileSizeBytes: number | null
+  contentType: string | null
+  createdAt: string | null
+}
+
+/**
+ * GET …/runs/{runId} — the `test_runs` row (snake_case, copied verbatim) plus
+ * camelCase `stepResults` and `artifacts`. `timestamp` arrives as epoch millis
+ * because the row is read as a `java.sql.Timestamp`, not an `Instant`.
+ */
+export type TestDefinitionRunDetails = {
+  id: number
+  run_id: string | null
+  client_id: number
+  flow_id: number | null
+  status: string | null
+  total: number | null
+  passed: number | null
+  failed: number | null
+  skipped: number | null
+  duration_seconds: number | null
+  timestamp: number | string | null
+  browser: string | null
+  env: string | null
+  error_message: string | null
+  implementation_type: TestDefinitionImplementationType | string | null
+  execution_purpose: TestDefinitionExecutionPurpose | string | null
+  test_definition_id: number | null
+  test_definition_version_id: number | null
+  definition_version_number: number | null
+  stepResults: TestDefinitionRunStepRow[]
+  artifacts: TestDefinitionRunArtifact[]
+}
+
+/**
+ * POST …/trial and POST …/proving on a *fresh* execution. A completed
+ * idempotent replay answers {@link TestDefinitionRunDetails} instead, so both
+ * shapes are unioned and normalized in `src/lib/testDefinitionRuns.ts`.
+ */
+export type TestDefinitionExecutionResult = {
+  runId: number
+  definitionId: number
+  versionId: number
+  versionNumber: number
+  executionPurpose: "TRIAL" | "PROVING"
+  status: TestDefinitionRunStatus
+  terminatingReasonCode: string | null
+  stepResults: TestDefinitionStepOutcome[]
+  outcomeResults: TestDefinitionStepOutcome[]
+  totalElapsedMs: number
+  /** Present only when this execution lost its idempotency lease. */
+  idempotencyNote?: string
+  /** Proving only: whether the guarded APPROVED → READY transition was accepted. */
+  becameReady?: boolean
+  /** Proving only: "READY" or "APPROVED". */
+  currentStatus?: TestDefinitionStatus
+}
+
+/** Either shape a trial/proving call can answer with. */
+export type TestDefinitionExecutionResponse = TestDefinitionExecutionResult | TestDefinitionRunDetails
+
+const TEST_DEFINITION_NAME_MAX_LENGTH = 120
+
+function testDefinitionsPath(clientId: number): string {
+  return `/dashboard-api/clients/${clientId}/test-definitions`
+}
+
+/**
+ * GET …/test-definitions — one bounded page, newest-updated first.
+ *
+ * The engine clamps `limit` to 1..100 and `offset` to 0..100000 and truncates
+ * `search` at 200 characters, then echoes the values it actually used, so the
+ * caller paginates from the response rather than from its own request.
+ */
+export async function apiListTestDefinitions(
+  clientId: number,
+  params?: { limit?: number; offset?: number; search?: string },
+): Promise<TestDefinitionListResponse> {
+  const query = new URLSearchParams()
+  if (params?.limit !== undefined) query.set("limit", String(params.limit))
+  if (params?.offset !== undefined) query.set("offset", String(params.offset))
+  const search = params?.search?.trim()
+  if (search) query.set("search", search)
+  const suffix = query.toString() ? `?${query.toString()}` : ""
+  return request<TestDefinitionListResponse>(`${testDefinitionsPath(clientId)}${suffix}`)
+}
+
+/** GET …/test-definitions/{definitionId} — aggregate metadata plus version history. */
+export async function apiGetTestDefinition(
+  clientId: number,
+  definitionId: number,
+): Promise<TestDefinitionDetails> {
+  return request<TestDefinitionDetails>(`${testDefinitionsPath(clientId)}/${definitionId}`)
+}
+
+/**
+ * POST …/test-definitions — creates the aggregate and its initial DRAFT version.
+ *
+ * A blank `initialSourceJson` makes the engine seed a valid starter template.
+ * 409 means the name already exists for this client (case-insensitively);
+ * 404 means the named flow or asset request does not belong to this client.
+ */
+export async function apiCreateTestDefinition(
+  clientId: number,
+  body: {
+    name: string
+    description?: string | null
+    flowId?: number | null
+    assetRequestId?: number | null
+    initialSourceJson?: string | null
+  },
+): Promise<TestDefinitionCreated> {
+  return request<TestDefinitionCreated>(testDefinitionsPath(clientId), {
+    method: "POST",
+    body: {
+      name: body.name.trim().slice(0, TEST_DEFINITION_NAME_MAX_LENGTH),
+      description: body.description ?? null,
+      flowId: body.flowId ?? null,
+      assetRequestId: body.assetRequestId ?? null,
+      initialSourceJson: body.initialSourceJson ?? null,
+    },
+  })
+}
+
+/** PUT …/test-definitions/{definitionId} — renames or re-binds the aggregate. */
+export async function apiUpdateTestDefinition(
+  clientId: number,
+  definitionId: number,
+  body: { name: string; description?: string | null; flowId?: number | null },
+): Promise<{ updated: boolean }> {
+  return request<{ updated: boolean }>(`${testDefinitionsPath(clientId)}/${definitionId}`, {
+    method: "PUT",
+    body: {
+      name: body.name.trim(),
+      description: body.description ?? null,
+      flowId: body.flowId ?? null,
+    },
+  })
+}
+
+/**
+ * POST …/{definitionId}/versions — the only way to edit content that has left
+ * DRAFT: a new DRAFT is opened from `baseVersionId` (or the latest version).
+ */
+export async function apiCreateTestDefinitionVersion(
+  clientId: number,
+  definitionId: number,
+  baseVersionId?: number | null,
+): Promise<TestDefinitionVersionCreated> {
+  return request<TestDefinitionVersionCreated>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/versions`,
+    { method: "POST", body: { baseVersionId: baseVersionId ?? null } },
+  )
+}
+
+/** GET …/versions/{versionId} — the full record, including `sourceJson`. */
+export async function apiGetTestDefinitionVersion(
+  clientId: number,
+  definitionId: number,
+  versionId: number,
+): Promise<TestDefinitionVersion> {
+  return request<TestDefinitionVersion>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}`,
+  )
+}
+
+/**
+ * PUT …/versions/{versionId} — optimistic draft save.
+ *
+ * `versionLock` is the value last read from the server; a mismatch, or a version
+ * that has left DRAFT, answers 409 and the caller must reload before retrying.
+ */
+export async function apiEditTestDefinitionDraft(
+  clientId: number,
+  definitionId: number,
+  versionId: number,
+  body: { versionLock: number; sourceJson: string; schemaVersion?: string | null },
+): Promise<TestDefinitionDraftSaved> {
+  return request<TestDefinitionDraftSaved>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}`,
+    {
+      method: "PUT",
+      body: {
+        versionLock: body.versionLock,
+        sourceJson: body.sourceJson,
+        schemaVersion: body.schemaVersion ?? null,
+      },
+    },
+  )
+}
+
+/**
+ * POST …/versions/{versionId}/validate — structural + semantic validation.
+ *
+ * Answers 200 whether or not the document is valid: `valid === false` keeps the
+ * version in DRAFT and returns the findings. Only a DRAFT may be validated.
+ */
+export async function apiValidateTestDefinitionVersion(
+  clientId: number,
+  definitionId: number,
+  versionId: number,
+): Promise<TestDefinitionValidated> {
+  return request<TestDefinitionValidated>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}/validate`,
+    { method: "POST" },
+  )
+}
+
+/**
+ * POST …/versions/{versionId}/trial — non-gating trial execution.
+ *
+ * Permitted on VALIDATED or APPROVED versions that are bound to a flow. The
+ * `Idempotency-Key` header makes one user operation replay-safe: a completed
+ * key answers the original run instead of executing again.
+ */
+export async function apiExecuteTestDefinitionTrial(
+  clientId: number,
+  definitionId: number,
+  versionId: number,
+  idempotencyKey?: string,
+): Promise<TestDefinitionExecutionResponse> {
+  return request<TestDefinitionExecutionResponse>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}/trial`,
+    { method: "POST", headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined },
+  )
+}
+
+/** POST …/versions/{versionId}/approve — admin-only VALIDATED → APPROVED. */
+export async function apiApproveTestDefinitionVersion(
+  clientId: number,
+  definitionId: number,
+  versionId: number,
+): Promise<TestDefinitionApproved> {
+  return request<TestDefinitionApproved>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}/approve`,
+    { method: "POST" },
+  )
+}
+
+/**
+ * POST …/versions/{versionId}/proving — admin-only gating run on an APPROVED
+ * version. READY is reached only by a PASSED proving run, never by a direct
+ * transition, and the engine reports the outcome in `becameReady`.
+ */
+export async function apiExecuteTestDefinitionProving(
+  clientId: number,
+  definitionId: number,
+  versionId: number,
+  idempotencyKey?: string,
+): Promise<TestDefinitionExecutionResponse> {
+  return request<TestDefinitionExecutionResponse>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}/proving`,
+    { method: "POST", headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined },
+  )
+}
+
+/** POST …/versions/{versionId}/archive — admin-only, READY versions only. */
+export async function apiArchiveTestDefinitionVersion(
+  clientId: number,
+  definitionId: number,
+  versionId: number,
+): Promise<TestDefinitionArchived> {
+  return request<TestDefinitionArchived>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}/archive`,
+    { method: "POST" },
+  )
+}
+
+/** GET …/{definitionId}/runs/{runId} — persisted run row, steps and artifact metadata. */
+export async function apiGetTestDefinitionRun(
+  clientId: number,
+  definitionId: number,
+  runId: number,
+): Promise<TestDefinitionRunDetails> {
+  return request<TestDefinitionRunDetails>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/runs/${runId}`,
+  )
+}
+
+/**
+ * GET …/runs/{runId}/artifacts/{artifactId} — the artifact bytes.
+ *
+ * Authenticated like every other route, so the file is fetched as a Blob rather
+ * than linked to; there is no public URL for evidence. 404 covers both "no such
+ * artifact for this run" and "the stored file is not retrievable".
+ */
+export async function apiDownloadTestDefinitionArtifact(
+  clientId: number,
+  definitionId: number,
+  runId: number,
+  artifactId: number,
+): Promise<Blob> {
+  return requestBinary(
+    `${testDefinitionsPath(clientId)}/${definitionId}/runs/${runId}/artifacts/${artifactId}`,
+  )
+}

@@ -6,6 +6,7 @@ import { AssureMark } from "../Sidebar"
 import { AdminDashboard } from "./AdminDashboard"
 import { AdminClients } from "./AdminClients"
 import { AdminRuns } from "./AdminRuns"
+import { AdminTestDefinitions } from "./AdminTestDefinitions"
 import { AdminAlerts } from "./AdminAlerts"
 import { AdminAiAnalysis } from "./AdminAiAnalysis"
 import { AdminSettings } from "./AdminSettings"
@@ -79,6 +80,17 @@ const GROUPS: NavGroup[] = [
           <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 12a8.5 8.5 0 108.5-8.5A8.5 8.5 0 004 8" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v4h4M12 7.5V12l3 2" />
+          </svg>
+        ),
+      },
+      {
+        key: "test-definitions",
+        labelKey: "admin.navTestDefinitions",
+        icon: (
+          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14 3v5h5" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 13.5L11 15l-1.5 1.5M13 16.5h2" />
           </svg>
         ),
       },
@@ -414,6 +426,8 @@ export function AdminShell({ onExit }: { onExit: () => void }) {
             <AdminAssetRequests onRequestsChanged={refreshAssetPending} />
           ) : active === "runs" ? (
             <AdminRuns />
+          ) : active === "test-definitions" ? (
+            <AdminTestDefinitions />
           ) : active === "alerts" ? (
             <AdminAlerts onAlertsChanged={refreshAlertsUnread} />
           ) : active === "ai-analysis" ? (
