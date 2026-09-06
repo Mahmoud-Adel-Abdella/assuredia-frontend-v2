@@ -45,7 +45,7 @@ Options:
 3. Seeds **synthetic fixtures only**: two clients, two flows, one ADMIN and two
    CLIENT users. Passwords are generated per run and hashed by PostgreSQL's
    pgcrypto bcrypt — no credential is hard-coded anywhere.
-4. Builds the engine jar from `ASSUREDIA_BACKEND_DIR` and starts it with AI,
+4. Builds the engine jar from `ASSUREDIA_BACKEND_DIR` and starts it with `SYNC_CLIENTS_ROOT` pointed at its disposable work directory (the engine's config-sync projects clients/config.json there instead of the repository working tree — keeping the source tree clean and preventing stale files from a previous run from being resurrected over the freshly seeded database), AI,
    notification-webhook and OAuth integrations unset (disabled) and a
    **disposable artifact root** in the OS temp directory.
 5. Performs one **warm-up execution** so Playwright Java's first-use driver

@@ -401,16 +401,9 @@ test("proving runs once, and a passing run promotes the version to READY", async
   expect(provingCalls.length).toBe(1)
   state.provingKey = provingCalls[0].idempotencyKey!
   expect(state.provingKey).toBeTruthy()
-})
 
-test("the proving run's evidence panel lists the screenshot artifact", async ({ page }) => {
-  observe(page)
-  await login(page, ADMIN_EMAIL)
-  await openAdminTestDefinitions(page)
-  await page.locator("tbody tr", { hasText: DEF_A_NAME }).getByRole("button", { name: "View" }).click()
-  await expect(page.locator("#testdef-source-editor")).toBeVisible()
-  await expect(page.getByTestId("testdef-status-READY").first()).toBeVisible()
-
+  // Evidence: the proving run's screenshot artifact. The run panel is
+  // session-scoped, so evidence assertions stay in the session that ran it.
   const details = await fetchApi(page, "GET", `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${state.defAId}`)
   expect(details.body.versions[0].status).toBe("READY")
   // provingRunId is only carried by the full version record, not the versions[] summary.
@@ -442,23 +435,15 @@ test("the proving run's evidence panel lists the screenshot artifact", async ({ 
   await expect(page.getByRole("heading", { name: "Evidence" })).toBeVisible({ timeout: 30000 })
   await expect(page.getByText(/\.png/).first()).toBeVisible({ timeout: 30000 })
   await screenshot(page, "08-artifact-panel")
-})
 
-test("the artifact downloads through the authenticated browser route", async ({ page }) => {
-  observe(page)
-  await login(page, ADMIN_EMAIL)
-  await openAdminTestDefinitions(page)
-  await page.locator("tbody tr", { hasText: DEF_A_NAME }).getByRole("button", { name: "View" }).click()
-  await expect(page.locator("#testdef-source-editor")).toBeVisible()
-  await page.getByRole("button", { name: "Refresh run" }).click()
-  await expect(page.getByText(/\.png/).first()).toBeVisible({ timeout: 30000 })
-
+  // Authenticated download through the real backend route, same session.
   const downloadPromise = page.waitForEvent("download")
   await page.getByRole("button", { name: "Download" }).click()
   const download = await downloadPromise
   const target = `${EVIDENCE}/downloaded-${download.suggestedFilename()}`
   await download.saveAs(target)
 
+  expect(state.artifactName).toBeTruthy()
   expect(download.suggestedFilename()).toBe(state.artifactName)
   const stat = fsSync.statSync(target)
   expect(stat.size).toBeGreaterThan(0)

@@ -94,7 +94,7 @@ function runCapture(cmd, args, opts = {}) {
 }
 
 async function psql(db, sql) {
-  return runCapture("docker", ["exec", db.container, "psql", "-U", db.user, "-d", db.name, "-v", "ON_ERROR_STOP=1", "-c", sql])
+  return runCapture("docker", ["exec", db.container, "psql", "-U", db.user, "-d", db.name, "-tA", "-v", "ON_ERROR_STOP=1", "-c", sql])
 }
 
 async function main() {
@@ -160,7 +160,13 @@ async function main() {
     fs.cpSync(path.join(BACKEND_DIR, "src", "main", "resources"), path.join(work, "resources"), { recursive: true })
     runCapture("docker", ["cp", path.join(work, "000-bootstrap.sql"), `${containerName}:/tmp/000-bootstrap.sql`])
     runCapture("docker", ["cp", path.join(work, "resources"), `${containerName}:/tmp/resources`])
-    runCapture("docker", ["exec", containerName, "sh", "-c",
+    // pg_isready can answer while the database is still finishing recovery;
+    // retry the whole idempotent migration application until it sticks.
+    let migrated = false
+    let lastMigrationError = ""
+    for (let migrationAttempt = 1; migrationAttempt <= 5 && !migrated; migrationAttempt++) {
+      try {
+        runCapture("docker", ["exec", containerName, "sh", "-c",
       `psql -U assuredia_live -d ${dbName} -v ON_ERROR_STOP=1 -f /tmp/000-bootstrap.sql >/dev/null && ` +
       `psql -U assuredia_live -d ${dbName} -v ON_ERROR_STOP=1 -c "CREATE TABLE IF NOT EXISTS assuredia_schema_migrations (filename text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())" >/dev/null && ` +
       `for m in /tmp/resources/migration-*.sql; do f=$(basename "$m"); ` +
@@ -168,6 +174,16 @@ async function main() {
       `if [ "$a" != "1" ]; then psql -U assuredia_live -d ${dbName} -v ON_ERROR_STOP=1 -f "$m" >/dev/null; ` +
       `psql -U assuredia_live -d ${dbName} -v ON_ERROR_STOP=1 -c "INSERT INTO assuredia_schema_migrations (filename) VALUES ('$f')" >/dev/null; fi; done`,
     ])
+        migrated = true
+      } catch (err) {
+        lastMigrationError = (err && err.message ? err.message : "(no message)") +
+          " | type=" + (err && err.constructor ? err.constructor.name : typeof err) +
+          " | stdout=" + String(err && err.stdout ? String(err.stdout).slice(0, 200) : "(none)")
+        console.log("  migration attempt " + migrationAttempt + " failed: " + lastMigrationError.slice(0, 300))
+        await new Promise((r) => setTimeout(r, 2000))
+      }
+    }
+    if (!migrated) throw new Error("Migration application failed after retries: " + lastMigrationError)
     const ledger = runCapture("docker", ["exec", containerName, "psql", "-U", "assuredia_live", "-d", dbName, "-tA", "-c", "SELECT COUNT(*) FROM assuredia_schema_migrations"]).trim()
     if (ledger !== "15") throw new Error(`Expected 15 ledger entries, found ${ledger}`)
     console.log(`  ledger entries: ${ledger} (migration 015 applied)`)
@@ -206,6 +222,8 @@ async function main() {
     const mvnCmd = isWin ? "cmd.exe" : "mvn"
     const mvnArgs = isWin ? ["/c", "mvn", "-B", "clean", "package", "-DskipTests"] : ["-B", "clean", "package", "-DskipTests"]
     runCapture(mvnCmd, mvnArgs, { cwd: BACKEND_DIR })
+
+    fs.mkdirSync(path.join(work, "runtime-clients"), { recursive: true })
 
     /* ---- 5. fixture site (loopback only) ---- */
     console.log("[5/7] starting the loopback fixture site on 127.0.0.1:" + sitePort)
@@ -276,6 +294,10 @@ async function main() {
         DASHBOARD_ORIGINS: `${frontendOrigin},http://localhost:${frontendPort}`,
         ASSUREDIA_ARTIFACT_ROOT: artifactRoot,
         SERVER_PORT: String(backendPort),
+        // Config sync (clients/config.json projection) must write into the
+        // disposable workdir: keeps the source tree clean and prevents stale
+        // files from a previous run overwriting this run's seeded database.
+        SYNC_CLIENTS_ROOT: path.join(work, "runtime-clients").replace(/\\/g, "/") + "/",
         // AI, notification-webhook and OAuth integrations stay unset: disabled.
       },
     }, path.join(evidence, "backend.log"))
@@ -340,7 +362,12 @@ async function main() {
         warmPassed = true
         console.log(`  warm-up attempt ${attempt}: PASSED`)
       } else {
-        console.log(`  warm-up attempt ${attempt}: ${warmRun.json.status}/${warmRun.json.terminatingReasonCode || "?"} — retrying with a fresh key`)
+        let diag = "(no diagnostics)"
+        try {
+          const row = await psql(db, `SELECT COALESCE(error_message, '(null)') FROM test_runs WHERE implementation_type = 'TEST_DEFINITION' ORDER BY id DESC LIMIT 1`)
+          diag = row.trim()
+        } catch { diag = "(db probe failed)" }
+        console.log(`  warm-up attempt ${attempt}: ${warmRun.json.status}/${warmRun.json.terminatingReasonCode || "?"} — ${diag}`)
       }
       // Each attempt's data (failed or passed) is wiped before the next attempt.
       await psql(db, `
@@ -350,6 +377,16 @@ async function main() {
         DELETE FROM test_runs WHERE test_definition_id = ${warmDef.json.definitionId};`)
     }
     if (!warmPassed) throw new Error(`Warm-up trial never passed after ${WARMUP_ATTEMPTS} attempts — the worker environment is not healthy enough for the audited run`)
+
+    // Remove every trace of the warm-up so the audit only sees browser-driven data.
+    await psql(db, `
+      DELETE FROM test_run_artifacts WHERE test_run_id IN (SELECT id FROM test_runs WHERE test_definition_id = ${warmDef.json.definitionId});
+      DELETE FROM test_run_step_results WHERE test_run_id IN (SELECT id FROM test_runs WHERE test_definition_id = ${warmDef.json.definitionId});
+      DELETE FROM definition_execution_idempotency WHERE test_definition_id = ${warmDef.json.definitionId};
+      DELETE FROM test_runs WHERE test_definition_id = ${warmDef.json.definitionId};
+      DELETE FROM test_definitions;`)
+    fs.rmSync(artifactRoot, { recursive: true, force: true })
+    fs.mkdirSync(artifactRoot)
 
     /* ---- frontend ---- */
     console.log("[7/7] starting the real frontend dev server on 127.0.0.1:" + frontendPort)
