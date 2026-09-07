@@ -686,6 +686,281 @@ test("unknown artifact and deleted file answer 404 with safe messages", async ({
   expect(restored.status).toBe(200)
 })
 
+/* ------------------------------------------------------------------ */
+/* PR10A creation journeys — persisted truth, not just HTTP 201      */
+/* ------------------------------------------------------------------ */
+
+const CREATION_UNIQUE = `c${Date.now().toString(36)}`
+const creationState: {
+  apiDefinitionId?: number
+  apiRequestId?: number
+  apiVersionId?: number
+  mixedDefinitionId?: number
+  mixedRequestId?: number
+  mixedVersionId?: number
+  adminRequestTitle?: string
+} = {}
+
+function apiStarterSource(name: string): string {
+  return JSON.stringify({
+    schemaVersion: "1.1",
+    metadata: { name, tags: ["api"] },
+    steps: [
+      { action: "api.request", method: "GET", url: "/api/v1/health", headers: { Accept: "application/json" } },
+      { action: "api.extract", jsonPath: "$.status", variable: "healthStatus" },
+    ],
+    expectedOutcomes: [
+      { action: "api.assertStatus", expected: 200 },
+      { action: "api.assertHeader", header: "Content-Type", expected: "application/json", matcher: "contains" },
+      { action: "api.assertJsonPath", path: "$.status", expected: "UP" },
+      { action: "api.assertResponseTime", maxDurationMs: 2000 },
+    ],
+  })
+}
+
+function mixedStarterSource(name: string): string {
+  return JSON.stringify({
+    schemaVersion: "1.1",
+    metadata: { name, tags: ["mixed"] },
+    steps: [
+      { action: "api.request", method: "POST", url: "/api/auth/token", body: '{"user":"admin"}' },
+      { action: "api.extract", jsonPath: "$.token", variable: "sessionToken", sensitive: true },
+      { action: "ui.navigate", url: "/app/dashboard" },
+    ],
+    expectedOutcomes: [
+      { action: "api.assertStatus", expected: 200 },
+      { action: "ui.assertUrl", expected: "/app/dashboard" },
+    ],
+  })
+}
+
+function uiStarterSource(name: string): string {
+  return JSON.stringify({
+    schemaVersion: "1.0",
+    metadata: { name },
+    steps: [{ action: "ui.wait", for: "duration", durationMs: 100 }],
+    expectedOutcomes: [{ action: "ui.assertVisible", locator: { strategy: "css", value: "body" } }],
+  })
+}
+
+test("API Manual Editor persists a Schema 1.1 API definition", async ({ page }) => {
+  observe(page)
+  await login(page, CLIENT_EMAIL)
+  const name = `Live API editor ${CREATION_UNIQUE}`
+  const key = `live-api-${CREATION_UNIQUE}`
+  const created = await fetchApi(page, "POST", `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions`, {
+    journeyType: "API",
+    name,
+    description: "live api draft",
+    initialSourceJson: apiStarterSource(name),
+  }, key)
+  expect(created.status).toBe(200)
+  expect(created.body.creationRequestId).toBeTruthy()
+  expect(created.body.definitionId).toBeTruthy()
+  creationState.apiDefinitionId = created.body.definitionId
+  creationState.apiRequestId = created.body.creationRequestId
+  creationState.apiVersionId = created.body.initialVersionId
+
+  const req = await fetchApi(
+    page,
+    "GET",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-creation-requests/${created.body.creationRequestId}`,
+  )
+  expect(req.status).toBe(200)
+  expect(req.body.journeyType).toBe("API")
+  expect(req.body.creationMethod).toBe("MANUAL_EDITOR")
+  expect(req.body.status).toBe("DRAFT_CREATED")
+  expect(req.body.definitionId).toBe(created.body.definitionId)
+
+  const version = await fetchApi(
+    page,
+    "GET",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${created.body.definitionId}/versions/${created.body.initialVersionId}`,
+  )
+  expect(version.status).toBe(200)
+  expect(version.body.schemaVersion).toBe("1.1")
+  expect(version.body.sourceJson).toContain("api.request")
+  expect(version.body.sourceJson).not.toContain('"action": "ui.')
+
+  const validated = await fetchApi(
+    page,
+    "POST",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${created.body.definitionId}/versions/${created.body.initialVersionId}/validate`,
+  )
+  expect(validated.body.valid).toBe(true)
+
+  const replay = await fetchApi(page, "POST", `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions`, {
+    journeyType: "API",
+    name,
+    description: "live api draft",
+    initialSourceJson: apiStarterSource(name),
+  }, key)
+  expect(replay.status).toBe(200)
+  expect(replay.body.definitionId).toBe(created.body.definitionId)
+  expect(replay.body.creationRequestId).toBe(created.body.creationRequestId)
+})
+
+test("MIXED Manual Editor persists ordered UI and API opcodes", async ({ page }) => {
+  observe(page)
+  await login(page, CLIENT_EMAIL)
+  const name = `Live mixed editor ${CREATION_UNIQUE}`
+  const created = await fetchApi(page, "POST", `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions`, {
+    journeyType: "MIXED",
+    name,
+    description: "live mixed draft",
+    initialSourceJson: mixedStarterSource(name),
+  }, `live-mixed-${CREATION_UNIQUE}`)
+  expect(created.status).toBe(200)
+  creationState.mixedDefinitionId = created.body.definitionId
+  creationState.mixedRequestId = created.body.creationRequestId
+  creationState.mixedVersionId = created.body.initialVersionId
+
+  const version = await fetchApi(
+    page,
+    "GET",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${created.body.definitionId}/versions/${created.body.initialVersionId}`,
+  )
+  expect(version.body.schemaVersion).toBe("1.1")
+  expect(version.body.sourceJson).toContain("api.request")
+  expect(version.body.sourceJson).toContain("ui.navigate")
+  expect(version.body.sourceJson.indexOf("api.request")).toBeLessThan(
+    version.body.sourceJson.indexOf("ui.navigate"),
+  )
+  const validated = await fetchApi(
+    page,
+    "POST",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${created.body.definitionId}/versions/${created.body.initialVersionId}/validate`,
+  )
+  expect(validated.body.valid).toBe(true)
+})
+
+test("UI Manual Editor persists a Schema 1.0 UI definition", async ({ page }) => {
+  observe(page)
+  await login(page, CLIENT_EMAIL)
+  const name = `Live UI editor ${CREATION_UNIQUE}`
+  const created = await fetchApi(page, "POST", `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions`, {
+    journeyType: "UI",
+    name,
+    description: "live ui draft",
+    initialSourceJson: uiStarterSource(name),
+  }, `live-ui-${CREATION_UNIQUE}`)
+  expect(created.status).toBe(200)
+  const version = await fetchApi(
+    page,
+    "GET",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${created.body.definitionId}/versions/${created.body.initialVersionId}`,
+  )
+  expect(version.body.schemaVersion).toBe("1.0")
+  expect(version.body.sourceJson).not.toContain("api.")
+})
+
+test("API journey rejects a UI-only starter with no rows left behind", async ({ page }) => {
+  observe(page)
+  await login(page, CLIENT_EMAIL)
+  const name = `Live API mismatch ${CREATION_UNIQUE}`
+  const before = await fetchApi(
+    page,
+    "GET",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-creation-requests?limit=100`,
+  )
+  const rejected = await fetchApi(page, "POST", `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions`, {
+    journeyType: "API",
+    name,
+    description: "must be rejected",
+    initialSourceJson: uiStarterSource(name),
+  }, `live-mismatch-${CREATION_UNIQUE}`)
+  expect(rejected.status).toBe(400)
+  expect(JSON.stringify(rejected.body)).toContain("not compatible")
+  const after = await fetchApi(
+    page,
+    "GET",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-creation-requests?limit=100`,
+  )
+  expect(after.body.items.some((row: { title: string }) => row.title === name)).toBe(false)
+  expect(after.body.total).toBe(before.body.total)
+})
+
+test("Admin create-draft from an API Manual Request produces a 1.1 API draft", async ({ page }) => {
+  observe(page)
+  await login(page, CLIENT_EMAIL)
+  const title = `Live admin API ${CREATION_UNIQUE}`
+  creationState.adminRequestTitle = title
+  const submitted = await fetchApi(
+    page,
+    "POST",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-creation-requests`,
+    { journeyType: "API", title, description: "needs an engineer" },
+    `live-admin-${CREATION_UNIQUE}`,
+  )
+  expect(submitted.status).toBe(201)
+  expect(submitted.body.definitionId).toBeNull()
+  const requestId = submitted.body.id as number
+
+  await page.evaluate(() => localStorage.removeItem("assuredia.token"))
+  await login(page, ADMIN_EMAIL)
+  const me = await fetchApi(page, "GET", "/dashboard-api/auth/me")
+  const adminUserId = me.body.userId as number
+  const assigned = await fetchApi(
+    page,
+    "POST",
+    `/dashboard-api/admin/test-creation-requests/${requestId}/assign`,
+    { assignedTo: adminUserId },
+  )
+  expect(assigned.body.status).toBe("IN_REVIEW")
+  const started = await fetchApi(
+    page,
+    "POST",
+    `/dashboard-api/admin/test-creation-requests/${requestId}/start`,
+  )
+  expect(started.body.status).toBe("IN_PROGRESS")
+  const drafted = await fetchApi(
+    page,
+    "POST",
+    `/dashboard-api/admin/test-creation-requests/${requestId}/create-draft`,
+    { name: title, description: "implemented by admin" },
+  )
+  expect(drafted.status).toBe(201)
+  expect(drafted.body.definitionId).toBeTruthy()
+
+  const queue = await fetchApi(
+    page,
+    "GET",
+    "/dashboard-api/admin/test-creation-requests?status=DRAFT_CREATED&limit=100",
+  )
+  const row = queue.body.items.find((item: { id: number }) => item.id === requestId)
+  expect(row.status).toBe("DRAFT_CREATED")
+  expect(row.journeyType).toBe("API")
+  expect(row.definitionId).toBe(drafted.body.definitionId)
+
+  const version = await fetchApi(
+    page,
+    "GET",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${drafted.body.definitionId}/versions/${drafted.body.initialVersionId}`,
+  )
+  expect(version.status).toBe(200)
+  expect(version.body.schemaVersion).toBe("1.1")
+  expect(version.body.sourceJson).toContain("api.request")
+  const validated = await fetchApi(
+    page,
+    "POST",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${drafted.body.definitionId}/versions/${drafted.body.initialVersionId}/validate`,
+  )
+  expect(validated.body.valid).toBe(true)
+})
+
+test("client opens the resulting API definition from the request", async ({ page }) => {
+  observe(page)
+  await login(page, CLIENT_EMAIL)
+  await page.getByRole("button", { name: "Creation Requests" }).first().click()
+  await page.getByRole("button", { name: creationState.adminRequestTitle! }).first().click()
+  await page.getByRole("button", { name: "Open Test Definition" }).click()
+  const editor = page.locator("#testdef-source-editor")
+  await expect(editor).toBeVisible()
+  const source = await editor.inputValue()
+  expect(JSON.parse(source).schemaVersion).toBe("1.1")
+  expect(source).toContain("api.request")
+})
+
 test("no request ever left the local machine and the console stayed clean", async ({ page }) => {
   // The negative scenarios deliberately provoke 4xx responses; the browser logs
   // each of those as a console entry. They are expected and attributable. Anything

@@ -27,6 +27,7 @@ export function TestDefinitionsPage({
   showPageHeader = true,
   headerEyebrow,
   headerSubtitle,
+  initialDefinitionId,
 }: {
   clientId: number
   clientName: string
@@ -39,9 +40,12 @@ export function TestDefinitionsPage({
   showPageHeader?: boolean
   headerEyebrow?: string
   headerSubtitle?: string
+  initialDefinitionId?: number | null
 }) {
   const { t } = useLang()
-  const [view, setView] = useState<View>({ kind: "list" })
+  const [view, setView] = useState<View>(
+    initialDefinitionId != null ? { kind: "detail", definitionId: initialDefinitionId } : { kind: "list" },
+  )
   /* Bumped after a mutation so the list re-reads when it comes back into view. */
   const [listVersion, setListVersion] = useState(0)
 

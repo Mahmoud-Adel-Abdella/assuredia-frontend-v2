@@ -32,10 +32,13 @@ const state = {
   nextVersionId: 1,
   nextRunId: 1,
   nextArtifactId: 1,
+  nextCreationId: 1,
   definitions: new Map(),
   versions: new Map(),
   runs: new Map(),
   idempotency: new Map(),
+  creations: new Map(),
+  creationIdempotency: new Map(),
   /** Set by the spec to make the next proving run fail instead of pass. */
   nextExecutionStatus: "PASSED",
 }
@@ -360,10 +363,13 @@ const server = createServer(async (req, res) => {
     state.versions.clear()
     state.runs.clear()
     state.idempotency.clear()
+    state.creations.clear()
+    state.creationIdempotency.clear()
     state.nextDefinitionId = 1
     state.nextVersionId = 1
     state.nextRunId = 1
     state.nextArtifactId = 1
+    state.nextCreationId = 1
     state.nextExecutionStatus = "PASSED"
     return json(res, 200, { ok: true })
   }
@@ -436,6 +442,115 @@ const server = createServer(async (req, res) => {
     })
   }
 
+  /* ---- Test Creation Requests (PR10A mock) --------------------------- */
+  function creationRow(c) {
+    return { ...c }
+  }
+  function createCreation({ journeyType, title, description, flowId, method }) {
+    const now = nowIso()
+    const row = {
+      id: state.nextCreationId++,
+      clientId: CLIENT.id,
+      flowId: flowId ?? null,
+      journeyType,
+      creationMethod: method,
+      status: method === "MANUAL_EDITOR" ? "DRAFT_CREATED" : "SUBMITTED",
+      requestedBy: 1,
+      assignedTo: null,
+      definitionId: null,
+      title,
+      description: description ?? null,
+      decisionReason: null,
+      failureCode: null,
+      failureMessage: null,
+      versionLock: 1,
+      createdAt: now,
+      updatedAt: now,
+      completedAt: null,
+    }
+    state.creations.set(row.id, row)
+    return row
+  }
+  const creationRoot = `/dashboard-api/clients/${CLIENT.id}/test-creation-requests`
+  if (path.startsWith("/dashboard-api/clients/") && path.includes("/test-creation-requests")) {
+    if (!path.startsWith(creationRoot)) return error(res, 404, "This client does not exist")
+    const rest = path.slice(creationRoot.length).replace(/^\//, "")
+    const segments = rest === "" ? [] : rest.split("/")
+    if (segments.length === 0 && method === "GET") {
+      const status = (url.searchParams.get("status") ?? "").toUpperCase()
+      const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") ?? 50), 100))
+      const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0))
+      const all = [...state.creations.values()]
+        .filter((c) => (status === "" || c.status === status))
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      return json(res, 200, { items: all.slice(offset, offset + limit).map(creationRow), total: all.length, limit, offset })
+    }
+    if (segments.length === 0 && method === "POST") {
+      const key = req.headers["idempotency-key"]
+      if (!key) return error(res, 400, "Idempotency-Key header is required")
+      const body = await readBody(req)
+      const journeyType = (body?.journeyType ?? "").trim()
+      const title = (body?.title ?? "").trim()
+      if (!["UI", "API", "MIXED"].includes(journeyType)) return error(res, 400, "Invalid journeyType")
+      if (!title || title.length > 120) return error(res, 400, "Title must be between 1 and 120 characters")
+      if ((body?.description ?? "")?.length > 2000) return error(res, 400, "Description is too long")
+      const fingerprint = JSON.stringify([journeyType, title, body?.description ?? null, body?.flowId ?? null])
+      const existing = state.creationIdempotency.get(`${CLIENT.id}:${key}`)
+      if (existing) {
+        if (existing.fingerprint !== fingerprint) return error(res, 409, "Idempotency key reused with different request parameters")
+        return json(res, 201, creationRow(existing.row))
+      }
+      const row = createCreation({ journeyType, title, description: body?.description ?? null, flowId: body?.flowId ?? null, method: "MANUAL_REQUEST" })
+      state.creationIdempotency.set(`${CLIENT.id}:${key}`, { row, fingerprint })
+      return json(res, 201, creationRow(row))
+    }
+    const creation = state.creations.get(Number(segments[0]))
+    if (!creation) return error(res, 404, "Test creation request not found")
+    if (segments.length === 1 && method === "GET") return json(res, 200, creationRow(creation))
+    if (segments.length === 2 && segments[1] === "cancel" && method === "POST") {
+      if (!["SUBMITTED", "IN_REVIEW"].includes(creation.status)) return error(res, 409, "Request cannot be cancelled in its current status")
+      creation.status = "CANCELLED"
+      creation.completedAt = nowIso()
+      creation.updatedAt = nowIso()
+      creation.versionLock += 1
+      return json(res, 200, creationRow(creation))
+    }
+    return error(res, 404, "Test creation request not found")
+  }
+  if (path === "/dashboard-api/admin/test-creation-requests" && method === "GET") {
+    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") ?? 50), 100))
+    const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0))
+    const all = [...state.creations.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    return json(res, 200, { items: all.slice(offset, offset + limit).map(creationRow), limit, offset })
+  }
+  const adminAction = path.match(/^\/dashboard-api\/admin\/test-creation-requests\/(\d+)\/(assign|start|reject|create-draft)$/)
+  if (adminAction && method === "POST") {
+    const row = state.creations.get(Number(adminAction[1]))
+    if (!row) return error(res, 404, "Test creation request not found")
+    const kind = adminAction[2]
+    const body = await readBody(req)
+    if (kind === "assign") {
+      row.status = "IN_REVIEW"
+      row.assignedTo = 1
+    } else if (kind === "start") {
+      if (row.status !== "IN_REVIEW") return error(res, 409, "Stale update: request was modified concurrently")
+      row.status = "IN_PROGRESS"
+    } else if (kind === "reject") {
+      if (!body?.decisionReason?.trim()) return error(res, 400, "decisionReason is required")
+      row.status = "REJECTED"
+      row.decisionReason = body.decisionReason.trim()
+      row.completedAt = nowIso()
+    } else {
+      if (row.status !== "IN_PROGRESS") return error(res, 409, "Stale update: request was modified concurrently")
+      row.status = "DRAFT_CREATED"
+      row.definitionId = 900 + row.id
+      row.completedAt = nowIso()
+    }
+    row.updatedAt = nowIso()
+    row.versionLock += 1
+    return json(res, kind === "create-draft" ? 201 : 200, creationRow(row))
+  }
+
   /* ---- Test Definitions ---------------------------------------------- */
   const tenantRoot = `/dashboard-api/clients/${CLIENT.id}/test-definitions`
   if (path.startsWith(`/dashboard-api/clients/`) && path.includes("/test-definitions")) {
@@ -464,6 +579,36 @@ const server = createServer(async (req, res) => {
 
     if (segments.length === 0 && method === "POST") {
       const body = await readBody(req)
+      if (body?.journeyType != null && body.journeyType !== "") {
+        const jt = String(body.journeyType).trim()
+        if (!["UI", "API", "MIXED"].includes(jt)) return error(res, 400, "Invalid journeyType")
+        // Mirror the backend's journey/definition compatibility gate: a journeyed
+        // draft must carry a matching schema or it is rejected before persistence.
+        const rawSource = typeof body?.initialSourceJson === "string" ? body.initialSourceJson.trim() : ""
+        if (rawSource !== "") {
+          let doc = null
+          try {
+            doc = JSON.parse(rawSource)
+          } catch {
+            return error(res, 400, "Definition source is not a valid test definition")
+          }
+          const version = doc?.schemaVersion === "1.1" ? "1.1" : "1.0"
+          const hasApi = rawSource.includes('"action": "api.')
+          const hasUi = rawSource.includes('"action": "ui.')
+          const compatible =
+            jt === "UI" ? hasUi && !hasApi
+            : jt === "API" ? version === "1.1" && hasApi && !hasUi
+            : version === "1.1" && hasApi && hasUi
+          if (!compatible) return error(res, 400, `Definition is not compatible with journey type ${jt}`)
+        }
+        const key = req.headers["idempotency-key"]
+        const fp = JSON.stringify([jt, (body?.name ?? "").trim(), body?.description ?? null, body?.flowId ?? null, body?.initialSourceJson ?? null])
+        if (key) {
+          const hit = state.creationIdempotency.get(`${CLIENT.id}:${key}`)
+          if (hit && hit.fingerprint === fp) return json(res, 200, creationRow(hit.row))
+          if (hit) return error(res, 409, "Idempotency key reused with different request parameters")
+        }
+      }
       const name = (body?.name ?? "").trim()
       if (name === "") return error(res, 400, "Definition name cannot be blank")
       if (name.length > 120) return error(res, 400, "Definition name cannot exceed 120 characters")
@@ -488,15 +633,48 @@ const server = createServer(async (req, res) => {
       }
       state.definitions.set(definition.id, definition)
 
+      const journeyForFallback =
+        body?.journeyType != null && body.journeyType !== "" ? String(body.journeyType).trim() : "UI"
+      const fallbackSource =
+        journeyForFallback === "API"
+          ? {
+              schemaVersion: "1.1",
+              metadata: { name, tags: ["api"] },
+              steps: [
+                { action: "api.request", method: "GET", url: "/api/v1/health", headers: { Accept: "application/json" } },
+                { action: "api.extract", jsonPath: "$.status", variable: "healthStatus" },
+              ],
+              expectedOutcomes: [
+                { action: "api.assertStatus", expected: 200 },
+                { action: "api.assertHeader", header: "Content-Type", expected: "application/json", matcher: "contains" },
+                { action: "api.assertJsonPath", path: "$.status", expected: "UP" },
+                { action: "api.assertResponseTime", maxDurationMs: 2000 },
+              ],
+            }
+          : journeyForFallback === "MIXED"
+            ? {
+                schemaVersion: "1.1",
+                metadata: { name, tags: ["mixed"] },
+                steps: [
+                  { action: "api.request", method: "POST", url: "/api/auth/token", body: '{"user":"admin"}' },
+                  { action: "api.extract", jsonPath: "$.token", variable: "sessionToken", sensitive: true },
+                  { action: "ui.navigate", url: "/app/dashboard" },
+                ],
+                expectedOutcomes: [
+                  { action: "api.assertStatus", expected: 200 },
+                  { action: "ui.assertUrl", expected: "/app/dashboard" },
+                ],
+              }
+            : {
+                schemaVersion: "1.0",
+                metadata: { name },
+                steps: [{ action: "ui.wait", for: "duration", durationMs: 100 }],
+                expectedOutcomes: [{ action: "ui.assertVisible", locator: { strategy: "css", value: "body" } }],
+              }
       const sourceJson = body?.initialSourceJson?.trim()
         ? body.initialSourceJson.trim()
         : JSON.stringify(
-            {
-              schemaVersion: "1.0",
-              metadata: { name },
-              steps: [{ action: "ui.wait", for: "duration", durationMs: 100 }],
-              expectedOutcomes: [{ action: "ui.assertVisible", locator: { strategy: "css", value: "body" } }],
-            },
+            fallbackSource,
             null,
             2,
           )
@@ -522,6 +700,39 @@ const server = createServer(async (req, res) => {
         updatedAt: nowIso(),
       }
       state.versions.set(version.id, version)
+
+      if (body?.journeyType != null && body.journeyType !== "") {
+        const now = nowIso()
+        const row = {
+          id: state.nextCreationId++,
+          clientId: CLIENT.id,
+          flowId: definition.flowId,
+          journeyType: String(body.journeyType).trim(),
+          creationMethod: "MANUAL_EDITOR",
+          status: "DRAFT_CREATED",
+          requestedBy: 1,
+          assignedTo: null,
+          definitionId: definition.id,
+          title: name,
+          description: definition.description,
+          decisionReason: null,
+          failureCode: null,
+          failureMessage: null,
+          versionLock: 1,
+          createdAt: now,
+          updatedAt: now,
+          completedAt: now,
+        }
+        state.creations.set(row.id, row)
+        const key = req.headers["idempotency-key"]
+        if (key) {
+          state.creationIdempotency.set(`${CLIENT.id}:${key}`, {
+            row,
+            fingerprint: JSON.stringify([row.journeyType, name, definition.description, definition.flowId, body?.initialSourceJson ?? null]),
+          })
+        }
+        return json(res, 200, { ...creationRow(row), creationRequestId: row.id })
+      }
 
       return json(res, 200, {
         definitionId: definition.id,
