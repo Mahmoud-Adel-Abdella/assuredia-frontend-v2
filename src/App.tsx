@@ -10,8 +10,14 @@ import { Requests } from "./components/Requests"
 import { AiAnalysis } from "./components/AiAnalysis"
 import { AdminShell } from "./components/admin/AdminShell"
 import { LoginScreen } from "./components/LoginScreen"
-import { SelfServiceOnboarding, SignedUpUser } from "./components/SelfServiceOnboarding"
-import { OAuthCompleteScreen, isOauthCompletePath } from "./components/OAuthComplete"
+import {
+  SelfServiceOnboarding,
+  SignedUpUser,
+} from "./components/SelfServiceOnboarding"
+import {
+  OAuthCompleteScreen,
+  isOauthCompletePath,
+} from "./components/OAuthComplete"
 import { LiveRunView } from "./components/LiveRunView"
 import { AutomationRunView } from "./components/AutomationRunView"
 import { Feedback } from "./components/Feedback"
@@ -24,7 +30,12 @@ import { cx, Spinner, ToastProvider, useToast } from "./components/primitives"
 import { AuthProvider, useAuth } from "./lib/auth"
 import { LanguageProvider, useLang } from "./lib/i18n"
 import { useTheme } from "./lib/theme"
-import { ApiError, apiAlertsUnreadCount, apiRunFlow, type AssetRequestType } from "./lib/api"
+import {
+  ApiError,
+  apiAlertsUnreadCount,
+  apiRunFlow,
+  type AssetRequestType,
+} from "./lib/api"
 import type { AutomationRunStart } from "./lib/automations"
 import type { LiveRunSession } from "./lib/runData"
 
@@ -44,7 +55,13 @@ function ThemeToggle() {
       className="rounded-lg border border-slate-200 bg-surface p-2 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
     >
       {dark ? (
-        <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg
+          className="size-5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -52,7 +69,13 @@ function ThemeToggle() {
           />
         </svg>
       ) : (
-        <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg
+          className="size-5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        >
           <circle cx="12" cy="12" r="4" />
           <path
             strokeLinecap="round"
@@ -64,15 +87,32 @@ function ThemeToggle() {
   )
 }
 
-function Header({ onMenu, alertsUnread, onBell, onHelp }: { onMenu: () => void; alertsUnread: number; onBell: () => void; onHelp: () => void }) {
+function Header({
+  onMenu,
+  alertsUnread,
+  onBell,
+  onHelp,
+}: {
+  onMenu: () => void
+  alertsUnread: number
+  onBell: () => void
+  onHelp: () => void
+}) {
   const { user } = useAuth()
   const { t } = useLang()
   const hour = new Date().getHours()
   const greeting = t(
-    hour < 12 ? "header.goodMorning" : hour < 18 ? "header.goodAfternoon" : "header.goodEvening",
+    hour < 12
+      ? "header.goodMorning"
+      : hour < 18
+        ? "header.goodAfternoon"
+        : "header.goodEvening",
   )
   const firstName = user?.name?.trim().split(/\s+/)[0]
-  const bellLabel = alertsUnread > 0 ? t("header.unreadAlerts", { count: alertsUnread }) : t("nav.alerts")
+  const bellLabel =
+    alertsUnread > 0
+      ? t("header.unreadAlerts", { count: alertsUnread })
+      : t("nav.alerts")
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-background/80 backdrop-blur-md">
@@ -82,7 +122,13 @@ function Header({ onMenu, alertsUnread, onBell, onHelp }: { onMenu: () => void; 
           className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
           aria-label="Open navigation"
         >
-          <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            className="size-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
@@ -100,10 +146,15 @@ function Header({ onMenu, alertsUnread, onBell, onHelp }: { onMenu: () => void; 
           {/* Status indicator */}
           <div className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 sm:inline-flex">
             <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full rounded-full bg-success" style={{ animation: "pulse-ring 2s infinite" }} />
+              <span
+                className="absolute inline-flex size-full rounded-full bg-success"
+                style={{ animation: "pulse-ring 2s infinite" }}
+              />
               <span className="relative inline-flex size-2 rounded-full bg-success" />
             </span>
-            <span className="text-[13px] font-semibold text-emerald-700">{t("header.allSystems")}</span>
+            <span className="text-[13px] font-semibold text-emerald-700">
+              {t("header.allSystems")}
+            </span>
           </div>
 
           <ThemeToggle />
@@ -114,8 +165,18 @@ function Header({ onMenu, alertsUnread, onBell, onHelp }: { onMenu: () => void; 
             title={bellLabel}
             className="relative rounded-lg border border-slate-200 bg-surface p-2 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
           >
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" />
+            <svg
+              className="size-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"
+              />
             </svg>
             {alertsUnread > 0 && (
               <span className="absolute -end-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-error px-1 text-[9px] font-bold leading-none text-white ring-2 ring-surface">
@@ -131,10 +192,26 @@ function Header({ onMenu, alertsUnread, onBell, onHelp }: { onMenu: () => void; 
             title={t("header.help")}
             className="rounded-lg border border-slate-200 bg-surface p-2 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
           >
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <svg
+              className="size-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
               <circle cx="12" cy="12" r="10" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
-              <circle cx="12" cy="17" r=".5" fill="currentColor" stroke="none" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"
+              />
+              <circle
+                cx="12"
+                cy="17"
+                r=".5"
+                fill="currentColor"
+                stroke="none"
+              />
             </svg>
           </button>
         </div>
@@ -192,7 +269,10 @@ function AppInner() {
   /** The run currently open in the live RunDetail view (Phase 4). */
   const [liveRun, setLiveRun] = useState<LiveRunSession | null>(null)
   /** The aggregate automation execution currently open (Phase 5 remediation). */
-  const [automationRun, setAutomationRun] = useState<{ target: AutomationRunStart; name: string } | null>(null)
+  const [automationRun, setAutomationRun] = useState<{
+    target: AutomationRunStart
+    name: string
+  } | null>(null)
   /** Real unread-alerts count behind the bell + sidebar badge (Phase 7). */
   const [alertsUnread, setAlertsUnread] = useState(0)
   /** Bumped by the Alerts page after read/resolve so the count refreshes. */
@@ -200,13 +280,20 @@ function AppInner() {
   /** Run deep-linked from an alert — consumed by Run History. */
   const [pendingRunId, setPendingRunId] = useState<string | null>(null)
   /** Preselected request type when the Flows page opens a request form. */
-  const [pendingRequest, setPendingRequest] = useState<{ type: AssetRequestType; flowId?: number } | null>(null)
+  const [pendingRequest, setPendingRequest] = useState<{
+    type: AssetRequestType
+    flowId?: number
+  } | null>(null)
   /** Test Definition deep-linked from a DRAFT_CREATED creation request. */
-  const [pendingDefinitionId, setPendingDefinitionId] = useState<number | null>(null)
+  const [pendingDefinitionId, setPendingDefinitionId] = useState<number | null>(
+    null,
+  )
   /** Run/execution deep-linked via "View AI Analysis" — consumed by the AI Analysis page. */
   const [aiOpenRunId, setAiOpenRunId] = useState<string | null>(null)
   /** True when the page loaded on the OAuth callback route (/oauth/complete). */
-  const [oauthComplete, setOauthComplete] = useState(() => isOauthCompletePath())
+  const [oauthComplete, setOauthComplete] = useState(() =>
+    isOauthCompletePath(),
+  )
 
   /** Open one run's AI analysis on the AI Analysis page (stable run/execution id). */
   function openAiAnalysis(runId: string) {
@@ -262,7 +349,11 @@ function AppInner() {
   async function handleRunAgain() {
     if (!liveRun || user?.clientId == null) return
     try {
-      const res = await apiRunFlow(user.clientId, liveRun.flowId, liveRun.options)
+      const res = await apiRunFlow(
+        user.clientId,
+        liveRun.flowId,
+        liveRun.options,
+      )
       setLiveRun({ ...liveRun, runId: res.runId, totalTests: res.totalTests })
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -279,7 +370,10 @@ function AppInner() {
       }
       toast({
         title: "Could not start the run",
-        description: err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+        description:
+          err instanceof ApiError
+            ? err.message
+            : "Something went wrong. Please try again.",
         variant: "error",
       })
     }
@@ -318,7 +412,10 @@ function AppInner() {
       }
       toast({
         title: "Could not start the run",
-        description: err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+        description:
+          err instanceof ApiError
+            ? err.message
+            : "Something went wrong. Please try again.",
         variant: "error",
       })
     }
@@ -364,7 +461,10 @@ function AppInner() {
         key={publicView}
         initialTab={publicView === "signup" ? "signup" : "login"}
         onSignIn={() => setAuthedView("client")}
-        onSignUp={(u) => { setSignedUpUser(u); setPublicView("onboarding") }}
+        onSignUp={(u) => {
+          setSignedUpUser(u)
+          setPublicView("onboarding")
+        }}
         onBack={() => setPublicView("landing")}
       />
     )
@@ -387,7 +487,9 @@ function AppInner() {
         <Sidebar
           active={active}
           onSelect={setActive}
-          onAdmin={user?.role === "ADMIN" ? () => setAuthedView("admin") : undefined}
+          onAdmin={
+            user?.role === "ADMIN" ? () => setAuthedView("admin") : undefined
+          }
           onLogout={handleLogout}
           userName={user?.name}
           userEmail={user?.email}
@@ -414,8 +516,18 @@ function AppInner() {
               active={active}
               onSelect={setActive}
               onNavigate={() => setMobileOpen(false)}
-              onAdmin={user?.role === "ADMIN" ? () => { setAuthedView("admin"); setMobileOpen(false) } : undefined}
-              onLogout={() => { handleLogout(); setMobileOpen(false) }}
+              onAdmin={
+                user?.role === "ADMIN"
+                  ? () => {
+                      setAuthedView("admin")
+                      setMobileOpen(false)
+                    }
+                  : undefined
+              }
+              onLogout={() => {
+                handleLogout()
+                setMobileOpen(false)
+              }}
               userName={user?.name}
               userEmail={user?.email}
               clientName={user?.clientName}
@@ -537,7 +649,11 @@ function AppInner() {
               onAlertsChanged={() => setAlertsVersion((v) => v + 1)}
             />
           ) : active === "settings" ? (
-            <Settings active={active} onSelect={setActive} onLogout={handleLogout} />
+            <Settings
+              active={active}
+              onSelect={setActive}
+              onLogout={handleLogout}
+            />
           ) : active === "history" ? (
             <RunHistory
               active={active}

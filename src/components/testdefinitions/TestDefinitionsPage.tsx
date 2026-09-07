@@ -5,7 +5,10 @@ import { TestDefinitionCreate } from "./TestDefinitionCreate"
 import { TestDefinitionDetail } from "./TestDefinitionDetail"
 import { TestDefinitionList } from "./TestDefinitionList"
 
-type View = { kind: "list" } | { kind: "create" } | { kind: "detail"; definitionId: number }
+type View = { kind: "list" } | { kind: "create" } | {
+  kind: "detail"
+  definitionId: number
+}
 
 /**
  * The Test Definitions area for one client environment.
@@ -28,6 +31,7 @@ export function TestDefinitionsPage({
   headerEyebrow,
   headerSubtitle,
   initialDefinitionId,
+  /** False when the host already rendered its own page header (the admin console). */
 }: {
   clientId: number
   clientName: string
@@ -36,7 +40,6 @@ export function TestDefinitionsPage({
   active?: string
   onSelect?: (key: string) => void
   showWorkspaceHeader?: boolean
-  /** False when the host already rendered its own page header (the admin console). */
   showPageHeader?: boolean
   headerEyebrow?: string
   headerSubtitle?: string
@@ -44,7 +47,9 @@ export function TestDefinitionsPage({
 }) {
   const { t } = useLang()
   const [view, setView] = useState<View>(
-    initialDefinitionId != null ? { kind: "detail", definitionId: initialDefinitionId } : { kind: "list" },
+    initialDefinitionId != null
+      ? { kind: "detail", definitionId: initialDefinitionId }
+      : { kind: "list" },
   )
   /* Bumped after a mutation so the list re-reads when it comes back into view. */
   const [listVersion, setListVersion] = useState(0)
@@ -57,7 +62,9 @@ export function TestDefinitionsPage({
   if (view.kind === "detail") {
     return (
       <div className="space-y-6">
-        {showWorkspaceHeader && onSelect && <WorkspaceHeader active={active} onSelect={onSelect} />}
+        {showWorkspaceHeader && onSelect && (
+          <WorkspaceHeader active={active} onSelect={onSelect} />
+        )}
         <TestDefinitionDetail
           clientId={clientId}
           clientName={clientName}
@@ -74,7 +81,9 @@ export function TestDefinitionsPage({
   if (view.kind === "create") {
     return (
       <div className="space-y-6">
-        {showWorkspaceHeader && onSelect && <WorkspaceHeader active={active} onSelect={onSelect} />}
+        {showWorkspaceHeader && onSelect && (
+          <WorkspaceHeader active={active} onSelect={onSelect} />
+        )}
         <TestDefinitionCreate
           clientId={clientId}
           clientName={clientName}
@@ -91,7 +100,9 @@ export function TestDefinitionsPage({
 
   return (
     <div className="space-y-6">
-      {showWorkspaceHeader && onSelect && <WorkspaceHeader active={active} onSelect={onSelect} />}
+      {showWorkspaceHeader && onSelect && (
+        <WorkspaceHeader active={active} onSelect={onSelect} />
+      )}
       {showPageHeader && (
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -101,7 +112,9 @@ export function TestDefinitionsPage({
             <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-navy">
               {t("testdef.title")}
             </h1>
-            <p className="mt-1 text-[13px] text-slate-500">{headerSubtitle ?? t("testdef.subtitle")}</p>
+            <p className="mt-1 text-[13px] text-slate-500">
+              {headerSubtitle ?? t("testdef.subtitle")}
+            </p>
           </div>
         </div>
       )}

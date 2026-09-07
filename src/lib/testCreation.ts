@@ -130,7 +130,10 @@ export function adminActionsFor(
 
 export function requiresActionCount(
   rows: TestCreationRequest[],
-  opts: { isAdmin: boolean; userId: number | null },
+  opts: {
+    isAdmin: boolean
+    userId: number | null
+  },
 ): number {
   if (!opts.isAdmin) return 0
   return rows.filter((r) => {
@@ -211,15 +214,25 @@ export function newIdempotencyKey(): string {
   )
 }
 
-export type CreationFailure =
-  | { kind: "validation"; message: string }
-  | { kind: "unauthenticated" }
-  | { kind: "forbidden" }
-  | { kind: "notFound" }
-  | { kind: "conflict"; message: string; requiresReload: boolean }
-  | { kind: "unavailable"; message: string }
-  | { kind: "network"; retrySameKey: boolean }
-  | { kind: "unexpected"; message: string }
+export type CreationFailure = {
+  kind: "validation"
+  message: string
+} | {
+  kind: "unauthenticated"
+} | { kind: "forbidden" } | { kind: "notFound" } | {
+  kind: "conflict"
+  message: string
+  requiresReload: boolean
+} | {
+  kind: "unavailable"
+  message: string
+} | {
+  kind: "network"
+  retrySameKey: boolean
+} | {
+  kind: "unexpected"
+  message: string
+}
 
 export function mapCreationFailure(err: unknown): CreationFailure {
   if (err instanceof ApiError) {

@@ -269,7 +269,10 @@ export function TestCreationWizard({
             name: title.trim(),
             description: description.trim(),
             flowId: parsedFlowId,
-            initialSourceJson: starterDefinitionSource(title.trim(), journeyType),
+            initialSourceJson: starterDefinitionSource(
+              title.trim(),
+              journeyType,
+            ),
           },
           key,
         )

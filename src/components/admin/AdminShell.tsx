@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react"
 import { cx } from "../primitives"
 import { useLang } from "../../lib/i18n"
-import { apiAlertsUnreadCount, apiListAdminAssetRequests, apiListOnboardingRequests } from "../../lib/api"
+import {
+  apiAlertsUnreadCount,
+  apiListAdminAssetRequests,
+  apiListOnboardingRequests,
+} from "../../lib/api"
 import { AssureMark } from "../Sidebar"
 import { AdminDashboard } from "./AdminDashboard"
 import { AdminClients } from "./AdminClients"
@@ -19,8 +23,16 @@ import { ComponentShowcase } from "../ComponentShowcase"
 /* ------------------------------------------------------------------ */
 /* Admin sidebar                                                      */
 /* ------------------------------------------------------------------ */
-type NavItem = { key: string; labelKey: string; icon: React.ReactNode; badge?: number }
-type NavGroup = { titleKey: string; items: NavItem[] }
+type NavItem = {
+  key: string
+  labelKey: string
+  icon: React.ReactNode
+  badge?: number
+}
+type NavGroup = {
+  titleKey: string
+  items: NavItem[]
+}
 
 function NavIcon({ children }: { children: React.ReactNode }) {
   return <>{children}</>
@@ -34,7 +46,13 @@ const GROUPS: NavGroup[] = [
         key: "dashboard",
         labelKey: "admin.navDashboard",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
             <rect x="3" y="3" width="7" height="9" rx="1.5" />
             <rect x="14" y="3" width="7" height="5" rx="1.5" />
             <rect x="14" y="12" width="7" height="9" rx="1.5" />
@@ -46,10 +64,24 @@ const GROUPS: NavGroup[] = [
         key: "clients",
         labelKey: "admin.navClients",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"
+            />
             <circle cx="9" cy="7" r="4" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
+            />
           </svg>
         ),
       },
@@ -57,8 +89,18 @@ const GROUPS: NavGroup[] = [
         key: "requests",
         labelKey: "admin.navRequests",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5l5 5v11a2 2 0 01-2 2z" />
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5l5 5v11a2 2 0 01-2 2z"
+            />
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 3v5h5" />
           </svg>
         ),
@@ -67,10 +109,32 @@ const GROUPS: NavGroup[] = [
         key: "asset-requests",
         labelKey: "admin.navAssetRequests",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-            <rect x="9" y="3" width="6" height="4" rx="1" strokeLinecap="round" strokeLinejoin="round" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6M9 16h4" />
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"
+            />
+            <rect
+              x="9"
+              y="3"
+              width="6"
+              height="4"
+              rx="1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12h6M9 16h4"
+            />
           </svg>
         ),
       },
@@ -78,9 +142,23 @@ const GROUPS: NavGroup[] = [
         key: "runs",
         labelKey: "admin.navRuns",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 12a8.5 8.5 0 108.5-8.5A8.5 8.5 0 004 8" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v4h4M12 7.5V12l3 2" />
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3.5 12a8.5 8.5 0 108.5-8.5A8.5 8.5 0 004 8"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4 4v4h4M12 7.5V12l3 2"
+            />
           </svg>
         ),
       },
@@ -88,10 +166,24 @@ const GROUPS: NavGroup[] = [
         key: "test-definitions",
         labelKey: "admin.navTestDefinitions",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" />
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z"
+            />
             <path strokeLinecap="round" strokeLinejoin="round" d="M14 3v5h5" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 13.5L11 15l-1.5 1.5M13 16.5h2" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9.5 13.5L11 15l-1.5 1.5M13 16.5h2"
+            />
           </svg>
         ),
       },
@@ -99,8 +191,18 @@ const GROUPS: NavGroup[] = [
         key: "feedback",
         labelKey: "admin.navFeedback",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M8 10h8M8 14h5M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+            />
           </svg>
         ),
       },
@@ -113,9 +215,23 @@ const GROUPS: NavGroup[] = [
         key: "alerts",
         labelKey: "nav.alerts",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.7 21a2 2 0 01-3.4 0" />
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M13.7 21a2 2 0 01-3.4 0"
+            />
           </svg>
         ),
       },
@@ -137,8 +253,18 @@ const GROUPS: NavGroup[] = [
         key: "creation-queue",
         labelKey: "admin.navCreationQueue",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+            />
           </svg>
         ),
       },
@@ -151,11 +277,21 @@ const GROUPS: NavGroup[] = [
         key: "design-system",
         labelKey: "admin.navDesignSystem",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
             <rect x="2" y="3" width="8" height="8" rx="2" />
             <rect x="14" y="3" width="8" height="8" rx="2" />
             <rect x="2" y="14" width="8" height="8" rx="2" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18 14v8m-4-4h8" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M18 14v8m-4-4h8"
+            />
           </svg>
         ),
       },
@@ -163,9 +299,19 @@ const GROUPS: NavGroup[] = [
         key: "settings",
         labelKey: "nav.settings",
         icon: (
-          <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg
+            className="size-[18px]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
             <circle cx="12" cy="12" r="3" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.77.66 1.65 1.65 0 01-3.16 0 1.65 1.65 0 00-2.77-.66l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.77.66 1.65 1.65 0 01-3.16 0 1.65 1.65 0 00-2.77-.66l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
+            />
           </svg>
         ),
       },
@@ -226,7 +372,10 @@ function AdminSidebar({
                 return (
                   <button
                     key={item.key}
-                    onClick={() => { onSelect(item.key); onNavigate?.() }}
+                    onClick={() => {
+                      onSelect(item.key)
+                      onNavigate?.()
+                    }}
                     className={cx(
                       "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                       isActive
@@ -237,10 +386,18 @@ function AdminSidebar({
                     {isActive && (
                       <span className="absolute start-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-e-full bg-brand-900" />
                     )}
-                    <span className={cx(isActive ? "text-brand-400" : "text-slate-400 group-hover:text-slate-500")}>
+                    <span
+                      className={cx(
+                        isActive
+                          ? "text-brand-400"
+                          : "text-slate-400 group-hover:text-slate-500",
+                      )}
+                    >
                       {item.icon}
                     </span>
-                    <span className="flex-1 text-start">{t(item.labelKey)}</span>
+                    <span className="flex-1 text-start">
+                      {t(item.labelKey)}
+                    </span>
                     {(() => {
                       const badgeCount =
                         item.key === "requests"
@@ -275,8 +432,12 @@ function AdminSidebar({
             SA
           </div>
           <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-[13px] font-semibold text-slate-800">{t("admin.platformAdmin")}</p>
-            <p className="truncate text-[11px] text-amber-600">{t("admin.superAdminGlobal")}</p>
+            <p className="truncate text-[13px] font-semibold text-slate-800">
+              {t("admin.platformAdmin")}
+            </p>
+            <p className="truncate text-[11px] text-amber-600">
+              {t("admin.superAdminGlobal")}
+            </p>
           </div>
         </div>
         {/* Exit to client */}
@@ -284,8 +445,15 @@ function AdminSidebar({
           onClick={onExit}
           className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800"
         >
-          <svg className="size-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" />
+          <svg
+            className="size-4 text-slate-400"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
+            />
           </svg>
           {t("admin.exitToClient")}
         </button>
@@ -300,11 +468,16 @@ function AdminSidebar({
 export function AdminShell({ onExit }: { onExit: () => void }) {
   const [active, setActive] = useState("dashboard")
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [pendingDefinition, setPendingDefinition] = useState<{ clientId: number; definitionId: number } | null>(null)
+  const [pendingDefinition, setPendingDefinition] = useState<{
+    clientId: number
+    definitionId: number
+  } | null>(null)
   const { t } = useLang()
 
   /* Real pending Onboarding Requests count behind the sidebar badge. */
-  const [onboardingPending, setOnboardingPending] = useState<number | null>(null)
+  const [onboardingPending, setOnboardingPending] = useState<number | null>(
+    null,
+  )
   const refreshOnboardingPending = useCallback(() => {
     let activeReq = true
     apiListOnboardingRequests("PENDING")
@@ -405,7 +578,13 @@ export function AdminShell({ onExit }: { onExit: () => void }) {
               className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
               aria-label={t("admin.openNav")}
             >
-              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="size-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -421,10 +600,15 @@ export function AdminShell({ onExit }: { onExit: () => void }) {
               {/* Live indicator */}
               <div className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 sm:inline-flex">
                 <span className="relative flex size-2">
-                  <span className="absolute inline-flex size-full rounded-full bg-success" style={{ animation: "pulse-ring 2s infinite" }} />
+                  <span
+                    className="absolute inline-flex size-full rounded-full bg-success"
+                    style={{ animation: "pulse-ring 2s infinite" }}
+                  />
                   <span className="relative inline-flex size-2 rounded-full bg-success" />
                 </span>
-                <span className="text-[13px] font-semibold text-emerald-700">{t("admin.platformHealthy")}</span>
+                <span className="text-[13px] font-semibold text-emerald-700">
+                  {t("admin.platformHealthy")}
+                </span>
               </div>
             </div>
           </div>
@@ -479,4 +663,3 @@ export function AdminShell({ onExit }: { onExit: () => void }) {
 }
 
 export default AdminShell
-

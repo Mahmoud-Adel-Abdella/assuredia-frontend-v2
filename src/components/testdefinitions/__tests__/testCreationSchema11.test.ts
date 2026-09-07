@@ -23,22 +23,28 @@ test("PR10A Schema 1.1: journey starters, validation, and save-version safety", 
     assert.equal(result.valid, true, JSON.stringify(result.errors))
   })
 
-  await t.test("API starter is valid Schema 1.1 with native api actions", () => {
-    const starter = starterDefinitionSource("Health API", "API")
-    const parsed = JSON.parse(starter) as { schemaVersion: string }
-    assert.equal(parsed.schemaVersion, "1.1")
-    assert.ok(starter.includes("api.request"))
-    assert.ok(starter.includes("api.assertStatus"))
-    const result = validateDefinitionSource(starter)
-    assert.equal(result.valid, true, JSON.stringify(result.errors))
-  })
+  await t.test(
+    "API starter is valid Schema 1.1 with native api actions",
+    () => {
+      const starter = starterDefinitionSource("Health API", "API")
+      const parsed = JSON.parse(starter) as { schemaVersion: string }
+      assert.equal(parsed.schemaVersion, "1.1")
+      assert.ok(starter.includes("api.request"))
+      assert.ok(starter.includes("api.assertStatus"))
+      const result = validateDefinitionSource(starter)
+      assert.equal(result.valid, true, JSON.stringify(result.errors))
+    },
+  )
 
-  await t.test("Mixed starter is valid Schema 1.1 with ordered UI and API steps", () => {
-    const starter = starterDefinitionSource("Token to portal", "MIXED")
-    assert.ok(starter.indexOf("api.request") < starter.indexOf("ui.navigate"))
-    const result = validateDefinitionSource(starter)
-    assert.equal(result.valid, true, JSON.stringify(result.errors))
-  })
+  await t.test(
+    "Mixed starter is valid Schema 1.1 with ordered UI and API steps",
+    () => {
+      const starter = starterDefinitionSource("Token to portal", "MIXED")
+      assert.ok(starter.indexOf("api.request") < starter.indexOf("ui.navigate"))
+      const result = validateDefinitionSource(starter)
+      assert.equal(result.valid, true, JSON.stringify(result.errors))
+    },
+  )
 
   await t.test("Schema 1.0 rejects native api actions", () => {
     const doc = {
@@ -52,27 +58,35 @@ test("PR10A Schema 1.1: journey starters, validation, and save-version safety", 
     assert.ok(result.errors.some((e) => e.code === "UNKNOWN_ACTION"))
   })
 
-  await t.test("Schema 1.1 accepts a valid api.request with optional fields", () => {
-    const doc = validApiDoc()
-    doc.steps[0] = {
-      action: "api.request",
-      method: "POST",
-      url: "https://api.example.com/api/v1/orders",
-      headers: { "Content-Type": "application/json" },
-      query: { page: "1" },
-      body: '{"item":"book"}',
-      contentType: "application/json",
-      timeoutMs: 5000,
-    }
-    const result = validateDefinitionSource(JSON.stringify(doc))
-    assert.equal(result.valid, true, JSON.stringify(result.errors))
-  })
+  await t.test(
+    "Schema 1.1 accepts a valid api.request with optional fields",
+    () => {
+      const doc = validApiDoc()
+      doc.steps[0] = {
+        action: "api.request",
+        method: "POST",
+        url: "https://api.example.com/api/v1/orders",
+        headers: { "Content-Type": "application/json" },
+        query: { page: "1" },
+        body: '{"item":"book"}',
+        contentType: "application/json",
+        timeoutMs: 5000,
+      }
+      const result = validateDefinitionSource(JSON.stringify(doc))
+      assert.equal(result.valid, true, JSON.stringify(result.errors))
+    },
+  )
 
   await t.test("Schema 1.1 accepts every supported API assertion", () => {
     const doc = validApiDoc()
     doc.expectedOutcomes = [
       { action: "api.assertStatus", expected: 201, matcher: "greaterOrEqual" },
-      { action: "api.assertHeader", header: "X-Request-Id", expected: "req-", matcher: "startsWith" },
+      {
+        action: "api.assertHeader",
+        header: "X-Request-Id",
+        expected: "req-",
+        matcher: "startsWith",
+      },
       { action: "api.assertJsonPath", path: "$.order.id", expected: 42 },
       { action: "api.assertResponseTime", maxDurationMs: 1500 },
     ]
@@ -80,15 +94,27 @@ test("PR10A Schema 1.1: journey starters, validation, and save-version safety", 
     assert.equal(result.valid, true, JSON.stringify(result.errors))
   })
 
-  await t.test("Schema 1.1 accepts a valid api.extract with sensitive flag", () => {
-    const doc = validApiDoc()
-    doc.steps[1] = { action: "api.extract", jsonPath: "$.token", variable: "authToken", sensitive: true }
-    const result = validateDefinitionSource(JSON.stringify(doc))
-    assert.equal(result.valid, true, JSON.stringify(result.errors))
-  })
+  await t.test(
+    "Schema 1.1 accepts a valid api.extract with sensitive flag",
+    () => {
+      const doc = validApiDoc()
+      doc.steps[1] = {
+        action: "api.extract",
+        jsonPath: "$.token",
+        variable: "authToken",
+        sensitive: true,
+      }
+      const result = validateDefinitionSource(JSON.stringify(doc))
+      assert.equal(result.valid, true, JSON.stringify(result.errors))
+    },
+  )
 
   await t.test("Schema 1.1 rejects malformed API actions", () => {
-    const cases: Array<{ label: string; mutate: (doc: any) => void; pointer: string }> = [
+    const cases: Array<{
+      label: string
+      mutate: (doc: any) => void
+      pointer: string
+    }> = [
       {
         label: "bad method",
         mutate: (doc) => {
@@ -193,24 +219,42 @@ test("PR10A Schema 1.1: journey starters, validation, and save-version safety", 
     assert.ok(result.errors.some((e) => e.jsonPointer === "/schemaVersion"))
   })
 
-  await t.test("save resolves the edited source version and blocks downgrade", () => {
-    assert.deepEqual(resolveSaveSchemaVersion({ schemaVersion: "1.0" }, "1.0"), {
-      ok: true,
-      schemaVersion: "1.0",
-    })
-    assert.deepEqual(resolveSaveSchemaVersion({ schemaVersion: "1.1" }, "1.1"), {
-      ok: true,
-      schemaVersion: "1.1",
-    })
-    assert.deepEqual(resolveSaveSchemaVersion({ schemaVersion: "1.1" }, "1.0"), {
-      ok: true,
-      schemaVersion: "1.1",
-    })
-    const downgrade = resolveSaveSchemaVersion({ schemaVersion: "1.0" }, "1.1")
-    assert.equal(downgrade.ok, false)
-    const unsupported = resolveSaveSchemaVersion({ schemaVersion: "2.0" }, "1.1")
-    assert.equal(unsupported.ok, false)
-    const missing = resolveSaveSchemaVersion({}, "1.0")
-    assert.equal(missing.ok, false)
-  })
+  await t.test(
+    "save resolves the edited source version and blocks downgrade",
+    () => {
+      assert.deepEqual(
+        resolveSaveSchemaVersion({ schemaVersion: "1.0" }, "1.0"),
+        {
+          ok: true,
+          schemaVersion: "1.0",
+        },
+      )
+      assert.deepEqual(
+        resolveSaveSchemaVersion({ schemaVersion: "1.1" }, "1.1"),
+        {
+          ok: true,
+          schemaVersion: "1.1",
+        },
+      )
+      assert.deepEqual(
+        resolveSaveSchemaVersion({ schemaVersion: "1.1" }, "1.0"),
+        {
+          ok: true,
+          schemaVersion: "1.1",
+        },
+      )
+      const downgrade = resolveSaveSchemaVersion(
+        { schemaVersion: "1.0" },
+        "1.1",
+      )
+      assert.equal(downgrade.ok, false)
+      const unsupported = resolveSaveSchemaVersion(
+        { schemaVersion: "2.0" },
+        "1.1",
+      )
+      assert.equal(unsupported.ok, false)
+      const missing = resolveSaveSchemaVersion({}, "1.0")
+      assert.equal(missing.ok, false)
+    },
+  )
 })

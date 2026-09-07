@@ -164,7 +164,10 @@ export function AdminCreationQueue({
           name: detail.title.slice(0, 120),
           description: detail.description,
           flowId: detail.flowId,
-          initialSourceJson: starterDefinitionSource(detail.title, detail.journeyType),
+          initialSourceJson: starterDefinitionSource(
+            detail.title,
+            detail.journeyType,
+          ),
         })
         updated = null
       }

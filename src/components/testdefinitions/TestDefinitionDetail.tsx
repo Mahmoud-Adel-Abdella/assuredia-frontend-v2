@@ -55,7 +55,9 @@ type PendingAction = LifecycleAction | "save" | null
 /** The sensitive steps that require an explicit confirmation. */
 type ConfirmTarget = "approve" | "proving" | "archive" | "leave"
 
-function parseStoredReport(json: string | null): TestDefinitionValidationReport | null {
+function parseStoredReport(
+  json: string | null,
+): TestDefinitionValidationReport | null {
   if (!json) return null
   try {
     const parsed = JSON.parse(json) as TestDefinitionValidationReport
@@ -93,11 +95,15 @@ export function TestDefinitionDetail({
   const toast = useToast()
   const locale = langLocale()
 
-  const [definition, setDefinition] = useState<TestDefinitionDetails | null>(null)
+  const [definition, setDefinition] = useState<TestDefinitionDetails | null>(
+    null,
+  )
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
 
-  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null)
+  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(
+    null,
+  )
   const [version, setVersion] = useState<TestDefinitionVersion | null>(null)
   const [versionLoading, setVersionLoading] = useState(false)
   const [versionError, setVersionError] = useState<string | null>(null)
@@ -107,7 +113,8 @@ export function TestDefinitionDetail({
   const [pending, setPending] = useState<PendingAction>(null)
   const [confirm, setConfirm] = useState<ConfirmTarget | null>(null)
 
-  const [engineReport, setEngineReport] = useState<TestDefinitionValidationReport | null>(null)
+  const [engineReport, setEngineReport] =
+    useState<TestDefinitionValidationReport | null>(null)
   const [run, setRun] = useState<DefinitionRunView | null>(null)
   const [runRefreshing, setRunRefreshing] = useState(false)
 
@@ -129,7 +136,11 @@ export function TestDefinitionDetail({
         if (rid !== definitionRequestRef.current) return
         setDefinition(details)
         setSelectedVersionId((current) => {
-          if (opts.keepVersion && current != null && details.versions.some((v) => v.id === current)) {
+          if (
+            opts.keepVersion &&
+            current != null &&
+            details.versions.some((v) => v.id === current)
+          ) {
             return current
           }
           // versions[] arrives newest-first from the engine.
@@ -224,7 +235,9 @@ export function TestDefinitionDetail({
     [version?.status, definition?.isArchived, definition?.flowId, isAdmin],
   )
 
-  const editable = version !== null && isContentEditable(version.status, definition?.isArchived ?? false)
+  const editable =
+    version !== null &&
+    isContentEditable(version.status, definition?.isArchived ?? false)
 
   /* ---- Shared failure handling -------------------------------------- */
 
@@ -254,7 +267,11 @@ export function TestDefinitionDetail({
     await loadDefinition({ keepVersion: true })
     if (selectedVersionId != null) {
       try {
-        const reloaded = await apiGetTestDefinitionVersion(clientId, definitionId, selectedVersionId)
+        const reloaded = await apiGetTestDefinitionVersion(
+          clientId,
+          definitionId,
+          selectedVersionId,
+        )
         setVersion(reloaded)
         setDraft(reloaded.sourceJson)
         const stored = parseStoredReport(reloaded.validationReportJson)
@@ -276,11 +293,17 @@ export function TestDefinitionDetail({
     if (!version) {
       // Unreachable through the UI (the bar is disabled while loading); kept as a
       // deterministic refusal so a programmatic click can never be silently ignored.
-      toast({ title: t("testdef.action.unavailable"), description: t("testdef.reason.loading"), variant: "warning" })
+      toast({
+        title: t("testdef.action.unavailable"),
+        description: t("testdef.reason.loading"),
+        variant: "warning",
+      })
       return
     }
     const local = validateDefinitionSource(draft)
-    const syntaxFailure = local.errors.find((f) => f.ruleId.startsWith("FE-JSON"))
+    const syntaxFailure = local.errors.find((f) =>
+      f.ruleId.startsWith("FE-JSON"),
+    )
     if (syntaxFailure) {
       setDraftError(syntaxFailure.message)
       return
@@ -292,7 +315,10 @@ export function TestDefinitionDetail({
       setDraftError(parsed.finding.message)
       return
     }
-    const resolved = resolveSaveSchemaVersion(parsed.value, version.schemaVersion)
+    const resolved = resolveSaveSchemaVersion(
+      parsed.value,
+      version.schemaVersion,
+    )
     if (!resolved.ok) {
       setDraftError(resolved.message)
       return
@@ -337,30 +363,56 @@ export function TestDefinitionDetail({
     if (!version) {
       // Unreachable through the UI (the bar is disabled while loading); kept as a
       // deterministic refusal so a programmatic click can never be silently ignored.
-      toast({ title: t("testdef.action.unavailable"), description: t("testdef.reason.loading"), variant: "warning" })
+      toast({
+        title: t("testdef.action.unavailable"),
+        description: t("testdef.reason.loading"),
+        variant: "warning",
+      })
       return
     }
     setPending(action)
     try {
       if (action === "validate") {
-        const result = await apiValidateTestDefinitionVersion(clientId, definitionId, version.id)
+        const result = await apiValidateTestDefinitionVersion(
+          clientId,
+          definitionId,
+          version.id,
+        )
         setEngineReport(result.validationReport)
         toast({
-          title: result.valid ? t("testdef.validated.title") : t("testdef.validated.invalidTitle"),
-          description: result.valid ? undefined : t("testdef.validated.invalidDesc"),
+          title: result.valid
+            ? t("testdef.validated.title")
+            : t("testdef.validated.invalidTitle"),
+          description: result.valid
+            ? undefined
+            : t("testdef.validated.invalidDesc"),
           variant: result.valid ? "success" : "warning",
         })
       } else if (action === "approve") {
-        await apiApproveTestDefinitionVersion(clientId, definitionId, version.id)
+        await apiApproveTestDefinitionVersion(
+          clientId,
+          definitionId,
+          version.id,
+        )
         toast({ title: t("testdef.approved.title"), variant: "success" })
       } else if (action === "archive") {
-        await apiArchiveTestDefinitionVersion(clientId, definitionId, version.id)
+        await apiArchiveTestDefinitionVersion(
+          clientId,
+          definitionId,
+          version.id,
+        )
         toast({ title: t("testdef.archived.title"), variant: "success" })
       } else {
-        const created = await apiCreateTestDefinitionVersion(clientId, definitionId, version.id)
+        const created = await apiCreateTestDefinitionVersion(
+          clientId,
+          definitionId,
+          version.id,
+        )
         toast({
           title: t("testdef.newVersion.title"),
-          description: t("testdef.newVersion.desc", { version: created.versionNumber }),
+          description: t("testdef.newVersion.desc", {
+            version: created.versionNumber,
+          }),
           variant: "success",
         })
         setRun(null)
@@ -388,7 +440,11 @@ export function TestDefinitionDetail({
     if (!version) {
       // Unreachable through the UI (the bar is disabled while loading); kept as a
       // deterministic refusal so a programmatic click can never be silently ignored.
-      toast({ title: t("testdef.action.unavailable"), description: t("testdef.reason.loading"), variant: "warning" })
+      toast({
+        title: t("testdef.action.unavailable"),
+        description: t("testdef.reason.loading"),
+        variant: "warning",
+      })
       return
     }
     const identity: OperationIdentity = { purpose, versionId: version.id }
@@ -398,9 +454,20 @@ export function TestDefinitionDetail({
     setPending(purpose === "TRIAL" ? "trial" : "proving")
     setRun(null)
     try {
-      const response = purpose === "TRIAL"
-        ? await apiExecuteTestDefinitionTrial(clientId, definitionId, version.id, key)
-        : await apiExecuteTestDefinitionProving(clientId, definitionId, version.id, key)
+      const response =
+        purpose === "TRIAL"
+          ? await apiExecuteTestDefinitionTrial(
+              clientId,
+              definitionId,
+              version.id,
+              key,
+            )
+          : await apiExecuteTestDefinitionProving(
+              clientId,
+              definitionId,
+              version.id,
+              key,
+            )
 
       idempotencyRef.current.settle(identity)
       setRun(runViewFromExecutionResponse(response))
@@ -426,7 +493,11 @@ export function TestDefinitionDetail({
     if (!run || runRefreshing) return
     setRunRefreshing(true)
     try {
-      const details = await apiGetTestDefinitionRun(clientId, definitionId, run.runId)
+      const details = await apiGetTestDefinitionRun(
+        clientId,
+        definitionId,
+        run.runId,
+      )
       setRun(runViewFromDetails(details))
     } catch (err) {
       handleFailure(err, t("testdef.run.loadFailed"))
@@ -471,7 +542,9 @@ export function TestDefinitionDetail({
     )
   }
 
-  const versionLabel = version ? t("testdef.versionNumber", { number: version.versionNumber }) : "—"
+  const versionLabel = version
+    ? t("testdef.versionNumber", { number: version.versionNumber })
+    : "—"
   const busy = pending !== null
 
   function actionButton(
@@ -512,7 +585,9 @@ export function TestDefinitionDetail({
         <BackButton label={t("testdef.back")} onClick={requestBack} />
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="font-display text-2xl font-bold tracking-tight text-navy">{definition.name}</h1>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-navy">
+              {definition.name}
+            </h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {version && <LifecycleBadge status={version.status} />}
               <span className="text-[12px] text-slate-400">{versionLabel}</span>
@@ -527,7 +602,10 @@ export function TestDefinitionDetail({
       </div>
 
       {definition.isArchived && (
-        <div role="status" className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-[13px] text-slate-600">
+        <div
+          role="status"
+          className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-[13px] text-slate-600"
+        >
           {t("testdef.detail.archivedReadOnly")}
         </div>
       )}
@@ -536,21 +614,69 @@ export function TestDefinitionDetail({
           only through a passing proving run. */}
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-2">
-          {actionButton("validate", t("testdef.action.validate"), t("testdef.action.validating"), "secondary", () => void runSimpleAction("validate"))}
-          {actionButton("trial", t("testdef.action.trial"), t("testdef.action.trialRunning"), "secondary", () => void runExecution("TRIAL"))}
-          {actionButton("approve", t("testdef.action.approve"), t("testdef.action.approving"), "primary", () => setConfirm("approve"))}
-          {actionButton("proving", t("testdef.action.proving"), t("testdef.action.provingRunning"), "primary", () => setConfirm("proving"))}
-          {actionButton("archive", t("testdef.action.archive"), t("testdef.action.archiving"), "danger", () => setConfirm("archive"))}
-          {actionButton("newVersion", t("testdef.action.newVersion"), t("testdef.action.newVersionWorking"), "outline", () => void runSimpleAction("newVersion"))}
+          {actionButton(
+            "validate",
+            t("testdef.action.validate"),
+            t("testdef.action.validating"),
+            "secondary",
+            () => void runSimpleAction("validate"),
+          )}
+          {actionButton(
+            "trial",
+            t("testdef.action.trial"),
+            t("testdef.action.trialRunning"),
+            "secondary",
+            () => void runExecution("TRIAL"),
+          )}
+          {actionButton(
+            "approve",
+            t("testdef.action.approve"),
+            t("testdef.action.approving"),
+            "primary",
+            () => setConfirm("approve"),
+          )}
+          {actionButton(
+            "proving",
+            t("testdef.action.proving"),
+            t("testdef.action.provingRunning"),
+            "primary",
+            () => setConfirm("proving"),
+          )}
+          {actionButton(
+            "archive",
+            t("testdef.action.archive"),
+            t("testdef.action.archiving"),
+            "danger",
+            () => setConfirm("archive"),
+          )}
+          {actionButton(
+            "newVersion",
+            t("testdef.action.newVersion"),
+            t("testdef.action.newVersionWorking"),
+            "outline",
+            () => void runSimpleAction("newVersion"),
+          )}
         </div>
         {availability
-          .filter((info) => info.visible && ((!info.enabled && info.reason) || lifecycleGate.disabled))
+          .filter(
+            (info) =>
+              info.visible &&
+              ((!info.enabled && info.reason) || lifecycleGate.disabled),
+          )
           .map((info) => (
-            <p key={info.action} id={`testdef-reason-${info.action}`} className="mt-2 text-[11px] text-slate-400">
-              {t(`testdef.action.${info.action}`)}: {(lifecycleGate.disabled ? lifecycleGate.reason : info.reason) ?? info.reason}
+            <p
+              key={info.action}
+              id={`testdef-reason-${info.action}`}
+              className="mt-2 text-[11px] text-slate-400"
+            >
+              {t(`testdef.action.${info.action}`)}:{" "}
+              {(lifecycleGate.disabled ? lifecycleGate.reason : info.reason) ??
+                info.reason}
             </p>
           ))}
-        <p className="mt-2 text-[11px] text-slate-400">{t("testdef.readyHint")}</p>
+        <p className="mt-2 text-[11px] text-slate-400">
+          {t("testdef.readyHint")}
+        </p>
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -558,7 +684,9 @@ export function TestDefinitionDetail({
         <Card className="p-5">
           <SectionHeading>{t("testdef.detail.metadata")}</SectionHeading>
           <div className="divide-y divide-slate-200">
-            <MetaRow label={t("testdef.th.client")}>{clientName || `#${definition.clientId}`}</MetaRow>
+            <MetaRow label={t("testdef.th.client")}>
+              {clientName || `#${definition.clientId}`}
+            </MetaRow>
             <MetaRow label={t("testdef.th.flow")}>
               <span className="font-mono text-[12px]" dir="ltr">
                 {definition.flowId == null
@@ -596,7 +724,9 @@ export function TestDefinitionDetail({
         <Card className="p-5 lg:col-span-2">
           <SectionHeading>{t("testdef.detail.versions")}</SectionHeading>
           {definition.versions.length === 0 ? (
-            <p className="text-[13px] text-slate-500">{t("testdef.noVersions")}</p>
+            <p className="text-[13px] text-slate-500">
+              {t("testdef.noVersions")}
+            </p>
           ) : (
             <ul className="divide-y divide-slate-200">
               {definition.versions.map((entry) => {
@@ -620,8 +750,13 @@ export function TestDefinitionDetail({
                       )}
                     >
                       <span className="flex items-center gap-2.5">
-                        <span className="font-mono text-[12px] text-slate-500" dir="ltr">
-                          {t("testdef.versionNumber", { number: entry.versionNumber })}
+                        <span
+                          className="font-mono text-[12px] text-slate-500"
+                          dir="ltr"
+                        >
+                          {t("testdef.versionNumber", {
+                            number: entry.versionNumber,
+                          })}
                         </span>
                         <LifecycleBadge status={entry.status} />
                       </span>
@@ -629,7 +764,12 @@ export function TestDefinitionDetail({
                         <span>
                           {t("testdef.detail.versionLock")} {entry.versionLock}
                         </span>
-                        <span>{formatTimestamp(entry.updatedAt ?? entry.createdAt, locale)}</span>
+                        <span>
+                          {formatTimestamp(
+                            entry.updatedAt ?? entry.createdAt,
+                            locale,
+                          )}
+                        </span>
                       </span>
                     </button>
                   </li>
@@ -642,7 +782,10 @@ export function TestDefinitionDetail({
 
       {/* Source */}
       {versionError ? (
-        <ErrorState title={t("testdef.detail.versionLoadFailed")} description={versionError} />
+        <ErrorState
+          title={t("testdef.detail.versionLoadFailed")}
+          description={versionError}
+        />
       ) : version === null ? (
         <Card className="flex items-center justify-center px-6 py-12">
           <p role="status" className="text-[13px] text-slate-400">
@@ -676,7 +819,9 @@ export function TestDefinitionDetail({
                   loading={pending === "save"}
                   onClick={() => void handleSave()}
                 >
-                  {pending === "save" ? t("testdef.detail.saving") : t("testdef.detail.save")}
+                  {pending === "save"
+                    ? t("testdef.detail.saving")
+                    : t("testdef.detail.save")}
                 </Button>
               </div>
             )}
@@ -691,7 +836,13 @@ export function TestDefinitionDetail({
             readOnly={!editable}
             disabled={!editable}
             error={Boolean(draftError)}
-            aria-describedby={draftError ? "testdef-draft-error" : editable ? undefined : "testdef-readonly-hint"}
+            aria-describedby={
+              draftError
+                ? "testdef-draft-error"
+                : editable
+                  ? undefined
+                  : "testdef-readonly-hint"
+            }
             onChange={(e) => {
               setDraft(e.target.value)
               setDraftError(null)
@@ -703,8 +854,13 @@ export function TestDefinitionDetail({
             </div>
           ) : (
             !editable && (
-              <p id="testdef-readonly-hint" className="mt-1.5 text-[11px] text-slate-400">
-                {definition.isArchived ? t("testdef.detail.archivedReadOnly") : t("testdef.detail.readOnly")}
+              <p
+                id="testdef-readonly-hint"
+                className="mt-1.5 text-[11px] text-slate-400"
+              >
+                {definition.isArchived
+                  ? t("testdef.detail.archivedReadOnly")
+                  : t("testdef.detail.readOnly")}
               </p>
             )
           )}
@@ -712,25 +868,31 @@ export function TestDefinitionDetail({
       )}
 
       {/* Validation: the local pre-check while editing, and the engine's report. */}
-      {editable && dirty && (() => {
-        const local = validateDefinitionSource(draft)
-        return (
-          <ValidationFindings
-            title={t("testdef.validation.localTitle")}
-            hint={t("testdef.validation.localHint")}
-            valid={local.valid}
-            errors={local.errors}
-            warnings={local.warnings}
-          />
-        )
-      })()}
+      {editable &&
+        dirty &&
+        (() => {
+          const local = validateDefinitionSource(draft)
+          return (
+            <ValidationFindings
+              title={t("testdef.validation.localTitle")}
+              hint={t("testdef.validation.localHint")}
+              valid={local.valid}
+              errors={local.errors}
+              warnings={local.warnings}
+            />
+          )
+        })()}
 
       <ValidationFindings
         title={t("testdef.validation.engineTitle")}
         valid={engineReport?.valid ?? false}
         errors={engineReport?.errors ?? []}
         warnings={engineReport?.warnings ?? []}
-        emptyLabel={engineReport ? t("testdef.validation.passed") : t("testdef.validation.notRunYet")}
+        emptyLabel={
+          engineReport
+            ? t("testdef.validation.passed")
+            : t("testdef.validation.notRunYet")
+        }
       />
 
       <TestDefinitionRunPanel
@@ -775,7 +937,9 @@ export function TestDefinitionDetail({
         open={confirm === "archive"}
         tone="danger"
         title={t("testdef.confirm.archiveTitle")}
-        description={t("testdef.confirm.archiveDesc", { name: definition.name })}
+        description={t("testdef.confirm.archiveDesc", {
+          name: definition.name,
+        })}
         confirmLabel={t("testdef.action.archive")}
         busyLabel={t("testdef.action.archiving")}
         busy={pending === "archive"}

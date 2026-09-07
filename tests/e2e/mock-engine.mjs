@@ -72,7 +72,14 @@ function validateDocument(sourceJson) {
   } catch {
     return {
       valid: false,
-      errors: [{ ruleId: "V-S-01", code: "SCHEMA_INVALID", jsonPointer: "", message: "Definition source is not valid JSON" }],
+      errors: [
+        {
+          ruleId: "V-S-01",
+          code: "SCHEMA_INVALID",
+          jsonPointer: "",
+          message: "Definition source is not valid JSON",
+        },
+      ],
       warnings: [],
       schemaVersion: null,
       validatorVersion: "1.0.0",
@@ -80,20 +87,48 @@ function validateDocument(sourceJson) {
   }
   const errors = []
   if (doc?.schemaVersion !== "1.0") {
-    errors.push({ ruleId: "V-S-02", code: "UNSUPPORTED_SCHEMA_VERSION", jsonPointer: "/schemaVersion", message: "Only schema version 1.x is supported" })
+    errors.push({
+      ruleId: "V-S-02",
+      code: "UNSUPPORTED_SCHEMA_VERSION",
+      jsonPointer: "/schemaVersion",
+      message: "Only schema version 1.x is supported",
+    })
   }
   if (!doc?.metadata?.name) {
-    errors.push({ ruleId: "V-S-03", code: "SCHEMA_INVALID", jsonPointer: "/metadata/name", message: "metadata.name is required" })
+    errors.push({
+      ruleId: "V-S-03",
+      code: "SCHEMA_INVALID",
+      jsonPointer: "/metadata/name",
+      message: "metadata.name is required",
+    })
   }
   if (!Array.isArray(doc?.steps) || doc.steps.length === 0) {
-    errors.push({ ruleId: "V-S-04", code: "SCHEMA_INVALID", jsonPointer: "/steps", message: "steps must contain at least one step" })
+    errors.push({
+      ruleId: "V-S-04",
+      code: "SCHEMA_INVALID",
+      jsonPointer: "/steps",
+      message: "steps must contain at least one step",
+    })
   }
-  if (!Array.isArray(doc?.expectedOutcomes) || doc.expectedOutcomes.length === 0) {
-    errors.push({ ruleId: "V-S-05", code: "SCHEMA_INVALID", jsonPointer: "/expectedOutcomes", message: "expectedOutcomes must contain at least one assertion" })
+  if (
+    !Array.isArray(doc?.expectedOutcomes) ||
+    doc.expectedOutcomes.length === 0
+  ) {
+    errors.push({
+      ruleId: "V-S-05",
+      code: "SCHEMA_INVALID",
+      jsonPointer: "/expectedOutcomes",
+      message: "expectedOutcomes must contain at least one assertion",
+    })
   }
   ;(doc?.steps ?? []).forEach((step, index) => {
     if (step?.action === "ui.navigate" && !step.url) {
-      errors.push({ ruleId: "V-S-06", code: "SCHEMA_INVALID", jsonPointer: `/steps/${index}/url`, message: "url is required for ui.navigate" })
+      errors.push({
+        ruleId: "V-S-06",
+        code: "SCHEMA_INVALID",
+        jsonPointer: `/steps/${index}/url`,
+        message: "url is required for ui.navigate",
+      })
     }
   })
   return {
@@ -151,7 +186,9 @@ function runDetailsBody(run) {
     status: run.status,
     total: run.steps.length,
     passed: run.steps.filter((s) => s.status === "PASSED").length,
-    failed: run.steps.filter((s) => s.status === "FAILED" || s.status === "ERROR").length,
+    failed: run.steps.filter(
+      (s) => s.status === "FAILED" || s.status === "ERROR",
+    ).length,
     skipped: 0,
     duration_seconds: 1,
     timestamp: run.timestamp,
@@ -204,7 +241,9 @@ function executeRun(definition, version, purpose) {
       opcode: "UI_ASSERT_TEXT",
       status: failing ? "FAILED" : "PASSED",
       reasonCode: failing ? "ASSERTION_FAILED" : null,
-      sanitizedMessage: failing ? 'Expected "Thank you" but found "Payment declined"' : null,
+      sanitizedMessage: failing
+        ? 'Expected "Thank you" but found "Payment declined"'
+        : null,
       expectedValue: "Thank you",
       actualValue: failing ? "Payment declined" : "Thank you",
       effectiveTimeoutMs: 10000,
@@ -279,25 +318,57 @@ function handleExecution(res, definition, version, purpose, idempotencyKey) {
   if (recordKey && state.idempotency.has(recordKey)) {
     const record = state.idempotency.get(recordKey)
     if (record.requestHash !== requestHash || record.versionId !== version.id) {
-      return error(res, 409, "Idempotency key reused with mismatched version or request parameters")
+      return error(
+        res,
+        409,
+        "Idempotency key reused with mismatched version or request parameters",
+      )
     }
     if (record.status === "IN_PROGRESS") {
-      return error(res, 409, "A previous request with this idempotency key is currently in progress")
+      return error(
+        res,
+        409,
+        "A previous request with this idempotency key is currently in progress",
+      )
     }
     return json(res, 200, runDetailsBody(state.runs.get(record.runId)))
   }
 
   if (definition.isArchived) {
-    return error(res, 409, `Test Definition is archived; ${purpose === "TRIAL" ? "run trials" : "run proving"} is not permitted`)
+    return error(
+      res,
+      409,
+      `Test Definition is archived; ${
+        purpose === "TRIAL" ? "run trials" : "run proving"
+      } is not permitted`,
+    )
   }
-  if (purpose === "TRIAL" && version.status !== "VALIDATED" && version.status !== "APPROVED") {
-    return error(res, 409, `Trial runs are only permitted on VALIDATED or APPROVED versions (current: ${version.status})`)
+  if (
+    purpose === "TRIAL" &&
+    version.status !== "VALIDATED" &&
+    version.status !== "APPROVED"
+  ) {
+    return error(
+      res,
+      409,
+      `Trial runs are only permitted on VALIDATED or APPROVED versions (current: ${version.status})`,
+    )
   }
   if (purpose === "PROVING" && version.status !== "APPROVED") {
-    return error(res, 409, `Proving runs are only allowed for APPROVED versions (current: ${version.status})`)
+    return error(
+      res,
+      409,
+      `Proving runs are only allowed for APPROVED versions (current: ${version.status})`,
+    )
   }
   if (definition.flowId == null) {
-    return error(res, 409, `Test Definition must be linked to a Flow before ${purpose === "TRIAL" ? "run trials" : "run proving"}`)
+    return error(
+      res,
+      409,
+      `Test Definition must be linked to a Flow before ${
+        purpose === "TRIAL" ? "run trials" : "run proving"
+      }`,
+    )
   }
 
   const executed = executeRun(definition, version, purpose)
@@ -341,8 +412,10 @@ const server = createServer(async (req, res) => {
       "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
       // The engine's own CORS layer must allow this for trial/proving to work at
       // all from a browser; PR 5 adds it there.
-      "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, Origin, Idempotency-Key",
-      "Access-Control-Expose-Headers": "Authorization, Content-Type, Content-Disposition",
+      "Access-Control-Allow-Headers":
+        "Authorization, Content-Type, Accept, Origin, Idempotency-Key",
+      "Access-Control-Expose-Headers":
+        "Authorization, Content-Type, Content-Disposition",
       "Access-Control-Max-Age": "600",
     })
     res.end()
@@ -376,7 +449,10 @@ const server = createServer(async (req, res) => {
 
   /* ---- Auth ---------------------------------------------------------- */
   const auth = req.headers.authorization
-  if (path.startsWith("/dashboard-api/") && auth !== `Bearer ${SESSION_TOKEN}`) {
+  if (
+    path.startsWith("/dashboard-api/") &&
+    auth !== `Bearer ${SESSION_TOKEN}`
+  ) {
     return error(res, 401, "Token is invalid or expired — log in again")
   }
 
@@ -423,7 +499,13 @@ const server = createServer(async (req, res) => {
 
   if (path === `/dashboard-api/clients/${CLIENT.id}` && method === "GET") {
     return json(res, 200, {
-      client: { id: CLIENT.id, client_name: CLIENT.client_name, browser: "CHROMIUM", device_type: "DESKTOP", timezone: "UTC" },
+      client: {
+        id: CLIENT.id,
+        client_name: CLIENT.client_name,
+        browser: "CHROMIUM",
+        device_type: "DESKTOP",
+        timezone: "UTC",
+      },
       flows: [
         {
           id: FLOW.id,
@@ -472,18 +554,30 @@ const server = createServer(async (req, res) => {
     return row
   }
   const creationRoot = `/dashboard-api/clients/${CLIENT.id}/test-creation-requests`
-  if (path.startsWith("/dashboard-api/clients/") && path.includes("/test-creation-requests")) {
-    if (!path.startsWith(creationRoot)) return error(res, 404, "This client does not exist")
+  if (
+    path.startsWith("/dashboard-api/clients/") &&
+    path.includes("/test-creation-requests")
+  ) {
+    if (!path.startsWith(creationRoot))
+      return error(res, 404, "This client does not exist")
     const rest = path.slice(creationRoot.length).replace(/^\//, "")
     const segments = rest === "" ? [] : rest.split("/")
     if (segments.length === 0 && method === "GET") {
       const status = (url.searchParams.get("status") ?? "").toUpperCase()
-      const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") ?? 50), 100))
+      const limit = Math.max(
+        1,
+        Math.min(Number(url.searchParams.get("limit") ?? 50), 100),
+      )
       const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0))
       const all = [...state.creations.values()]
-        .filter((c) => (status === "" || c.status === status))
+        .filter((c) => status === "" || c.status === status)
         .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-      return json(res, 200, { items: all.slice(offset, offset + limit).map(creationRow), total: all.length, limit, offset })
+      return json(res, 200, {
+        items: all.slice(offset, offset + limit).map(creationRow),
+        total: all.length,
+        limit,
+        offset,
+      })
     }
     if (segments.length === 0 && method === "POST") {
       const key = req.headers["idempotency-key"]
@@ -491,24 +585,53 @@ const server = createServer(async (req, res) => {
       const body = await readBody(req)
       const journeyType = (body?.journeyType ?? "").trim()
       const title = (body?.title ?? "").trim()
-      if (!["UI", "API", "MIXED"].includes(journeyType)) return error(res, 400, "Invalid journeyType")
-      if (!title || title.length > 120) return error(res, 400, "Title must be between 1 and 120 characters")
-      if ((body?.description ?? "")?.length > 2000) return error(res, 400, "Description is too long")
-      const fingerprint = JSON.stringify([journeyType, title, body?.description ?? null, body?.flowId ?? null])
+      if (!["UI", "API", "MIXED"].includes(journeyType))
+        return error(res, 400, "Invalid journeyType")
+      if (!title || title.length > 120)
+        return error(res, 400, "Title must be between 1 and 120 characters")
+      if ((body?.description ?? "")?.length > 2000)
+        return error(res, 400, "Description is too long")
+      const fingerprint = JSON.stringify([
+        journeyType,
+        title,
+        body?.description ?? null,
+        body?.flowId ?? null,
+      ])
       const existing = state.creationIdempotency.get(`${CLIENT.id}:${key}`)
       if (existing) {
-        if (existing.fingerprint !== fingerprint) return error(res, 409, "Idempotency key reused with different request parameters")
+        if (existing.fingerprint !== fingerprint)
+          return error(
+            res,
+            409,
+            "Idempotency key reused with different request parameters",
+          )
         return json(res, 201, creationRow(existing.row))
       }
-      const row = createCreation({ journeyType, title, description: body?.description ?? null, flowId: body?.flowId ?? null, method: "MANUAL_REQUEST" })
+      const row = createCreation({
+        journeyType,
+        title,
+        description: body?.description ?? null,
+        flowId: body?.flowId ?? null,
+        method: "MANUAL_REQUEST",
+      })
       state.creationIdempotency.set(`${CLIENT.id}:${key}`, { row, fingerprint })
       return json(res, 201, creationRow(row))
     }
     const creation = state.creations.get(Number(segments[0]))
     if (!creation) return error(res, 404, "Test creation request not found")
-    if (segments.length === 1 && method === "GET") return json(res, 200, creationRow(creation))
-    if (segments.length === 2 && segments[1] === "cancel" && method === "POST") {
-      if (!["SUBMITTED", "IN_REVIEW"].includes(creation.status)) return error(res, 409, "Request cannot be cancelled in its current status")
+    if (segments.length === 1 && method === "GET")
+      return json(res, 200, creationRow(creation))
+    if (
+      segments.length === 2 &&
+      segments[1] === "cancel" &&
+      method === "POST"
+    ) {
+      if (!["SUBMITTED", "IN_REVIEW"].includes(creation.status))
+        return error(
+          res,
+          409,
+          "Request cannot be cancelled in its current status",
+        )
       creation.status = "CANCELLED"
       creation.completedAt = nowIso()
       creation.updatedAt = nowIso()
@@ -517,13 +640,27 @@ const server = createServer(async (req, res) => {
     }
     return error(res, 404, "Test creation request not found")
   }
-  if (path === "/dashboard-api/admin/test-creation-requests" && method === "GET") {
-    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") ?? 50), 100))
+  if (
+    path === "/dashboard-api/admin/test-creation-requests" &&
+    method === "GET"
+  ) {
+    const limit = Math.max(
+      1,
+      Math.min(Number(url.searchParams.get("limit") ?? 50), 100),
+    )
     const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0))
-    const all = [...state.creations.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    return json(res, 200, { items: all.slice(offset, offset + limit).map(creationRow), limit, offset })
+    const all = [...state.creations.values()].sort((a, b) =>
+      a.createdAt < b.createdAt ? 1 : -1,
+    )
+    return json(res, 200, {
+      items: all.slice(offset, offset + limit).map(creationRow),
+      limit,
+      offset,
+    })
   }
-  const adminAction = path.match(/^\/dashboard-api\/admin\/test-creation-requests\/(\d+)\/(assign|start|reject|create-draft)$/)
+  const adminAction = path.match(
+    /^\/dashboard-api\/admin\/test-creation-requests\/(\d+)\/(assign|start|reject|create-draft)$/,
+  )
   if (adminAction && method === "POST") {
     const row = state.creations.get(Number(adminAction[1]))
     if (!row) return error(res, 404, "Test creation request not found")
@@ -533,15 +670,26 @@ const server = createServer(async (req, res) => {
       row.status = "IN_REVIEW"
       row.assignedTo = 1
     } else if (kind === "start") {
-      if (row.status !== "IN_REVIEW") return error(res, 409, "Stale update: request was modified concurrently")
+      if (row.status !== "IN_REVIEW")
+        return error(
+          res,
+          409,
+          "Stale update: request was modified concurrently",
+        )
       row.status = "IN_PROGRESS"
     } else if (kind === "reject") {
-      if (!body?.decisionReason?.trim()) return error(res, 400, "decisionReason is required")
+      if (!body?.decisionReason?.trim())
+        return error(res, 400, "decisionReason is required")
       row.status = "REJECTED"
       row.decisionReason = body.decisionReason.trim()
       row.completedAt = nowIso()
     } else {
-      if (row.status !== "IN_PROGRESS") return error(res, 409, "Stale update: request was modified concurrently")
+      if (row.status !== "IN_PROGRESS")
+        return error(
+          res,
+          409,
+          "Stale update: request was modified concurrently",
+        )
       row.status = "DRAFT_CREATED"
       row.definitionId = 900 + row.id
       row.completedAt = nowIso()
@@ -553,7 +701,10 @@ const server = createServer(async (req, res) => {
 
   /* ---- Test Definitions ---------------------------------------------- */
   const tenantRoot = `/dashboard-api/clients/${CLIENT.id}/test-definitions`
-  if (path.startsWith(`/dashboard-api/clients/`) && path.includes("/test-definitions")) {
+  if (
+    path.startsWith(`/dashboard-api/clients/`) &&
+    path.includes("/test-definitions")
+  ) {
     if (!path.startsWith(tenantRoot)) {
       // Any other tenant is indistinguishable from one that does not exist.
       return error(res, 404, "This client does not exist")
@@ -564,10 +715,17 @@ const server = createServer(async (req, res) => {
 
     if (segments.length === 0 && method === "GET") {
       const search = (url.searchParams.get("search") ?? "").trim().toLowerCase()
-      const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") ?? 50), 100))
+      const limit = Math.max(
+        1,
+        Math.min(Number(url.searchParams.get("limit") ?? 50), 100),
+      )
       const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0))
       const all = [...state.definitions.values()]
-        .filter((d) => d.clientId === CLIENT.id && (search === "" || d.name.toLowerCase().includes(search)))
+        .filter(
+          (d) =>
+            d.clientId === CLIENT.id &&
+            (search === "" || d.name.toLowerCase().includes(search)),
+        )
         .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
       return json(res, 200, {
         items: all.slice(offset, offset + limit).map(definitionRow),
@@ -581,41 +739,76 @@ const server = createServer(async (req, res) => {
       const body = await readBody(req)
       if (body?.journeyType != null && body.journeyType !== "") {
         const jt = String(body.journeyType).trim()
-        if (!["UI", "API", "MIXED"].includes(jt)) return error(res, 400, "Invalid journeyType")
+        if (!["UI", "API", "MIXED"].includes(jt))
+          return error(res, 400, "Invalid journeyType")
         // Mirror the backend's journey/definition compatibility gate: a journeyed
         // draft must carry a matching schema or it is rejected before persistence.
-        const rawSource = typeof body?.initialSourceJson === "string" ? body.initialSourceJson.trim() : ""
+        const rawSource =
+          typeof body?.initialSourceJson === "string"
+            ? body.initialSourceJson.trim()
+            : ""
         if (rawSource !== "") {
           let doc = null
           try {
             doc = JSON.parse(rawSource)
           } catch {
-            return error(res, 400, "Definition source is not a valid test definition")
+            return error(
+              res,
+              400,
+              "Definition source is not a valid test definition",
+            )
           }
           const version = doc?.schemaVersion === "1.1" ? "1.1" : "1.0"
           const hasApi = rawSource.includes('"action": "api.')
           const hasUi = rawSource.includes('"action": "ui.')
           const compatible =
-            jt === "UI" ? hasUi && !hasApi
-            : jt === "API" ? version === "1.1" && hasApi && !hasUi
-            : version === "1.1" && hasApi && hasUi
-          if (!compatible) return error(res, 400, `Definition is not compatible with journey type ${jt}`)
+            jt === "UI"
+              ? hasUi && !hasApi
+              : jt === "API"
+                ? version === "1.1" && hasApi && !hasUi
+                : version === "1.1" && hasApi && hasUi
+          if (!compatible)
+            return error(
+              res,
+              400,
+              `Definition is not compatible with journey type ${jt}`,
+            )
         }
         const key = req.headers["idempotency-key"]
-        const fp = JSON.stringify([jt, (body?.name ?? "").trim(), body?.description ?? null, body?.flowId ?? null, body?.initialSourceJson ?? null])
+        const fp = JSON.stringify([
+          jt,
+          (body?.name ?? "").trim(),
+          body?.description ?? null,
+          body?.flowId ?? null,
+          body?.initialSourceJson ?? null,
+        ])
         if (key) {
           const hit = state.creationIdempotency.get(`${CLIENT.id}:${key}`)
-          if (hit && hit.fingerprint === fp) return json(res, 200, creationRow(hit.row))
-          if (hit) return error(res, 409, "Idempotency key reused with different request parameters")
+          if (hit && hit.fingerprint === fp)
+            return json(res, 200, creationRow(hit.row))
+          if (hit)
+            return error(
+              res,
+              409,
+              "Idempotency key reused with different request parameters",
+            )
         }
       }
       const name = (body?.name ?? "").trim()
       if (name === "") return error(res, 400, "Definition name cannot be blank")
-      if (name.length > 120) return error(res, 400, "Definition name cannot exceed 120 characters")
+      if (name.length > 120)
+        return error(res, 400, "Definition name cannot exceed 120 characters")
       const clash = [...state.definitions.values()].some(
-        (d) => d.clientId === CLIENT.id && d.name.toLowerCase() === name.toLowerCase(),
+        (d) =>
+          d.clientId === CLIENT.id &&
+          d.name.toLowerCase() === name.toLowerCase(),
       )
-      if (clash) return error(res, 409, "A Test Definition with this name already exists for this client")
+      if (clash)
+        return error(
+          res,
+          409,
+          "A Test Definition with this name already exists for this client",
+        )
       if (body?.flowId != null && body.flowId !== FLOW.id) {
         return error(res, 404, "Specified flow does not belong to this client")
       }
@@ -634,20 +827,40 @@ const server = createServer(async (req, res) => {
       state.definitions.set(definition.id, definition)
 
       const journeyForFallback =
-        body?.journeyType != null && body.journeyType !== "" ? String(body.journeyType).trim() : "UI"
+        body?.journeyType != null && body.journeyType !== ""
+          ? String(body.journeyType).trim()
+          : "UI"
       const fallbackSource =
         journeyForFallback === "API"
           ? {
               schemaVersion: "1.1",
               metadata: { name, tags: ["api"] },
               steps: [
-                { action: "api.request", method: "GET", url: "/api/v1/health", headers: { Accept: "application/json" } },
-                { action: "api.extract", jsonPath: "$.status", variable: "healthStatus" },
+                {
+                  action: "api.request",
+                  method: "GET",
+                  url: "/api/v1/health",
+                  headers: { Accept: "application/json" },
+                },
+                {
+                  action: "api.extract",
+                  jsonPath: "$.status",
+                  variable: "healthStatus",
+                },
               ],
               expectedOutcomes: [
                 { action: "api.assertStatus", expected: 200 },
-                { action: "api.assertHeader", header: "Content-Type", expected: "application/json", matcher: "contains" },
-                { action: "api.assertJsonPath", path: "$.status", expected: "UP" },
+                {
+                  action: "api.assertHeader",
+                  header: "Content-Type",
+                  expected: "application/json",
+                  matcher: "contains",
+                },
+                {
+                  action: "api.assertJsonPath",
+                  path: "$.status",
+                  expected: "UP",
+                },
                 { action: "api.assertResponseTime", maxDurationMs: 2000 },
               ],
             }
@@ -656,8 +869,18 @@ const server = createServer(async (req, res) => {
                 schemaVersion: "1.1",
                 metadata: { name, tags: ["mixed"] },
                 steps: [
-                  { action: "api.request", method: "POST", url: "/api/auth/token", body: '{"user":"admin"}' },
-                  { action: "api.extract", jsonPath: "$.token", variable: "sessionToken", sensitive: true },
+                  {
+                    action: "api.request",
+                    method: "POST",
+                    url: "/api/auth/token",
+                    body: '{"user":"admin"}',
+                  },
+                  {
+                    action: "api.extract",
+                    jsonPath: "$.token",
+                    variable: "sessionToken",
+                    sensitive: true,
+                  },
                   { action: "ui.navigate", url: "/app/dashboard" },
                 ],
                 expectedOutcomes: [
@@ -668,16 +891,19 @@ const server = createServer(async (req, res) => {
             : {
                 schemaVersion: "1.0",
                 metadata: { name },
-                steps: [{ action: "ui.wait", for: "duration", durationMs: 100 }],
-                expectedOutcomes: [{ action: "ui.assertVisible", locator: { strategy: "css", value: "body" } }],
+                steps: [
+                  { action: "ui.wait", for: "duration", durationMs: 100 },
+                ],
+                expectedOutcomes: [
+                  {
+                    action: "ui.assertVisible",
+                    locator: { strategy: "css", value: "body" },
+                  },
+                ],
               }
       const sourceJson = body?.initialSourceJson?.trim()
         ? body.initialSourceJson.trim()
-        : JSON.stringify(
-            fallbackSource,
-            null,
-            2,
-          )
+        : JSON.stringify(fallbackSource, null, 2)
 
       const version = {
         id: state.nextVersionId++,
@@ -728,10 +954,19 @@ const server = createServer(async (req, res) => {
         if (key) {
           state.creationIdempotency.set(`${CLIENT.id}:${key}`, {
             row,
-            fingerprint: JSON.stringify([row.journeyType, name, definition.description, definition.flowId, body?.initialSourceJson ?? null]),
+            fingerprint: JSON.stringify([
+              row.journeyType,
+              name,
+              definition.description,
+              definition.flowId,
+              body?.initialSourceJson ?? null,
+            ]),
           })
         }
-        return json(res, 200, { ...creationRow(row), creationRequestId: row.id })
+        return json(res, 200, {
+          ...creationRow(row),
+          creationRequestId: row.id,
+        })
       }
 
       return json(res, 200, {
@@ -769,13 +1004,27 @@ const server = createServer(async (req, res) => {
 
       if (!action && method === "PUT") {
         const body = await readBody(req)
-        if (body?.versionLock == null) return error(res, 400, "versionLock is required for optimistic concurrency")
-        if (!body?.sourceJson?.trim()) return error(res, 400, "sourceJson is required")
+        if (body?.versionLock == null)
+          return error(
+            res,
+            400,
+            "versionLock is required for optimistic concurrency",
+          )
+        if (!body?.sourceJson?.trim())
+          return error(res, 400, "sourceJson is required")
         if (version.status !== "DRAFT") {
-          return error(res, 409, `Version ${version.versionNumber} is ${version.status} and cannot be edited. Create a new version instead.`)
+          return error(
+            res,
+            409,
+            `Version ${version.versionNumber} is ${version.status} and cannot be edited. Create a new version instead.`,
+          )
         }
         if (body.versionLock !== version.versionLock) {
-          return error(res, 409, "Stale update detected; the draft was modified concurrently or expectedLock did not match")
+          return error(
+            res,
+            409,
+            "Stale update detected; the draft was modified concurrently or expectedLock did not match",
+          )
         }
         version.sourceJson = body.sourceJson.trim()
         version.schemaVersion = body.schemaVersion?.trim() || "1.0"
@@ -795,9 +1044,18 @@ const server = createServer(async (req, res) => {
       }
 
       if (action === "validate" && method === "POST") {
-        if (definition.isArchived) return error(res, 409, "Test Definition is archived; validate versions is not permitted")
+        if (definition.isArchived)
+          return error(
+            res,
+            409,
+            "Test Definition is archived; validate versions is not permitted",
+          )
         if (version.status !== "DRAFT") {
-          return error(res, 409, `Validation can only be run on DRAFT versions (current status: ${version.status})`)
+          return error(
+            res,
+            409,
+            `Validation can only be run on DRAFT versions (current status: ${version.status})`,
+          )
         }
         const report = validateDocument(version.sourceJson)
         version.status = report.valid ? "VALIDATED" : "DRAFT"
@@ -815,13 +1073,28 @@ const server = createServer(async (req, res) => {
       }
 
       if (action === "trial" && method === "POST") {
-        return handleExecution(res, definition, version, "TRIAL", req.headers["idempotency-key"])
+        return handleExecution(
+          res,
+          definition,
+          version,
+          "TRIAL",
+          req.headers["idempotency-key"],
+        )
       }
 
       if (action === "approve" && method === "POST") {
-        if (definition.isArchived) return error(res, 409, "Test Definition is archived; approve versions is not permitted")
+        if (definition.isArchived)
+          return error(
+            res,
+            409,
+            "Test Definition is archived; approve versions is not permitted",
+          )
         if (version.status !== "VALIDATED") {
-          return error(res, 409, `Only VALIDATED versions can be APPROVED (current: ${version.status})`)
+          return error(
+            res,
+            409,
+            `Only VALIDATED versions can be APPROVED (current: ${version.status})`,
+          )
         }
         version.status = "APPROVED"
         version.approvedAt = nowIso()
@@ -836,14 +1109,25 @@ const server = createServer(async (req, res) => {
       }
 
       if (action === "proving" && method === "POST") {
-        return handleExecution(res, definition, version, "PROVING", req.headers["idempotency-key"])
+        return handleExecution(
+          res,
+          definition,
+          version,
+          "PROVING",
+          req.headers["idempotency-key"],
+        )
       }
 
       if (action === "archive" && method === "POST") {
         if (version.status !== "READY") {
-          return error(res, 409, `Only READY versions can be ARCHIVED (current: ${version.status})`)
+          return error(
+            res,
+            409,
+            `Only READY versions can be ARCHIVED (current: ${version.status})`,
+          )
         }
-        if (definition.isArchived) return error(res, 409, "Test Definition is already archived")
+        if (definition.isArchived)
+          return error(res, 409, "Test Definition is already archived")
         version.status = "ARCHIVED"
         version.archivedAt = nowIso()
         version.updatedAt = nowIso()
@@ -859,13 +1143,23 @@ const server = createServer(async (req, res) => {
       }
     }
 
-    if (segments[1] === "versions" && segments.length === 2 && method === "POST") {
+    if (
+      segments[1] === "versions" &&
+      segments.length === 2 &&
+      method === "POST"
+    ) {
       const body = await readBody(req)
-      if (definition.isArchived) return error(res, 409, "Test Definition is archived; create new versions is not permitted")
+      if (definition.isArchived)
+        return error(
+          res,
+          409,
+          "Test Definition is archived; create new versions is not permitted",
+        )
       const existing = versionsOf(definition.id)
-      const base = body?.baseVersionId != null
-        ? state.versions.get(Number(body.baseVersionId))
-        : existing[0]
+      const base =
+        body?.baseVersionId != null
+          ? state.versions.get(Number(body.baseVersionId))
+          : existing[0]
       const created = {
         id: state.nextVersionId++,
         testDefinitionId: definition.id,
@@ -898,7 +1192,8 @@ const server = createServer(async (req, res) => {
 
     if (segments[1] === "runs" && segments.length >= 3) {
       const run = state.runs.get(Number(segments[2]))
-      if (!run || run.definitionId !== definition.id) return error(res, 404, "Run not found for this definition")
+      if (!run || run.definitionId !== definition.id)
+        return error(res, 404, "Run not found for this definition")
       if (segments[3] === "artifacts" && segments[4]) {
         const artifact = run.artifacts.find((a) => a.id === Number(segments[4]))
         if (!artifact) return error(res, 404, "Artifact not found")
@@ -925,7 +1220,8 @@ const server = createServer(async (req, res) => {
   }
 
   /* ---- Everything else the shells poll on load ------------------------ */
-  if (path === "/dashboard-api/alerts/unread-count") return json(res, 200, { count: 0 })
+  if (path === "/dashboard-api/alerts/unread-count")
+    return json(res, 200, { count: 0 })
   if (path === "/dashboard-api/onboarding/requests") return json(res, 200, [])
   if (path === "/dashboard-api/admin/asset-requests") return json(res, 200, [])
   if (path === "/dashboard-api/admin/overview") {

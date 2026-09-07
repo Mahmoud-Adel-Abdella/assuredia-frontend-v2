@@ -68,7 +68,11 @@ export class ApiError extends Error {
   }
 }
 
-const BASE_URL = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL ? import.meta.env.VITE_API_BASE_URL : "").replace(/\/+$/, "")
+const BASE_URL = (
+  typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL
+    ? import.meta.env.VITE_API_BASE_URL
+    : ""
+).replace(/\/+$/, "")
 
 type RequestOptions = {
   method?: string
@@ -92,7 +96,8 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   if (opts.headers) {
     for (const [name, value] of Object.entries(opts.headers)) {
-      if (value !== undefined && value !== null && value !== "") headers[name] = value
+      if (value !== undefined && value !== null && value !== "")
+        headers[name] = value
     }
   }
 
@@ -116,11 +121,14 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   if (!res.ok) {
     const message =
-      payload && typeof payload === "object" && typeof (payload as { error?: unknown }).error === "string"
+      payload &&
+      typeof payload === "object" &&
+      typeof (payload as { error?: unknown }).error === "string"
         ? localizeBackendMessage((payload as { error: string }).error)
         : fallbackMessage(res.status)
     const err = new ApiError(res.status, message)
-    if (payload && typeof payload === "object") err.body = payload as Record<string, unknown>
+    if (payload && typeof payload === "object")
+      err.body = (payload as Record<string, unknown>)
     throw err
   }
 
@@ -159,11 +167,14 @@ export async function requestBinary(path: string): Promise<Blob> {
       /* empty or non-JSON error body */
     }
     const message =
-      payload && typeof payload === "object" && typeof (payload as { error?: unknown }).error === "string"
+      payload &&
+      typeof payload === "object" &&
+      typeof (payload as { error?: unknown }).error === "string"
         ? localizeBackendMessage((payload as { error: string }).error)
         : fallbackMessage(res.status)
     const err = new ApiError(res.status, message)
-    if (payload && typeof payload === "object") err.body = payload as Record<string, unknown>
+    if (payload && typeof payload === "object")
+      err.body = (payload as Record<string, unknown>)
     throw err
   }
 
@@ -195,13 +206,16 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   "Request is not PENDING": "errors.requestStateChanged",
   "Request is not PENDING or already processed": "errors.requestStateChanged",
   "Request was already processed": "errors.requestStateChanged",
-  "Request is not APPROVED or was updated concurrently": "errors.requestStateChanged",
+  "Request is not APPROVED or was updated concurrently":
+    "errors.requestStateChanged",
   "adminNotes is required for rejection": "errors.adminNotesRequired",
   "baseUrl is required to provision the client": "errors.baseUrlRequired",
-  "The company name contains an invalid path component": "errors.invalidCompanyName",
+  "The company name contains an invalid path component":
+    "errors.invalidCompanyName",
   "from must be before to.": "errors.fromBeforeTo",
   "Execution plan must contain at least one flow.": "errors.planEmpty",
-  "A flow may appear only once in an execution plan.": "errors.planDuplicateFlow",
+  "A flow may appear only once in an execution plan.":
+    "errors.planDuplicateFlow",
   "SELECTED_TESTS requires at least one test.": "errors.planNoTests",
   "Execution plan could not be started.": "errors.planNotStarted",
 }
@@ -214,20 +228,27 @@ function localizeBackendMessage(raw: string): string {
   }
   if (raw.startsWith("Password must be at least ")) {
     const count = parseInt(raw.slice("Password must be at least ".length), 10)
-    if (Number.isFinite(count)) return translate("errors.passwordMinLength", { count })
+    if (Number.isFinite(count))
+      return translate("errors.passwordMinLength", { count })
   }
   if (raw.startsWith("Password must be at most ")) {
     const count = parseInt(raw.slice("Password must be at most ".length), 10)
-    if (Number.isFinite(count)) return translate("errors.passwordMaxLength", { count })
+    if (Number.isFinite(count))
+      return translate("errors.passwordMaxLength", { count })
   }
-  if (raw.includes("already has a run in progress")) return translate("errors.runInProgress")
+  if (raw.includes("already has a run in progress"))
+    return translate("errors.runInProgress")
   if (raw.startsWith("Run not found")) return translate("errors.runNotFound")
   if (raw.startsWith("Flow not found")) return translate("errors.flowNotFound")
   if (raw.startsWith("Selected test(s) are no longer available in ")) {
-    const flow = raw.slice("Selected test(s) are no longer available in ".length).split(":")[0].trim()
+    const flow = raw
+      .slice("Selected test(s) are no longer available in ".length)
+      .split(":")[0]
+      .trim()
     return translate("errors.testsUnavailable", { flow })
   }
-  if (raw.includes("migration-") || raw.includes("are unavailable.")) return translate("errors.featureUnavailable")
+  if (raw.includes("migration-") || raw.includes("are unavailable."))
+    return translate("errors.featureUnavailable")
   return raw
 }
 
@@ -254,7 +275,11 @@ export type AuthUser = {
   name: string
 }
 
-type LoginResponse = AuthUser & { token: string; accessToken: string; user: AuthUser }
+type LoginResponse = AuthUser & {
+  token: string
+  accessToken: string
+  user: AuthUser
+}
 
 function toUser(payload: LoginResponse): AuthUser {
   return {
@@ -269,7 +294,10 @@ function toUser(payload: LoginResponse): AuthUser {
 }
 
 /** POST /dashboard-api/auth/login — 200 { identity..., token, accessToken } */
-export async function apiLogin(email: string, password: string): Promise<{ user: AuthUser; token: string }> {
+export async function apiLogin(email: string, password: string): Promise<{
+  user: AuthUser
+  token: string
+}> {
   const payload = await request<LoginResponse>("/dashboard-api/auth/login", {
     method: "POST",
     auth: false,
@@ -279,8 +307,15 @@ export async function apiLogin(email: string, password: string): Promise<{ user:
 }
 
 /** POST /dashboard-api/auth/signup — 201 { status: "pending", message } */
-export async function apiSignup(email: string, password: string, companyName: string): Promise<string> {
-  const payload = await request<{ status: string; message: string }>("/dashboard-api/auth/signup", {
+export async function apiSignup(
+  email: string,
+  password: string,
+  companyName: string,
+): Promise<string> {
+  const payload = await request<{
+    status: string
+    message: string
+  }>("/dashboard-api/auth/signup", {
     method: "POST",
     auth: false,
     body: { email, password, companyName },
@@ -328,7 +363,10 @@ export class OAuthApiError extends ApiError {
 
 function toOAuthError(err: unknown): never {
   if (err instanceof ApiError) {
-    const wire = err.body && typeof err.body.oauthError === "string" ? err.body.oauthError : null
+    const wire =
+      err.body && typeof err.body.oauthError === "string"
+        ? err.body.oauthError
+        : null
     throw new OAuthApiError(err.status, err.message, wire)
   }
   throw err
@@ -342,20 +380,32 @@ type OauthOnboardingResponse = {
   message: string
 }
 
-export type OauthExchangeResult =
-  /** Approved account: exact same shape as a normal login response. */
-  | { kind: "approved"; user: AuthUser; token: string }
-  /** New OAuth-only applicant: company name still required via the one-time ticket. */
-  | { kind: "onboarding"; email: string; provider: string; ticket: string }
+export type OauthExchangeResult = /** Approved account: exact same shape as a normal login response. */
+{
+  kind: "approved"
+  user: AuthUser
+  token: string
+} /** New OAuth-only applicant: company name still required via the one-time ticket. */ | {
+  kind: "onboarding"
+  email: string
+  provider: string
+  ticket: string
+}
 
 /** POST /dashboard-api/auth/oauth/exchange — consumes the one-time `oauth_code` exactly once. */
-export async function apiOauthExchange(code: string): Promise<OauthExchangeResult> {
+export async function apiOauthExchange(
+  code: string,
+): Promise<OauthExchangeResult> {
   try {
-    const payload = await request<Partial<OauthOnboardingResponse> & Partial<LoginResponse>>(
-      "/dashboard-api/auth/oauth/exchange",
-      { method: "POST", auth: false, body: { code } },
-    )
-    if (payload.status === "onboarding_incomplete" && typeof payload.ticket === "string") {
+    const payload =
+      await request<Partial<OauthOnboardingResponse> & Partial<LoginResponse>>(
+        "/dashboard-api/auth/oauth/exchange",
+        { method: "POST", auth: false, body: { code } },
+      )
+    if (
+      payload.status === "onboarding_incomplete" &&
+      typeof payload.ticket === "string"
+    ) {
       return {
         kind: "onboarding",
         email: typeof payload.email === "string" ? payload.email : "",
@@ -371,9 +421,15 @@ export async function apiOauthExchange(code: string): Promise<OauthExchangeResul
 }
 
 /** POST /dashboard-api/auth/oauth/onboarding — ticket-gated company-name submission → 201 pending. */
-export async function apiOauthOnboarding(ticket: string, companyName: string): Promise<string> {
+export async function apiOauthOnboarding(
+  ticket: string,
+  companyName: string,
+): Promise<string> {
   try {
-    const payload = await request<{ status: string; message: string }>("/dashboard-api/auth/oauth/onboarding", {
+    const payload = await request<{
+      status: string
+      message: string
+    }>("/dashboard-api/auth/oauth/onboarding", {
       method: "POST",
       auth: false,
       body: { ticket, companyName },
@@ -388,9 +444,13 @@ export async function apiOauthOnboarding(ticket: string, companyName: string): P
  * GET /dashboard-api/auth/oauth/{provider}/link/start — authenticated with the
  * existing Bearer token; returns the provider URL the browser must navigate to.
  */
-export async function apiOauthLinkStart(provider: OAuthProvider): Promise<string> {
+export async function apiOauthLinkStart(
+  provider: OAuthProvider,
+): Promise<string> {
   try {
-    const payload = await request<{ url: string }>(`/dashboard-api/auth/oauth/${provider}/link/start`)
+    const payload = await request<{ url: string }>(
+      `/dashboard-api/auth/oauth/${provider}/link/start`,
+    )
     return payload.url
   } catch (err) {
     toOAuthError(err)
@@ -567,7 +627,9 @@ export async function apiClientRuns(
   if (query?.test) params.set("test", query.test)
   if (query?.from) params.set("from", query.from)
   if (query?.to) params.set("to", query.to)
-  return request<DashboardRun[]>(`/dashboard-api/clients/${clientId}/runs?${params.toString()}`)
+  return request<DashboardRun[]>(
+    `/dashboard-api/clients/${clientId}/runs?${params.toString()}`,
+  )
 }
 
 /**
@@ -590,12 +652,16 @@ export async function apiAdminRuns(
   if (query?.test) params.set("test", query.test)
   if (query?.from) params.set("from", query.from)
   if (query?.to) params.set("to", query.to)
-  return request<DashboardRun[]>(`/dashboard-api/admin/runs?${params.toString()}`)
+  return request<DashboardRun[]>(
+    `/dashboard-api/admin/runs?${params.toString()}`,
+  )
 }
 
 /** GET /dashboard-api/alerts — failure alerts for the caller's tenant, newest first. */
 export async function apiAlerts(limit = 5): Promise<DashboardAlert[]> {
-  return request<DashboardAlert[]>(`/dashboard-api/alerts?limit=${Math.max(1, Math.floor(limit))}`)
+  return request<DashboardAlert[]>(
+    `/dashboard-api/alerts?limit=${Math.max(1, Math.floor(limit))}`,
+  )
 }
 
 /** GET /dashboard-api/alerts/unread-count — unread failure alerts for the caller's tenant. */
@@ -605,7 +671,10 @@ export async function apiAlertsUnreadCount(): Promise<{ count: number }> {
 
 /** POST /dashboard-api/alerts/{id}/read — 204; marks the underlying run row read. */
 export async function apiAlertRead(id: string): Promise<void> {
-  await request<unknown>(`/dashboard-api/alerts/${encodeURIComponent(id)}/read`, { method: "POST" })
+  await request<unknown>(
+    `/dashboard-api/alerts/${encodeURIComponent(id)}/read`,
+    { method: "POST" },
+  )
 }
 
 /**
@@ -613,15 +682,22 @@ export async function apiAlertRead(id: string): Promise<void> {
  * returns the original resolution metadata. The run's execution status stays
  * FAILED; only resolution_state/resolved_by/resolved_at are written.
  */
-export async function apiAlertResolve(id: string): Promise<AlertResolveResponse> {
-  return request<AlertResolveResponse>(`/dashboard-api/alerts/${encodeURIComponent(id)}/resolve`, {
-    method: "POST",
-  })
+export async function apiAlertResolve(
+  id: string,
+): Promise<AlertResolveResponse> {
+  return request<AlertResolveResponse>(
+    `/dashboard-api/alerts/${encodeURIComponent(id)}/resolve`,
+    {
+      method: "POST",
+    },
+  )
 }
 
 /** POST /dashboard-api/alerts/mark-all-read — 200 { updated } for the caller's tenant. */
 export async function apiAlertsMarkAllRead(): Promise<{ updated: number }> {
-  return request<{ updated: number }>("/dashboard-api/alerts/mark-all-read", { method: "POST" })
+  return request<{ updated: number }>("/dashboard-api/alerts/mark-all-read", {
+    method: "POST",
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -710,7 +786,10 @@ export type ClientUpdateBody = {
 }
 
 /** PUT /dashboard-api/clients/{id} — 200 { status: "updated" } | 401 | 404. */
-export async function apiUpdateClient(clientId: number, body: ClientUpdateBody): Promise<{ status: string }> {
+export async function apiUpdateClient(
+  clientId: number,
+  body: ClientUpdateBody,
+): Promise<{ status: string }> {
   return request<{ status: string }>(`/dashboard-api/clients/${clientId}`, {
     method: "PUT",
     body,
@@ -726,15 +805,28 @@ export type TelegramLinkResponse = {
 }
 
 /** POST /dashboard-api/clients/{id}/telegram/link — mints a one-time bot link. */
-export async function apiTelegramLink(clientId: number): Promise<TelegramLinkResponse> {
-  return request<TelegramLinkResponse>(`/dashboard-api/clients/${clientId}/telegram/link`, {
-    method: "POST",
-  })
+export async function apiTelegramLink(
+  clientId: number,
+): Promise<TelegramLinkResponse> {
+  return request<TelegramLinkResponse>(
+    `/dashboard-api/clients/${clientId}/telegram/link`,
+    {
+      method: "POST",
+    },
+  )
 }
 
 /** POST /dashboard-api/clients/{id}/telegram/test — dispatches a test alert via the notification workflow. */
-export async function apiTelegramTest(clientId: number): Promise<{ status: string; message: string }> {
-  return request<{ status: string; message: string }>(`/dashboard-api/clients/${clientId}/telegram/test`, {
+export async function apiTelegramTest(
+  clientId: number,
+): Promise<{
+  status: string
+  message: string
+}> {
+  return request<{
+    status: string
+    message: string
+  }>(`/dashboard-api/clients/${clientId}/telegram/test`, {
     method: "POST",
   })
 }
@@ -763,7 +855,9 @@ export type BackendUpdateTestsResponse = {
 }
 
 /** GET /dashboard-api/clients/{id} — client settings + its flows (+ scheduler per flow). */
-export async function apiClientDetails(clientId: number): Promise<BackendClientDetails> {
+export async function apiClientDetails(
+  clientId: number,
+): Promise<BackendClientDetails> {
   return request<BackendClientDetails>(`/dashboard-api/clients/${clientId}`)
 }
 
@@ -829,13 +923,20 @@ export type NewClientPayload = {
 /** POST /dashboard-api/clients — create a client environment (admin only). */
 export async function apiCreateClient(
   payload: NewClientPayload,
-): Promise<{ status: string; clientId: number; clientName: string; flowsCreated: number; message: string }> {
+): Promise<{
+  status: string
+  clientId: number
+  clientName: string
+  flowsCreated: number
+  message: string
+}> {
   return request("/dashboard-api/clients", { method: "POST", body: payload })
 }
 
-
 /** GET /dashboard-api/flows/{flowId}/tests — the flow's tests, ordered by "order" then id. */
-export async function apiFlowTests(flowId: number): Promise<BackendFlowTestRow[]> {
+export async function apiFlowTests(
+  flowId: number,
+): Promise<BackendFlowTestRow[]> {
   return request<BackendFlowTestRow[]>(`/dashboard-api/flows/${flowId}/tests`)
 }
 
@@ -846,12 +947,18 @@ export async function apiFlowTests(flowId: number): Promise<BackendFlowTestRow[]
  */
 export async function apiCreateFlow(
   clientId: number,
-  body: { flowName: string; tests?: string[] },
+  body: {
+    flowName: string
+    tests?: string[]
+  },
 ): Promise<BackendCreateFlowResponse> {
-  return request<BackendCreateFlowResponse>(`/dashboard-api/clients/${clientId}/flows`, {
-    method: "POST",
-    body,
-  })
+  return request<BackendCreateFlowResponse>(
+    `/dashboard-api/clients/${clientId}/flows`,
+    {
+      method: "POST",
+      body,
+    },
+  )
 }
 
 /**
@@ -859,16 +966,26 @@ export async function apiCreateFlow(
  * flow (delete + reinsert). 400 when the tests array is missing/empty,
  * 404 unknown/unowned flow. There is no per-test create/update/delete endpoint.
  */
-export async function apiReplaceFlowTests(flowId: number, tests: string[]): Promise<BackendUpdateTestsResponse> {
-  return request<BackendUpdateTestsResponse>(`/dashboard-api/flows/${flowId}/tests`, {
-    method: "PUT",
-    body: { tests },
-  })
+export async function apiReplaceFlowTests(
+  flowId: number,
+  tests: string[],
+): Promise<BackendUpdateTestsResponse> {
+  return request<BackendUpdateTestsResponse>(
+    `/dashboard-api/flows/${flowId}/tests`,
+    {
+      method: "PUT",
+      body: { tests },
+    },
+  )
 }
 
 /** DELETE /dashboard-api/flows/{flowId} — soft-deletes the flow (is_active=false). */
-export async function apiDeleteFlow(flowId: number): Promise<{ status: string }> {
-  return request<{ status: string }>(`/dashboard-api/flows/${flowId}`, { method: "DELETE" })
+export async function apiDeleteFlow(
+  flowId: number,
+): Promise<{ status: string }> {
+  return request<{ status: string }>(`/dashboard-api/flows/${flowId}`, {
+    method: "DELETE",
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -957,28 +1074,46 @@ export async function apiRunFlow(
   flowId: number,
   options?: RunFlowOptions,
 ): Promise<RunFlowResponse> {
-  return request<RunFlowResponse>(`/dashboard-api/clients/${clientId}/flows/${flowId}/run`, {
-    method: "POST",
-    body: options ?? {},
-  })
+  return request<RunFlowResponse>(
+    `/dashboard-api/clients/${clientId}/flows/${flowId}/run`,
+    {
+      method: "POST",
+      body: options ?? {},
+    },
+  )
 }
 
 /** GET /dashboard-api/runs/{runId}/status — live state, or historical fallback. */
 export async function apiRunStatus(runId: string): Promise<BackendRunStatus> {
-  return request<BackendRunStatus>(`/dashboard-api/runs/${encodeURIComponent(runId)}/status`)
-}
-
-/** POST /dashboard-api/runs/{runId}/cancel — 202 CANCELLING; 409 when the run already finished. */
-export async function apiCancelRun(runId: string): Promise<{ runId: string; status: string; message: string }> {
-  return request<{ runId: string; status: string; message: string }>(
-    `/dashboard-api/runs/${encodeURIComponent(runId)}/cancel`,
-    { method: "POST" },
+  return request<BackendRunStatus>(
+    `/dashboard-api/runs/${encodeURIComponent(runId)}/status`,
   )
 }
 
+/** POST /dashboard-api/runs/{runId}/cancel — 202 CANCELLING; 409 when the run already finished. */
+export async function apiCancelRun(
+  runId: string,
+): Promise<{
+  runId: string
+  status: string
+  message: string
+}> {
+  return request<{
+    runId: string
+    status: string
+    message: string
+  }>(`/dashboard-api/runs/${encodeURIComponent(runId)}/cancel`, {
+    method: "POST",
+  })
+}
+
 /** GET /dashboard-api/runs/{runId}/failures — sanitized failure rows (empty until the run is persisted). */
-export async function apiRunFailures(runId: string): Promise<BackendRunFailure[]> {
-  return request<BackendRunFailure[]>(`/dashboard-api/runs/${encodeURIComponent(runId)}/failures`)
+export async function apiRunFailures(
+  runId: string,
+): Promise<BackendRunFailure[]> {
+  return request<BackendRunFailure[]>(
+    `/dashboard-api/runs/${encodeURIComponent(runId)}/failures`,
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -1018,8 +1153,12 @@ export type BackendAnalyzeAccepted = {
 }
 
 /** GET /dashboard-api/runs/{runId}/analysis — analysis state of a single run. 404 for package ids. */
-export async function apiRunAnalysis(runId: string): Promise<BackendRunAnalysis> {
-  return request<BackendRunAnalysis>(`/dashboard-api/runs/${encodeURIComponent(runId)}/analysis`)
+export async function apiRunAnalysis(
+  runId: string,
+): Promise<BackendRunAnalysis> {
+  return request<BackendRunAnalysis>(
+    `/dashboard-api/runs/${encodeURIComponent(runId)}/analysis`,
+  )
 }
 
 /**
@@ -1028,10 +1167,15 @@ export async function apiRunAnalysis(runId: string): Promise<BackendRunAnalysis>
  * client has AI disabled ({ error, analysisStatus: "DISABLED" }), 404 for
  * unknown or package ids.
  */
-export async function apiTriggerAnalysis(runId: string): Promise<BackendAnalyzeAccepted> {
-  return request<BackendAnalyzeAccepted>(`/dashboard-api/runs/${encodeURIComponent(runId)}/analyze`, {
-    method: "POST",
-  })
+export async function apiTriggerAnalysis(
+  runId: string,
+): Promise<BackendAnalyzeAccepted> {
+  return request<BackendAnalyzeAccepted>(
+    `/dashboard-api/runs/${encodeURIComponent(runId)}/analyze`,
+    {
+      method: "POST",
+    },
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -1132,21 +1276,39 @@ export type SavedLiveRunItemWrite = {
 }
 
 /** GET /dashboard-api/clients/{id}/live-runs — the client's saved live runs. */
-export async function apiListSavedLiveRuns(clientId: number): Promise<BackendSavedLiveRunRow[]> {
-  return request<BackendSavedLiveRunRow[]>(`/dashboard-api/clients/${clientId}/live-runs`)
+export async function apiListSavedLiveRuns(
+  clientId: number,
+): Promise<BackendSavedLiveRunRow[]> {
+  return request<BackendSavedLiveRunRow[]>(
+    `/dashboard-api/clients/${clientId}/live-runs`,
+  )
 }
 
 /** GET /dashboard-api/clients/{id}/live-runs/{savedId} — full config with items. */
-export async function apiGetSavedLiveRun(clientId: number, savedId: number): Promise<BackendSavedLiveRunConfig> {
-  return request<BackendSavedLiveRunConfig>(`/dashboard-api/clients/${clientId}/live-runs/${savedId}`)
+export async function apiGetSavedLiveRun(
+  clientId: number,
+  savedId: number,
+): Promise<BackendSavedLiveRunConfig> {
+  return request<BackendSavedLiveRunConfig>(
+    `/dashboard-api/clients/${clientId}/live-runs/${savedId}`,
+  )
 }
 
 /** POST /dashboard-api/clients/{id}/live-runs — 201 { id, name } | 400 { error }. */
 export async function apiCreateSavedLiveRun(
   clientId: number,
-  body: { name: string; items: SavedLiveRunItemWrite[] },
-): Promise<{ id: number; name: string }> {
-  return request<{ id: number; name: string }>(`/dashboard-api/clients/${clientId}/live-runs`, {
+  body: {
+    name: string
+    items: SavedLiveRunItemWrite[]
+  },
+): Promise<{
+  id: number
+  name: string
+}> {
+  return request<{
+    id: number
+    name: string
+  }>(`/dashboard-api/clients/${clientId}/live-runs`, {
     method: "POST",
     body,
   })
@@ -1156,28 +1318,52 @@ export async function apiCreateSavedLiveRun(
 export async function apiUpdateSavedLiveRun(
   clientId: number,
   savedId: number,
-  body: { name: string; items: SavedLiveRunItemWrite[] },
-): Promise<{ id: number; name: string }> {
-  return request<{ id: number; name: string }>(`/dashboard-api/clients/${clientId}/live-runs/${savedId}`, {
+  body: {
+    name: string
+    items: SavedLiveRunItemWrite[]
+  },
+): Promise<{
+  id: number
+  name: string
+}> {
+  return request<{
+    id: number
+    name: string
+  }>(`/dashboard-api/clients/${clientId}/live-runs/${savedId}`, {
     method: "PUT",
     body,
   })
 }
 
 /** DELETE /dashboard-api/clients/{id}/live-runs/{savedId} — 204 no content | 404. */
-export async function apiDeleteSavedLiveRun(clientId: number, savedId: number): Promise<void> {
-  await request<unknown>(`/dashboard-api/clients/${clientId}/live-runs/${savedId}`, { method: "DELETE" })
+export async function apiDeleteSavedLiveRun(
+  clientId: number,
+  savedId: number,
+): Promise<void> {
+  await request<unknown>(
+    `/dashboard-api/clients/${clientId}/live-runs/${savedId}`,
+    { method: "DELETE" },
+  )
 }
 
 /** POST /dashboard-api/clients/{id}/live-runs/{savedId}/run — 202 State | 409 State (BUSY) | 400. */
-export async function apiRunSavedLiveRun(clientId: number, savedId: number): Promise<BackendLiveRunState> {
-  return request<BackendLiveRunState>(`/dashboard-api/clients/${clientId}/live-runs/${savedId}/run`, {
-    method: "POST",
-  })
+export async function apiRunSavedLiveRun(
+  clientId: number,
+  savedId: number,
+): Promise<BackendLiveRunState> {
+  return request<BackendLiveRunState>(
+    `/dashboard-api/clients/${clientId}/live-runs/${savedId}/run`,
+    {
+      method: "POST",
+    },
+  )
 }
 
 /** GET /dashboard-api/clients/{id}/live-runs/executions/{executionId} — live State | 404. */
-export async function apiSavedLiveRunExecution(clientId: number, executionId: string): Promise<BackendLiveRunState> {
+export async function apiSavedLiveRunExecution(
+  clientId: number,
+  executionId: string,
+): Promise<BackendLiveRunState> {
   return request<BackendLiveRunState>(
     `/dashboard-api/clients/${clientId}/live-runs/executions/${encodeURIComponent(executionId)}`,
   )
@@ -1287,43 +1473,77 @@ export type PlanWrite = {
 }
 
 /** GET /dashboard-api/clients/{id}/schedules — the client's execution plans. */
-export async function apiListPlans(clientId: number): Promise<BackendPlanResponse[]> {
-  return request<BackendPlanResponse[]>(`/dashboard-api/clients/${clientId}/schedules`)
+export async function apiListPlans(
+  clientId: number,
+): Promise<BackendPlanResponse[]> {
+  return request<BackendPlanResponse[]>(
+    `/dashboard-api/clients/${clientId}/schedules`,
+  )
 }
 
 /** POST /dashboard-api/clients/{id}/schedules — 201 plan | 400 { error }. */
-export async function apiCreatePlan(clientId: number, body: PlanWrite): Promise<BackendPlanResponse> {
-  return request<BackendPlanResponse>(`/dashboard-api/clients/${clientId}/schedules`, {
-    method: "POST",
-    body,
-  })
+export async function apiCreatePlan(
+  clientId: number,
+  body: PlanWrite,
+): Promise<BackendPlanResponse> {
+  return request<BackendPlanResponse>(
+    `/dashboard-api/clients/${clientId}/schedules`,
+    {
+      method: "POST",
+      body,
+    },
+  )
 }
 
 /** GET /dashboard-api/clients/{id}/schedules/{planId} — 200 plan | 404. */
-export async function apiGetPlan(clientId: number, planId: number): Promise<BackendPlanResponse> {
-  return request<BackendPlanResponse>(`/dashboard-api/clients/${clientId}/schedules/${planId}`)
+export async function apiGetPlan(
+  clientId: number,
+  planId: number,
+): Promise<BackendPlanResponse> {
+  return request<BackendPlanResponse>(
+    `/dashboard-api/clients/${clientId}/schedules/${planId}`,
+  )
 }
 
 /** PUT /dashboard-api/clients/{id}/schedules/{planId} — 200 plan | 400 | 404. */
-export async function apiUpdatePlan(clientId: number, planId: number, body: PlanWrite): Promise<BackendPlanResponse> {
-  return request<BackendPlanResponse>(`/dashboard-api/clients/${clientId}/schedules/${planId}`, {
-    method: "PUT",
-    body,
-  })
+export async function apiUpdatePlan(
+  clientId: number,
+  planId: number,
+  body: PlanWrite,
+): Promise<BackendPlanResponse> {
+  return request<BackendPlanResponse>(
+    `/dashboard-api/clients/${clientId}/schedules/${planId}`,
+    {
+      method: "PUT",
+      body,
+    },
+  )
 }
 
 /** DELETE /dashboard-api/clients/{id}/schedules/{planId} — 200 { status, planId } | 404. */
-export async function apiDeletePlan(clientId: number, planId: number): Promise<{ status: string; planId: number }> {
-  return request<{ status: string; planId: number }>(`/dashboard-api/clients/${clientId}/schedules/${planId}`, {
+export async function apiDeletePlan(clientId: number, planId: number): Promise<{
+  status: string
+  planId: number
+}> {
+  return request<{
+    status: string
+    planId: number
+  }>(`/dashboard-api/clients/${clientId}/schedules/${planId}`, {
     method: "DELETE",
   })
 }
 
 /** POST /dashboard-api/clients/{id}/schedules/{planId}/run — 202 planRun | 400 | 409 | 404. */
-export async function apiRunPlanNow(clientId: number, planId: number): Promise<BackendPlanRunResponse> {
-  return request<BackendPlanRunResponse>(`/dashboard-api/clients/${clientId}/schedules/${planId}/run`, {
-    method: "POST",
-  })
+export async function apiRunPlanNow(
+  clientId: number,
+  planId: number,
+): Promise<BackendPlanRunResponse> {
+  return request<BackendPlanRunResponse>(
+    `/dashboard-api/clients/${clientId}/schedules/${planId}/run`,
+    {
+      method: "POST",
+    },
+  )
 }
 
 /** GET /dashboard-api/clients/{id}/schedules/{planId}/runs/{planRunId} — 200 planRun | 404. */
@@ -1342,8 +1562,14 @@ export async function apiCancelPlanRun(
   clientId: number,
   planId: number,
   planRunId: string,
-): Promise<{ status: string; planRunId: string }> {
-  return request<{ status: string; planRunId: string }>(
+): Promise<{
+  status: string
+  planRunId: string
+}> {
+  return request<{
+    status: string
+    planRunId: string
+  }>(
     `/dashboard-api/clients/${clientId}/schedules/${planId}/runs/${encodeURIComponent(planRunId)}/cancel`,
     { method: "POST" },
   )
@@ -1366,20 +1592,9 @@ export async function apiCancelPlanRun(
  * Payload is IMMUTABLE after submission — there is no PATCH endpoint.
  */
 
-export type AssetRequestType =
-  | "ADD_FLOW"
-  | "MODIFY_FLOW"
-  | "ADD_TEST"
-  | "MODIFY_TEST"
-  | "DELETE_FLOW"
-  | "DELETE_TEST"
+export type AssetRequestType = "ADD_FLOW" | "MODIFY_FLOW" | "ADD_TEST" | "MODIFY_TEST" | "DELETE_FLOW" | "DELETE_TEST"
 
-export type AssetRequestStatus =
-  | "PENDING"
-  | "APPROVED"
-  | "REJECTED"
-  | "IMPLEMENTED"
-  | "CANCELLED"
+export type AssetRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "IMPLEMENTED" | "CANCELLED"
 
 /** One test entry inside an ADD_FLOW payload. */
 export type AssetRequestTestSpec = {
@@ -1394,96 +1609,84 @@ export type AssetRequestTestSpec = {
  * (AssetRequestPayload) is what forms produce; this read union is what the
  * backend returns (all fields optional at runtime — nothing is fabricated).
  */
-export type AssetRequestPayloadDoc =
-  | {
-      requestType?: "ADD_FLOW"
-      flowName?: string
-      description?: string
-      expectedBehavior?: string
-      tests?: AssetRequestTestSpec[]
-    }
-  | {
-      requestType?: "MODIFY_FLOW"
-      flowId?: number
-      description?: string
-      expectedBehavior?: string
-      steps?: string[]
-      reason?: string
-    }
-  | {
-      requestType?: "ADD_TEST"
-      flowId?: number
-      testName?: string
-      description?: string
-      expectedBehavior?: string
-      steps?: string[]
-    }
-  | {
-      requestType?: "MODIFY_TEST"
-      flowId?: number
-      testMethod?: string
-      description?: string
-      expectedBehavior?: string
-      steps?: string[]
-      reason?: string
-    }
-  | {
-      requestType?: "DELETE_FLOW"
-      flowId?: number
-      reason?: string
-    }
-  | {
-      requestType?: "DELETE_TEST"
-      flowId?: number
-      testMethod?: string
-      reason?: string
-    }
+export type AssetRequestPayloadDoc = {
+  requestType?: "ADD_FLOW"
+  flowName?: string
+  description?: string
+  expectedBehavior?: string
+  tests?: AssetRequestTestSpec[]
+} | {
+  requestType?: "MODIFY_FLOW"
+  flowId?: number
+  description?: string
+  expectedBehavior?: string
+  steps?: string[]
+  reason?: string
+} | {
+  requestType?: "ADD_TEST"
+  flowId?: number
+  testName?: string
+  description?: string
+  expectedBehavior?: string
+  steps?: string[]
+} | {
+  requestType?: "MODIFY_TEST"
+  flowId?: number
+  testMethod?: string
+  description?: string
+  expectedBehavior?: string
+  steps?: string[]
+  reason?: string
+} | {
+  requestType?: "DELETE_FLOW"
+  flowId?: number
+  reason?: string
+} | {
+  requestType?: "DELETE_TEST"
+  flowId?: number
+  testMethod?: string
+  reason?: string
+}
 
 /** Discriminated write payload per request type (validated server-side too). */
-export type AssetRequestPayload =
-  | {
-      requestType: "ADD_FLOW"
-      flowName: string
-      description?: string
-      expectedBehavior?: string
-      tests: AssetRequestTestSpec[]
-    }
-  | {
-      requestType: "MODIFY_FLOW"
-      flowId: number
-      description?: string
-      expectedBehavior?: string
-      steps?: string[]
-      reason: string
-    }
-  | {
-      requestType: "ADD_TEST"
-      flowId: number
-      testName: string
-      description?: string
-      expectedBehavior?: string
-      steps: string[]
-    }
-  | {
-      requestType: "MODIFY_TEST"
-      flowId: number
-      testMethod: string
-      description?: string
-      expectedBehavior?: string
-      steps?: string[]
-      reason: string
-    }
-  | {
-      requestType: "DELETE_FLOW"
-      flowId: number
-      reason: string
-    }
-  | {
-      requestType: "DELETE_TEST"
-      flowId: number
-      testMethod: string
-      reason: string
-    }
+export type AssetRequestPayload = {
+  requestType: "ADD_FLOW"
+  flowName: string
+  description?: string
+  expectedBehavior?: string
+  tests: AssetRequestTestSpec[]
+} | {
+  requestType: "MODIFY_FLOW"
+  flowId: number
+  description?: string
+  expectedBehavior?: string
+  steps?: string[]
+  reason: string
+} | {
+  requestType: "ADD_TEST"
+  flowId: number
+  testName: string
+  description?: string
+  expectedBehavior?: string
+  steps: string[]
+} | {
+  requestType: "MODIFY_TEST"
+  flowId: number
+  testMethod: string
+  description?: string
+  expectedBehavior?: string
+  steps?: string[]
+  reason: string
+} | {
+  requestType: "DELETE_FLOW"
+  flowId: number
+  reason: string
+} | {
+  requestType: "DELETE_TEST"
+  flowId: number
+  testMethod: string
+  reason: string
+}
 
 /** One row of GET /clients/{id}/requests (list and detail share the shape). */
 export type BackendAssetRequest = {
@@ -1506,7 +1709,12 @@ export type BackendAssetRequest = {
 export async function apiCreateAssetRequest(
   clientId: number,
   payload: AssetRequestPayload,
-): Promise<{ id: number; status: string; requestType: string; payload: Record<string, unknown> }> {
+): Promise<{
+  id: number
+  status: string
+  requestType: string
+  payload: Record<string, unknown>
+}> {
   const { requestType, ...doc } = payload
   return request(`/dashboard-api/clients/${clientId}/requests`, {
     method: "POST",
@@ -1520,7 +1728,9 @@ export async function apiListAssetRequests(
   status?: AssetRequestStatus,
 ): Promise<BackendAssetRequest[]> {
   const suffix = status ? `?status=${encodeURIComponent(status)}` : ""
-  return request<BackendAssetRequest[]>(`/dashboard-api/clients/${clientId}/requests${suffix}`)
+  return request<BackendAssetRequest[]>(
+    `/dashboard-api/clients/${clientId}/requests${suffix}`,
+  )
 }
 
 /** GET /dashboard-api/clients/{id}/requests/{requestId} — one request; 404 when foreign/missing. */
@@ -1574,12 +1784,18 @@ export async function apiListAdminAssetRequests(
   if (status) params.set("status", status)
   if (clientId != null) params.set("clientId", String(clientId))
   const suffix = params.size > 0 ? `?${params.toString()}` : ""
-  return request<AdminAssetRequestRow[]>(`/dashboard-api/admin/requests${suffix}`)
+  return request<AdminAssetRequestRow[]>(
+    `/dashboard-api/admin/requests${suffix}`,
+  )
 }
 
 /** GET /dashboard-api/admin/requests/{requestId} — one request; 404 when missing. */
-export async function apiGetAdminAssetRequest(requestId: number): Promise<BackendAssetRequest> {
-  return request<BackendAssetRequest>(`/dashboard-api/admin/requests/${requestId}`)
+export async function apiGetAdminAssetRequest(
+  requestId: number,
+): Promise<BackendAssetRequest> {
+  return request<BackendAssetRequest>(
+    `/dashboard-api/admin/requests/${requestId}`,
+  )
 }
 
 /** POST .../admin/requests/{requestId}/approve — PENDING → APPROVED. */
@@ -1605,7 +1821,9 @@ export async function apiRejectAdminAssetRequest(
 }
 
 /** POST .../admin/requests/{requestId}/implement — APPROVED → IMPLEMENTED (backend performs the asset mutation). */
-export async function apiImplementAdminAssetRequest(requestId: number): Promise<{ status: string }> {
+export async function apiImplementAdminAssetRequest(
+  requestId: number,
+): Promise<{ status: string }> {
   return request<{ status: string }>(
     `/dashboard-api/admin/requests/${requestId}/implement`,
     { method: "POST" },
@@ -1654,12 +1872,18 @@ export async function apiListOnboardingRequests(
   status?: OnboardingRequestStatus,
 ): Promise<BackendOnboardingRequest[]> {
   const suffix = status ? `?status=${encodeURIComponent(status)}` : ""
-  return request<BackendOnboardingRequest[]>(`/dashboard-api/onboarding/requests${suffix}`)
+  return request<BackendOnboardingRequest[]>(
+    `/dashboard-api/onboarding/requests${suffix}`,
+  )
 }
 
 /** GET /dashboard-api/onboarding/requests/{id} — one onboarding request (admin only). */
-export async function apiGetOnboardingRequest(id: number): Promise<BackendOnboardingRequest> {
-  return request<BackendOnboardingRequest>(`/dashboard-api/onboarding/requests/${id}`)
+export async function apiGetOnboardingRequest(
+  id: number,
+): Promise<BackendOnboardingRequest> {
+  return request<BackendOnboardingRequest>(
+    `/dashboard-api/onboarding/requests/${id}`,
+  )
 }
 
 /** POST /dashboard-api/onboarding/requests/{id}/approve — provisions the client and approves the request. */
@@ -1667,10 +1891,13 @@ export async function apiApproveOnboardingRequest(
   id: number,
   baseUrl: string,
 ): Promise<OnboardingApproveResponse> {
-  return request<OnboardingApproveResponse>(`/dashboard-api/onboarding/requests/${id}/approve`, {
-    method: "POST",
-    body: { baseUrl },
-  })
+  return request<OnboardingApproveResponse>(
+    `/dashboard-api/onboarding/requests/${id}/approve`,
+    {
+      method: "POST",
+      body: { baseUrl },
+    },
+  )
 }
 
 /** POST /dashboard-api/onboarding/requests/{id}/reject — rejects the onboarding request. */
@@ -1678,10 +1905,13 @@ export async function apiRejectOnboardingRequest(
   id: number,
   adminNotes?: string,
 ): Promise<OnboardingRejectResponse> {
-  return request<OnboardingRejectResponse>(`/dashboard-api/onboarding/requests/${id}/reject`, {
-    method: "POST",
-    body: { ...(adminNotes ? { adminNotes } : {}) },
-  })
+  return request<OnboardingRejectResponse>(
+    `/dashboard-api/onboarding/requests/${id}/reject`,
+    {
+      method: "POST",
+      body: { ...(adminNotes ? { adminNotes } : {}) },
+    },
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -1761,7 +1991,10 @@ export type AdminSettingsResponse = {
     mfaSupported: boolean
     oauth: {
       google: { configured: boolean }
-      github: { configured: boolean; pkceEnabled: boolean }
+      github: {
+        configured: boolean
+        pkceEnabled: boolean
+      }
       redirectOrigin: string
     }
   }
@@ -1872,7 +2105,9 @@ export async function apiListAdminTeam(params?: {
 }
 
 /** GET /dashboard-api/admin/team/{id} — get member details including linked OAuth providers. */
-export async function apiGetAdminTeamMember(id: number): Promise<Record<string, unknown>> {
+export async function apiGetAdminTeamMember(
+  id: number,
+): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>(`/dashboard-api/admin/team/${id}`)
 }
 
@@ -1891,26 +2126,38 @@ export async function apiUpdateAdminUserRole(
   id: number,
   role: AdminTeamMemberRole,
   clientId?: number,
-): Promise<{ status: string; userId: number; role: string; clientId: string }> {
-  return request<{ status: string; userId: number; role: string; clientId: string }>(
-    `/dashboard-api/admin/team/${id}/role`,
-    {
-      method: "PUT",
-      body: { role, ...(clientId ? { clientId } : {}) },
-    },
-  )
+): Promise<{
+  status: string
+  userId: number
+  role: string
+  clientId: string
+}> {
+  return request<{
+    status: string
+    userId: number
+    role: string
+    clientId: string
+  }>(`/dashboard-api/admin/team/${id}/role`, {
+    method: "PUT",
+    body: { role, ...(clientId ? { clientId } : {}) },
+  })
 }
 
 /** DELETE /dashboard-api/admin/team/{id} — delete a platform user (admin only). */
 export async function apiDeleteAdminTeamMember(
   id: number,
-): Promise<{ status: string; userId: number; email: string }> {
-  return request<{ status: string; userId: number; email: string }>(
-    `/dashboard-api/admin/team/${id}`,
-    {
-      method: "DELETE",
-    },
-  )
+): Promise<{
+  status: string
+  userId: number
+  email: string
+}> {
+  return request<{
+    status: string
+    userId: number
+    email: string
+  }>(`/dashboard-api/admin/team/${id}`, {
+    method: "DELETE",
+  })
 }
 
 /** GET /dashboard-api/admin/audit-log — bounded, paginated admin audit log (admin only). */
@@ -1930,7 +2177,9 @@ export async function apiListAdminAuditLogs(params?: {
   if (params?.limit !== undefined) query.set("limit", String(params.limit))
   if (params?.offset !== undefined) query.set("offset", String(params.offset))
   const suffix = query.toString() ? `?${query.toString()}` : ""
-  return request<AdminAuditLogResponse>(`/dashboard-api/admin/audit-log${suffix}`)
+  return request<AdminAuditLogResponse>(
+    `/dashboard-api/admin/audit-log${suffix}`,
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -1939,14 +2188,7 @@ export async function apiListAdminAuditLogs(params?: {
 
 export type FeedbackRating = 1 | 2 | 3 | 4 | 5
 
-export type FeedbackCategory =
-  | "General"
-  | "Feature Request"
-  | "UI / UX"
-  | "Performance"
-  | "Monitoring"
-  | "AI Analysis"
-  | "Other"
+export type FeedbackCategory = "General" | "Feature Request" | "UI / UX" | "Performance" | "Monitoring" | "AI Analysis" | "Other"
 
 export type FeedbackEntry = {
   id: string
@@ -2013,12 +2255,18 @@ export async function apiListAdminFeedback(params?: {
   if (params?.limit !== undefined) query.set("limit", String(params.limit))
   if (params?.offset !== undefined) query.set("offset", String(params.offset))
   const suffix = query.toString() ? `?${query.toString()}` : ""
-  return request<AdminFeedbackListResponse>(`/dashboard-api/admin/feedback${suffix}`)
+  return request<AdminFeedbackListResponse>(
+    `/dashboard-api/admin/feedback${suffix}`,
+  )
 }
 
 /** GET /dashboard-api/admin/feedback/{id} — get detail for single feedback entry. */
-export async function apiGetAdminFeedbackDetail(id: string): Promise<FeedbackEntry> {
-  return request<FeedbackEntry>(`/dashboard-api/admin/feedback/${encodeURIComponent(id)}`)
+export async function apiGetAdminFeedbackDetail(
+  id: string,
+): Promise<FeedbackEntry> {
+  return request<FeedbackEntry>(
+    `/dashboard-api/admin/feedback/${encodeURIComponent(id)}`,
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -2323,7 +2571,11 @@ function testDefinitionsPath(clientId: number): string {
  */
 export async function apiListTestDefinitions(
   clientId: number,
-  params?: { limit?: number; offset?: number; search?: string },
+  params?: {
+    limit?: number
+    offset?: number
+    search?: string
+  },
 ): Promise<TestDefinitionListResponse> {
   const query = new URLSearchParams()
   if (params?.limit !== undefined) query.set("limit", String(params.limit))
@@ -2331,7 +2583,9 @@ export async function apiListTestDefinitions(
   const search = params?.search?.trim()
   if (search) query.set("search", search)
   const suffix = query.toString() ? `?${query.toString()}` : ""
-  return request<TestDefinitionListResponse>(`${testDefinitionsPath(clientId)}${suffix}`)
+  return request<TestDefinitionListResponse>(
+    `${testDefinitionsPath(clientId)}${suffix}`,
+  )
 }
 
 /** GET …/test-definitions/{definitionId} — aggregate metadata plus version history. */
@@ -2339,7 +2593,9 @@ export async function apiGetTestDefinition(
   clientId: number,
   definitionId: number,
 ): Promise<TestDefinitionDetails> {
-  return request<TestDefinitionDetails>(`${testDefinitionsPath(clientId)}/${definitionId}`)
+  return request<TestDefinitionDetails>(
+    `${testDefinitionsPath(clientId)}/${definitionId}`,
+  )
 }
 
 /**
@@ -2375,16 +2631,23 @@ export async function apiCreateTestDefinition(
 export async function apiUpdateTestDefinition(
   clientId: number,
   definitionId: number,
-  body: { name: string; description?: string | null; flowId?: number | null },
+  body: {
+    name: string
+    description?: string | null
+    flowId?: number | null
+  },
 ): Promise<{ updated: boolean }> {
-  return request<{ updated: boolean }>(`${testDefinitionsPath(clientId)}/${definitionId}`, {
-    method: "PUT",
-    body: {
-      name: body.name.trim(),
-      description: body.description ?? null,
-      flowId: body.flowId ?? null,
+  return request<{ updated: boolean }>(
+    `${testDefinitionsPath(clientId)}/${definitionId}`,
+    {
+      method: "PUT",
+      body: {
+        name: body.name.trim(),
+        description: body.description ?? null,
+        flowId: body.flowId ?? null,
+      },
     },
-  })
+  )
 }
 
 /**
@@ -2423,7 +2686,11 @@ export async function apiEditTestDefinitionDraft(
   clientId: number,
   definitionId: number,
   versionId: number,
-  body: { versionLock: number; sourceJson: string; schemaVersion?: string | null },
+  body: {
+    versionLock: number
+    sourceJson: string
+    schemaVersion?: string | null
+  },
 ): Promise<TestDefinitionDraftSaved> {
   return request<TestDefinitionDraftSaved>(
     `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}`,
@@ -2470,7 +2737,12 @@ export async function apiExecuteTestDefinitionTrial(
 ): Promise<TestDefinitionExecutionResponse> {
   return request<TestDefinitionExecutionResponse>(
     `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}/trial`,
-    { method: "POST", headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined },
+    {
+      method: "POST",
+      headers: idempotencyKey
+        ? { "Idempotency-Key": idempotencyKey }
+        : undefined,
+    },
   )
 }
 
@@ -2499,7 +2771,12 @@ export async function apiExecuteTestDefinitionProving(
 ): Promise<TestDefinitionExecutionResponse> {
   return request<TestDefinitionExecutionResponse>(
     `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}/proving`,
-    { method: "POST", headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined },
+    {
+      method: "POST",
+      headers: idempotencyKey
+        ? { "Idempotency-Key": idempotencyKey }
+        : undefined,
+    },
   )
 }
 
@@ -2551,14 +2828,7 @@ export async function apiDownloadTestDefinitionArtifact(
 
 export type TestCreationJourneyType = "UI" | "API" | "MIXED"
 export type TestCreationMethod = "MANUAL_REQUEST" | "MANUAL_EDITOR"
-export type TestCreationStatus =
-  | "SUBMITTED"
-  | "IN_REVIEW"
-  | "IN_PROGRESS"
-  | "DRAFT_CREATED"
-  | "REJECTED"
-  | "CANCELLED"
-  | "FAILED"
+export type TestCreationStatus = "SUBMITTED" | "IN_REVIEW" | "IN_PROGRESS" | "DRAFT_CREATED" | "REJECTED" | "CANCELLED" | "FAILED"
 
 export type TestCreationRequestRow = {
   id: number
@@ -2594,7 +2864,12 @@ function testCreationPath(clientId: number): string {
 
 export async function apiCreateManualRequest(
   clientId: number,
-  body: { journeyType: TestCreationJourneyType; title: string; description?: string | null; flowId?: number | null },
+  body: {
+    journeyType: TestCreationJourneyType
+    title: string
+    description?: string | null
+    flowId?: number | null
+  },
   idempotencyKey: string,
 ): Promise<TestCreationRequestRow> {
   return request<TestCreationRequestRow>(testCreationPath(clientId), {
@@ -2611,30 +2886,41 @@ export async function apiCreateManualRequest(
 
 export async function apiListCreationRequests(
   clientId: number,
-  params?: { status?: string; limit?: number; offset?: number },
+  params?: {
+    status?: string
+    limit?: number
+    offset?: number
+  },
 ): Promise<TestCreationListResponse> {
   const query = new URLSearchParams()
   if (params?.status) query.set("status", params.status)
   if (params?.limit !== undefined) query.set("limit", String(params.limit))
   if (params?.offset !== undefined) query.set("offset", String(params.offset))
   const suffix = query.toString() ? `?${query.toString()}` : ""
-  return request<TestCreationListResponse>(`${testCreationPath(clientId)}${suffix}`)
+  return request<TestCreationListResponse>(
+    `${testCreationPath(clientId)}${suffix}`,
+  )
 }
 
 export async function apiGetCreationRequest(
   clientId: number,
   requestId: number,
 ): Promise<TestCreationRequestRow> {
-  return request<TestCreationRequestRow>(`${testCreationPath(clientId)}/${requestId}`)
+  return request<TestCreationRequestRow>(
+    `${testCreationPath(clientId)}/${requestId}`,
+  )
 }
 
 export async function apiCancelCreationRequest(
   clientId: number,
   requestId: number,
 ): Promise<TestCreationRequestRow> {
-  return request<TestCreationRequestRow>(`${testCreationPath(clientId)}/${requestId}/cancel`, {
-    method: "POST",
-  })
+  return request<TestCreationRequestRow>(
+    `${testCreationPath(clientId)}/${requestId}/cancel`,
+    {
+      method: "POST",
+    },
+  )
 }
 
 export async function apiListAdminCreationRequests(params?: {
@@ -2647,17 +2933,24 @@ export async function apiListAdminCreationRequests(params?: {
   if (params?.limit !== undefined) query.set("limit", String(params.limit))
   if (params?.offset !== undefined) query.set("offset", String(params.offset))
   const suffix = query.toString() ? `?${query.toString()}` : ""
-  return request<TestCreationListResponse>(`/dashboard-api/admin/test-creation-requests${suffix}`)
+  return request<TestCreationListResponse>(
+    `/dashboard-api/admin/test-creation-requests${suffix}`,
+  )
 }
 
-export async function apiAssignCreationRequest(requestId: number, assignedTo: number): Promise<TestCreationRequestRow> {
+export async function apiAssignCreationRequest(
+  requestId: number,
+  assignedTo: number,
+): Promise<TestCreationRequestRow> {
   return request<TestCreationRequestRow>(
     `/dashboard-api/admin/test-creation-requests/${requestId}/assign`,
     { method: "POST", body: { assignedTo } },
   )
 }
 
-export async function apiStartCreationRequest(requestId: number): Promise<TestCreationRequestRow> {
+export async function apiStartCreationRequest(
+  requestId: number,
+): Promise<TestCreationRequestRow> {
   return request<TestCreationRequestRow>(
     `/dashboard-api/admin/test-creation-requests/${requestId}/start`,
     { method: "POST" },
@@ -2676,7 +2969,12 @@ export async function apiRejectCreationRequest(
 
 export async function apiCreateDraftFromRequest(
   requestId: number,
-  body: { name: string; description?: string | null; flowId?: number | null; initialSourceJson?: string | null },
+  body: {
+    name: string
+    description?: string | null
+    flowId?: number | null
+    initialSourceJson?: string | null
+  },
 ): Promise<TestCreationRequestRow> {
   return request<TestCreationRequestRow>(
     `/dashboard-api/admin/test-creation-requests/${requestId}/create-draft`,
