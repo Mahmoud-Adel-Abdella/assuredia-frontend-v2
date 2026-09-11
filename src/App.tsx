@@ -24,7 +24,7 @@ import { Feedback } from "./components/Feedback"
 import { Help } from "./components/Help"
 import { Landing } from "./components/Landing"
 import { TestDefinitionsPage } from "./components/testdefinitions/TestDefinitionsPage"
-import { TestCreationWizard } from "./components/testcreation/TestCreationWizard"
+import { CreateTestPage } from "./components/CreateTestPage"
 import { CreationRequestsPage } from "./components/testcreation/CreationRequestsPage"
 import { cx, Spinner, ToastProvider, useToast } from "./components/primitives"
 import { AuthProvider, useAuth } from "./lib/auth"
@@ -618,8 +618,12 @@ function AppInner() {
               initialDefinitionId={pendingDefinitionId}
             />
           ) : active === "test-creation" && user?.clientId != null ? (
-            <TestCreationWizard
+            <CreateTestPage
               clientId={user.clientId}
+              onViewDrafts={() => {
+                setPendingDefinitionId(null)
+                setActive("test-definitions")
+              }}
               onViewRequests={() => setActive("creation-requests")}
               onOpenDefinition={(definitionId) => {
                 setPendingDefinitionId(definitionId)

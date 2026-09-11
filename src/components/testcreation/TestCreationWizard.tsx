@@ -97,18 +97,24 @@ export function TestCreationWizard({
   onViewRequests,
   onOpenDefinition,
   onUnauthorized,
+  initialMethod,
+  onExit,
 }: {
   clientId: number
   onViewRequests: () => void
   onOpenDefinition: (definitionId: number) => void
   onUnauthorized: () => void
+  initialMethod?: CreationMethod
+  onExit?: () => void
 }) {
   const toast = useToast()
   const { user } = useAuth()
-  const [started, setStarted] = useState(false)
+  const [started, setStarted] = useState(initialMethod != null)
   const [step, setStep] = useState(0)
   const [journeyType, setJourneyType] = useState<JourneyType | null>(null)
-  const [method, setMethod] = useState<CreationMethod | null>(null)
+  const [method, setMethod] = useState<CreationMethod | null>(
+    initialMethod ?? null,
+  )
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [flowId, setFlowId] = useState("")
@@ -146,6 +152,10 @@ export function TestCreationWizard({
   }, [clientId, onUnauthorized])
 
   function resetAll() {
+    if (onExit) {
+      onExit()
+      return
+    }
     setStarted(false)
     setStep(0)
     setJourneyType(null)
@@ -451,7 +461,10 @@ export function TestCreationWizard({
               variant="primary"
               loading={submitting}
               disabled={submitting}
-              onClick={submit}
+              onClick={() => {
+                idempotencyKey.current = null
+                void submit()
+              }}
             >
               Retry Submission
             </Button>
