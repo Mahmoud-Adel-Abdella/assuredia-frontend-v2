@@ -4976,8 +4976,296 @@ const dict: Record<string, Entry> = {
 
   "landing.copyright": {
     en: "© 2026 Assuredia QA Monitoring. All rights reserved.",
-    ar: "© 2026 أسيوريا لمراقبة جودة البرمجيات. جميع الحقوق محفوظة.",
+    ar: "© 2026 Assuredia QA Monitoring. All rights reserved.",
   },
+
+  /* ---------- PR10C AI Test Builder ---------- */
+  "pr10c.page.eyebrow": { en: "AI Test Builder", ar: "منشئ الاختبارات الذكي" },
+  "pr10c.page.title": { en: "Create a Test", ar: "إنشاء اختبار" },
+  "pr10c.page.subtitle": {
+    en: "Describe what you want to verify. Assuredia will help build the test for you.",
+    ar: "صف ما تريد التحقق منه. ستساعدك Assuredia في بناء الاختبار.",
+  },
+  "pr10c.page.subtitleBuilding": {
+    en: "Assuredia is building your test.",
+    ar: "تقوم Assuredia ببناء اختبارك.",
+  },
+  "pr10c.page.subtitleReview": {
+    en: "Review and refine your proposed test.",
+    ar: "راجع الاختبار المقترح وقم بتحسينه.",
+  },
+  "pr10c.page.secureNotice": {
+    en: "Secure credentials are stored and managed in Settings. Assuredia never exposes credential values.",
+    ar: "تُخزن بيانات الاعتماد الآمنة وتُدار في الإعدادات. لا تعرض Assuredia قيم بيانات الاعتماد أبدًا.",
+  },
+  "pr10c.page.otherWays": {
+    en: "Other ways to create a test",
+    ar: "طرق أخرى لإنشاء اختبار",
+  },
+  "pr10c.type.userJourney": { en: "User Journey", ar: "رحلة المستخدم" },
+  "pr10c.type.backendCheck": { en: "Backend Check", ar: "فحص الواجهة الخلفية" },
+  "pr10c.type.endToEnd": { en: "End-to-End", ar: "شامل" },
+  "pr10c.composer.placeholder": {
+    en: "Describe what you want to verify...",
+    ar: "صف ما تريد التحقق منه...",
+  },
+  "pr10c.composer.intentLabel": {
+    en: "Test intent description",
+    ar: "وصف الغرض من الاختبار",
+  },
+  "pr10c.composer.build": { en: "Build Test", ar: "بناء الاختبار" },
+  "pr10c.composer.addCredential": { en: "Add credential", ar: "إضافة بيانات اعتماد" },
+  "pr10c.composer.typeLabel": { en: "Test type", ar: "نوع الاختبار" },
+  "pr10c.composer.tryExample": { en: "Try an example", ar: "جرّب مثالًا" },
+  "pr10c.composer.credentialLabel": {
+    en: "Secure credential selection",
+    ar: "اختيار بيانات الاعتماد الآمنة",
+  },
+  "pr10c.credential.configured": { en: "Configured", ar: "مُعد" },
+  "pr10c.credential.notConfigured": { en: "Not configured", ar: "غير مُعد" },
+  "pr10c.credential.notConfiguredHint": {
+    en: "Not configured — set up in Settings.",
+    ar: "غير مُعد — قم بالإعداد في الإعدادات.",
+  },
+  "pr10c.credential.none": { en: "No credential", ar: "بدون بيانات اعتماد" },
+  "pr10c.credential.managedNote": {
+    en: "Managed in Settings · values never shown",
+    ar: "تُدار في الإعدادات · لا تُعرض القيم أبدًا",
+  },
+  "pr10c.credential.defaultName": {
+    en: "Secure Credential",
+    ar: "بيانات اعتماد آمنة",
+  },
+  "pr10c.stages.understanding": {
+    en: "Understanding your test...",
+    ar: "جارٍ فهم اختبارك...",
+  },
+  "pr10c.stages.exploring": {
+    en: "Exploring the application...",
+    ar: "جارٍ استكشاف التطبيق...",
+  },
+  "pr10c.stages.planning": {
+    en: "Planning the test...",
+    ar: "جارٍ تخطيط الاختبار...",
+  },
+  "pr10c.stages.validating": {
+    en: "Validating the proposed flow...",
+    ar: "جارٍ التحقق من التدفق المقترح...",
+  },
+  "pr10c.building.aiBadge": { en: "AI", ar: "AI" },
+  "pr10c.building.title": { en: "Building your {type}", ar: "جارٍ بناء {type}" },
+  "pr10c.building.subtitle": {
+    en: "Assuredia is planning your test — no technical input required.",
+    ar: "تخطط Assuredia لاختبارك — لا يلزم أي إدخال تقني.",
+  },
+  "pr10c.building.cancel": { en: "Cancel", ar: "إلغاء" },
+  "pr10c.plan.needsDiscovery": {
+    en: "Needs discovery",
+    ar: "يحتاج إلى استكشاف",
+  },
+  "pr10c.plan.actionLabel": { en: "Action", ar: "إجراء" },
+  "pr10c.plan.moveUp": { en: "Move action up", ar: "نقل الإجراء لأعلى" },
+  "pr10c.plan.moveDown": { en: "Move action down", ar: "نقل الإجراء لأسفل" },
+  "pr10c.plan.delete": { en: "Delete", ar: "حذف" },
+  "pr10c.plan.deleteAction": { en: "Delete action", ar: "حذف الإجراء" },
+  "pr10c.plan.addAction": { en: "+ Add action manually", ar: "+ إضافة إجراء يدويًا" },
+  "pr10c.plan.expectedResults": {
+    en: "Expected Results",
+    ar: "النتائج المتوقعة",
+  },
+  "pr10c.plan.actionsProposed": {
+    en: "{count} actions proposed",
+    ar: "تم اقتراح {count} من الإجراءات",
+  },
+  "pr10c.plan.actionsCount": {
+    en: "{count} actions",
+    ar: "{count} من الإجراءات",
+  },
+  "pr10c.plan.proposedTitle": {
+    en: "Here's what Assuredia proposes",
+    ar: "إليك ما تقترحه Assuredia",
+  },
+  "pr10c.plan.testName": { en: "Test name", ar: "اسم الاختبار" },
+  "pr10c.plan.reviseTitle": {
+    en: "Ask Assuredia to revise this test",
+    ar: "اطلب من Assuredia مراجعة هذا الاختبار",
+  },
+  "pr10c.plan.revisePlaceholder": {
+    en: 'E.g. "Also verify that the order total is correct."',
+    ar: 'مثال: "تحقق أيضًا من صحة إجمالي الطلب."',
+  },
+  "pr10c.plan.reviseAction": { en: "Update Test", ar: "تحديث الاختبار" },
+  "pr10c.plan.editIntent": { en: "Edit intent", ar: "تحرير الغرض" },
+  "pr10c.plan.review": { en: "Review Test", ar: "مراجعة الاختبار" },
+  "pr10c.review.title": { en: "Review your test", ar: "راجع اختبارك" },
+  "pr10c.review.subtitle": {
+    en: "Confirm the details before creating your Test Draft.",
+    ar: "أكّد التفاصيل قبل إنشاء مسودة الاختبار.",
+  },
+  "pr10c.review.testInformation": {
+    en: "Test Information",
+    ar: "معلومات الاختبار",
+  },
+  "pr10c.review.name": { en: "Name", ar: "الاسم" },
+  "pr10c.review.type": { en: "Type", ar: "النوع" },
+  "pr10c.review.targetApplication": {
+    en: "Target Application",
+    ar: "التطبيق المستهدف",
+  },
+  "pr10c.review.targetMissing": {
+    en: "Not configured — set it in Settings.",
+    ar: "غير مُعد — قم بإعداده في الإعدادات.",
+  },
+  "pr10c.review.authentication": { en: "Authentication", ar: "المصادقة" },
+  "pr10c.review.notRequired": { en: "Not required", ar: "غير مطلوب" },
+  "pr10c.review.creation": { en: "Creation", ar: "الإنشاء" },
+  "pr10c.review.aiTestBuilder": {
+    en: "AI Test Builder",
+    ar: "منشئ الاختبارات الذكي",
+  },
+  "pr10c.review.executionPlan": { en: "Execution Plan", ar: "خطة التنفيذ" },
+  "pr10c.review.draftNote": {
+    en: "This test will be saved as a Test Draft and will not be activated automatically. It follows the standard review and approval process.",
+    ar: "سيُحفظ هذا الاختبار كمسودة اختبار ولن يتم تفعيله تلقائيًا. وهو يتبع عملية المراجعة والاعتماد المعيارية.",
+  },
+  "pr10c.review.back": { en: "Back to proposed", ar: "رجوع إلى المقترح" },
+  "pr10c.review.create": { en: "Create Test Draft", ar: "إنشاء مسودة اختبار" },
+  "pr10c.success.title": { en: "Test Draft Created", ar: "تم إنشاء مسودة الاختبار" },
+  "pr10c.success.subtitle": {
+    en: "Your test has been saved as a draft and is ready for review.",
+    ar: "تم حفظ اختبارك كمسودة وهو جاهز للمراجعة.",
+  },
+  "pr10c.success.draftBadge": { en: "DRAFT", ar: "مسودة" },
+  "pr10c.success.openTest": { en: "Open Test", ar: "فتح الاختبار" },
+  "pr10c.success.viewDrafts": {
+    en: "View in Drafts & Reviews",
+    ar: "عرض في المسودات والمراجعات",
+  },
+  "pr10c.success.createAnother": {
+    en: "Create Another Test",
+    ar: "إنشاء اختبار آخر",
+  },
+  "pr10c.clarification.title": {
+    en: "I need a bit more detail",
+    ar: "أحتاج إلى مزيد من التفاصيل",
+  },
+  "pr10c.clarification.subtitle": {
+    en: "Answer below and continue planning.",
+    ar: "أجب أدناه وتابع التخطيط.",
+  },
+  "pr10c.clarification.answerPlaceholder": {
+    en: "Type your answer...",
+    ar: "اكتب إجابتك...",
+  },
+  "pr10c.clarification.continue": {
+    en: "Continue Planning",
+    ar: "متابعة التخطيط",
+  },
+  "pr10c.category.missingObjective": {
+    en: "Missing Objective",
+    ar: "هدف مفقود",
+  },
+  "pr10c.category.missingApplication": {
+    en: "Missing Application",
+    ar: "تطبيق مفقود",
+  },
+  "pr10c.category.missingCredential": {
+    en: "Missing Credential",
+    ar: "بيانات اعتماد مفقودة",
+  },
+  "pr10c.category.unclearOutcome": {
+    en: "Unclear Outcome",
+    ar: "نتيجة غير واضحة",
+  },
+  "pr10c.category.unsupportedCapability": {
+    en: "Unsupported Capability",
+    ar: "قدرة غير مدعومة",
+  },
+  "pr10c.category.default": { en: "Clarification", ar: "توضيح" },
+  "pr10c.preflight.targetMissingTitle": {
+    en: "Target application not configured",
+    ar: "التطبيق المستهدف غير مُعد",
+  },
+  "pr10c.preflight.targetMissingBody": {
+    en: "Before Assuredia can explore your application, configure the target application in Settings.",
+    ar: "قبل أن تتمكن Assuredia من استكشاف تطبيقك، قم بإعداد التطبيق المستهدف في الإعدادات.",
+  },
+  "pr10c.auth.requiredTitle": {
+    en: "Authentication required",
+    ar: "المصادقة مطلوبة",
+  },
+  "pr10c.auth.requiredBody": {
+    en: "The selected Secure Credential is not configured. Set it up in Settings, or continue without a credential.",
+    ar: "بيانات الاعتماد الآمنة المحددة غير مُعدة. قم بإعدادها في الإعدادات، أو تابع بدون بيانات اعتماد.",
+  },
+  "pr10c.auth.continueWithout": {
+    en: "Continue without credential",
+    ar: "المتابعة بدون بيانات اعتماد",
+  },
+  "pr10c.confirm.creating": {
+    en: "Creating your Test Draft...",
+    ar: "جارٍ إنشاء مسودة الاختبار...",
+  },
+  "pr10c.confirm.creatingHint": {
+    en: "This usually takes a few seconds.",
+    ar: "يستغرق هذا عادة بضع ثوانٍ.",
+  },
+  "pr10c.duplicate.title": {
+    en: "Already confirmed",
+    ar: "تم التأكيد مسبقًا",
+  },
+  "pr10c.duplicate.body": {
+    en: "This plan was already confirmed. You can find the draft in Drafts & Reviews.",
+    ar: "تم تأكيد هذه الخطة مسبقًا. يمكنك العثور على المسودة في المسودات والمراجعات.",
+  },
+  "pr10c.errors.network": {
+    en: "Could not reach Assuredia. Check your connection and try again.",
+    ar: "تعذّر الوصول إلى Assuredia. تحقق من اتصالك وحاول مجددًا.",
+  },
+  "pr10c.errors.unexpected": {
+    en: "Something went wrong. Please try again.",
+    ar: "حدث خطأ ما. يرجى المحاولة مجددًا.",
+  },
+  "pr10c.other.recordTitle": { en: "Record a Journey", ar: "تسجيل رحلة" },
+  "pr10c.other.recordDescription": {
+    en: "Interact with your application while Assuredia records the journey.",
+    ar: "تفاعل مع تطبيقك بينما تسجل Assuredia الرحلة.",
+  },
+  "pr10c.other.recordCta": { en: "Start Recording", ar: "بدء التسجيل" },
+  "pr10c.other.importTitle": {
+    en: "Import API Specification",
+    ar: "استيراد مواصفات API",
+  },
+  "pr10c.other.importDescription": {
+    en: "Create backend tests from an existing API specification.",
+    ar: "إنشاء اختبارات خلفية من مواصفات API موجودة.",
+  },
+  "pr10c.other.importCta": {
+    en: "Import Specification",
+    ar: "استيراد المواصفات",
+  },
+  "pr10c.other.engineerTitle": { en: "Ask an Engineer", ar: "اسأل مهندسًا" },
+  "pr10c.other.engineerDescription": {
+    en: "Need help creating a test? Request assistance from an Assuredia engineer.",
+    ar: "تحتاج مساعدة في إنشاء اختبار؟ اطلب المساعدة من مهندس Assuredia.",
+  },
+  "pr10c.other.engineerCta": { en: "Submit Request", ar: "إرسال الطلب" },
+  "pr10c.other.existingTitle": {
+    en: "Use an Existing Test",
+    ar: "استخدام اختبار موجود",
+  },
+  "pr10c.other.existingDescription": {
+    en: "Create a new test from an existing test definition.",
+    ar: "إنشاء اختبار جديد من تعريف اختبار موجود.",
+  },
+  "pr10c.other.existingCta": { en: "Browse Tests", ar: "تصفح الاختبارات" },
+  "pr10c.other.comingSoon": { en: "Coming soon", ar: "قريبًا" },
+  "pr10c.home.aiTitle": { en: "Build with AI", ar: "أنشئ بالذكاء الاصطناعي" },
+  "pr10c.home.aiDescription": {
+    en: "Describe what to verify and let the AI Test Builder draft the test for review.",
+    ar: "صف ما تريد التحقق منه ودع منشئ الاختبارات الذكي يعد المسودة للمراجعة.",
+  },
+  "pr10c.home.aiAction": { en: "Start Building", ar: "بدء البناء" },
 }
 
 type LangContextValue = {

@@ -41,6 +41,12 @@ const state = {
   creationIdempotency: new Map(),
   discoveryMode: "completed",
   discoveryRequests: 0,
+  plannerMode: "plan",
+  plannerRequests: 0,
+  plans: new Map(),
+  confirmKeys: new Map(),
+  nextPlanId: 1,
+  nextConfirmDefinitionId: 501,
   /** Set by the spec to make the next proving run fail instead of pass. */
   nextExecutionStatus: "PASSED",
 }
@@ -442,6 +448,23 @@ const server = createServer(async (req, res) => {
   if (path === "/__test__/discovery-count" && method === "GET") {
     return json(res, 200, { count: state.discoveryRequests })
   }
+  if (path === "/__test__/planner-mode" && method === "POST") {
+    const body = await readBody(req)
+    const allowed = [
+      "plan",
+      "clarification",
+      "invalid-shape",
+      "failed:AI_UNAVAILABLE",
+      "failed:AI_TIMEOUT",
+      "failed:CREDENTIAL_REQUIRED",
+      "failed:UNSUPPORTED_SCENARIO",
+    ]
+    state.plannerMode =
+      typeof body?.mode === "string" && allowed.includes(body.mode)
+        ? body.mode
+        : "plan"
+    return json(res, 200, { mode: state.plannerMode })
+  }
   if (path === "/__test__/reset" && method === "POST") {
     state.definitions.clear()
     state.versions.clear()
@@ -457,6 +480,12 @@ const server = createServer(async (req, res) => {
     state.nextExecutionStatus = "PASSED"
     state.discoveryMode = "completed"
     state.discoveryRequests = 0
+    state.plannerMode = "plan"
+    state.plannerRequests = 0
+    state.plans.clear()
+    state.confirmKeys.clear()
+    state.nextPlanId = 1
+    state.nextConfirmDefinitionId = 501
     return json(res, 200, { ok: true })
   }
 
@@ -532,6 +561,8 @@ const server = createServer(async (req, res) => {
         browser: "CHROMIUM",
         device_type: "DESKTOP",
         timezone: "UTC",
+        site_username: "customer",
+        site_password_set: true,
       },
       flows: [
         {
@@ -794,6 +825,206 @@ const server = createServer(async (req, res) => {
     row.updatedAt = nowIso()
     row.versionLock += 1
     return json(res, kind === "create-draft" ? 201 : 200, creationRow(row))
+  }
+
+  /* ---- AI Test Builder (PR10C planner contract) ---------------------- */
+  function plannerStepsFor(testType) {
+    if (testType === "BACKEND_CHECK") {
+      return [
+        {
+          type: "API",
+          intent: "Verify product availability",
+          requiresDiscovery: false,
+        },
+        {
+          type: "API",
+          intent: "Verify the response is correct",
+          requiresDiscovery: false,
+        },
+      ]
+    }
+    if (testType === "END_TO_END") {
+      return [
+        {
+          type: "UI",
+          intent: "Search for a product",
+          requiresDiscovery: true,
+        },
+        {
+          type: "API",
+          intent: "Verify product availability",
+          requiresDiscovery: false,
+        },
+      ]
+    }
+    return [
+      {
+        type: "UI",
+        intent: "Search for a product",
+        requiresDiscovery: true,
+      },
+      {
+        type: "UI",
+        intent: "Add the product to the cart",
+        requiresDiscovery: true,
+      },
+    ]
+  }
+  function plannerPlan(testType, credentialId) {
+    const id = state.nextPlanId++
+    const plan = {
+      status: "PLAN_READY",
+      planId: `plan-${id}`,
+      testType,
+      title: "Mock planned test",
+      description: "Planned from mock intent",
+      authenticationRequired: credentialId != null,
+      credentialReference:
+        credentialId != null
+          ? { credentialId, name: "Secure Credential" }
+          : null,
+      steps: plannerStepsFor(testType),
+      expectedOutcomes: [
+        { type: testType === "BACKEND_CHECK" ? "API" : "UI", intent: "It works" },
+      ],
+      requiredCapabilities:
+        testType === "END_TO_END"
+          ? ["APP_DISCOVERY", "BACKEND_DISCOVERY"]
+          : testType === "BACKEND_CHECK"
+            ? ["BACKEND_DISCOVERY"]
+            : ["APP_DISCOVERY"],
+      warnings: [],
+      definitionSourceJson: "{}",
+      consumed: false,
+    }
+    state.plans.set(plan.planId, plan)
+    const { consumed, ...body } = plan
+    return body
+  }
+  const plansRoot = `/dashboard-api/clients/${CLIENT.id}/test-plans`
+  if (
+    path.startsWith(`/dashboard-api/clients/`) &&
+    path.includes("/test-plans")
+  ) {
+    if (!path.startsWith(plansRoot))
+      return error(res, 404, "This client does not exist")
+    state.plannerRequests += 1
+    const rest = path.slice(plansRoot.length).replace(/^\//, "")
+    const segments = rest === "" ? [] : rest.split("/")
+    if (segments.length === 0 && method === "POST") {
+      const body = await readBody(req)
+      const intent = typeof body?.intent === "string" ? body.intent : ""
+      if (!intent.trim()) return error(res, 400, "intent is required")
+      if (intent.length > 4000)
+        return error(res, 400, "intent exceeds the maximum length")
+      const requestedType = body?.requestedType ?? "USER_JOURNEY"
+      if (!["USER_JOURNEY", "BACKEND_CHECK", "END_TO_END"].includes(requestedType))
+        return error(res, 400, "requestedType must be a known test type")
+      const mode = state.plannerMode
+      if (mode === "clarification") {
+        const id = state.nextPlanId++
+        return json(res, 200, {
+          status: "NEEDS_CLARIFICATION",
+          planId: `plan-${id}`,
+          requestedType,
+          questions: [
+            {
+              question: "Which checkout flow should be verified?",
+              category: "MISSING_BUSINESS_OBJECTIVE",
+            },
+          ],
+          categories: ["MISSING_BUSINESS_OBJECTIVE"],
+        })
+      }
+      if (mode === "invalid-shape") {
+        return json(res, 200, { status: "PLAN_READY" })
+      }
+      if (mode.startsWith("failed:")) {
+        const category = mode.slice("failed:".length)
+        return json(res, 200, {
+          status: "FAILED",
+          planId: null,
+          errorCategory: category,
+          message: `Mock ${category}`,
+        })
+      }
+      return json(res, 200, plannerPlan(requestedType, body?.credentialId ?? null))
+    }
+    if (segments.length === 2 && segments[1] === "confirm" && method === "POST") {
+      const planId = segments[0]
+      const key = req.headers["idempotency-key"]
+      if (!key) return error(res, 400, "Idempotency-Key header is required")
+      const plan = state.plans.get(planId)
+      if (!plan || plan.consumed)
+        return error(res, 404, "Test plan not found")
+      const body = await readBody(req)
+      const name =
+        typeof body?.name === "string" && body.name.trim()
+          ? body.name.trim().slice(0, 120)
+          : plan.title
+      const fingerprint = JSON.stringify([planId, name])
+      const seen = state.confirmKeys.get(key)
+      if (seen) {
+        if (seen.fingerprint !== fingerprint)
+          return error(res, 409, "Idempotency key reused with different parameters")
+        return json(res, 200, seen.result)
+      }
+      const definitionId = state.nextConfirmDefinitionId++
+      const definition = {
+        id: definitionId,
+        clientId: CLIENT.id,
+        name,
+        description: null,
+        flowId: null,
+        assetRequestId: null,
+        isArchived: false,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      }
+      state.definitions.set(definition.id, definition)
+      const version = {
+        id: state.nextVersionId++,
+        testDefinitionId: definition.id,
+        versionNumber: 1,
+        schemaVersion: "1.0",
+        sourceJson: JSON.stringify({
+          schemaVersion: "1.0",
+          metadata: { name },
+          steps: [{ action: "ui.wait", for: "duration", durationMs: 100 }],
+          expectedOutcomes: [
+            {
+              action: "ui.assertVisible",
+              locator: { strategy: "css", value: "body" },
+            },
+          ],
+        }),
+        status: "DRAFT",
+        validationReportJson: null,
+        versionLock: 1,
+        createdBy: 1,
+        validatedBy: null,
+        approvedBy: null,
+        provingRunId: null,
+        createdAt: nowIso(),
+        validatedAt: null,
+        approvedAt: null,
+        readyAt: null,
+        archivedAt: null,
+        updatedAt: nowIso(),
+      }
+      state.versions.set(version.id, version)
+      const result = {
+        definitionId,
+        creationRequestId: 900 + definitionId,
+        status: "DRAFT",
+        planId,
+        plannedTestType: plan.testType,
+      }
+      state.confirmKeys.set(key, { fingerprint, result })
+      plan.consumed = true
+      return json(res, 200, result)
+    }
+    return error(res, 404, "Test plan not found")
   }
 
   /* ---- Test Definitions ---------------------------------------------- */
