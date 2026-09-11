@@ -3497,6 +3497,44 @@ const dict: Record<string, Entry> = {
   "nav.creationRequests": { en: "Creation Requests", ar: "طلبات الإنشاء" },
   "admin.navCreationQueue": { en: "Review Queue", ar: "قائمة المراجعة" },
 
+  /* ---------- Sidebar IA (PR10C FIX 9: TESTS + RUNS & RESULTS) ---------- */
+  "nav.tests": { en: "TESTS", ar: "الاختبارات" },
+  "nav.runsResults": { en: "RUNS & RESULTS", ar: "التشغيل والنتائج" },
+  "nav.activeTests": { en: "Active Tests", ar: "اختبارات نشطة" },
+  "nav.draftsReviews": { en: "Drafts & Reviews", ar: "المسودات والمراجعات" },
+  "nav.testRequests": { en: "Test Requests", ar: "طلبات الاختبار" },
+  "nav.createTest": { en: "Create Test", ar: "إنشاء اختبار" },
+  "nav.liveRuns": { en: "Live Runs", ar: "تشغيل مباشر" },
+  "nav.scheduledRuns": { en: "Scheduled Runs", ar: "تشغيل مجدول" },
+  "nav.history": { en: "History", ar: "السجل" },
+
+  "testdef.activeSubtitle": {
+    en: "Live, approved tests ready to run. Drafts live under Drafts & Reviews.",
+    ar: "اختبارات معتمدة جاهزة للتشغيل. المسودات في المسودات والمراجعات.",
+  },
+  "testdef.draftsSubtitle": {
+    en: "Tests in progress: drafts, validated and approved definitions awaiting readiness.",
+    ar: "اختبارات قيد العمل: مسودات وتعريفات تم التحقق منها واعتمادها بانتظار الجاهزية.",
+  },
+  "testdef.filterNote": {
+    en: "Showing {shown} of {total} on this page matching this view. Statuses are read from each definition.",
+    ar: "عرض {shown} من {total} في هذه الصفحة ضمن هذا العرض. تُقرأ الحالات من كل تعريف.",
+  },
+  "testdef.filterResolving": {
+    en: "Reading definition statuses…",
+    ar: "جارٍ قراءة حالات التعريفات…",
+  },
+  "testdef.noReadyOnPage": { en: "No Active tests on this page", ar: "لا توجد اختبارات نشطة في هذه الصفحة" },
+  "testdef.noReadyOnPageHint": {
+    en: "None of the definitions on this page are READY. Try the next page or clear the search.",
+    ar: "لا يوجد أي تعريف جاهز في هذه الصفحة. جرّب الصفحة التالية أو امسح البحث.",
+  },
+  "testdef.noDraftsOnPage": { en: "No drafts on this page", ar: "لا توجد مسودات في هذه الصفحة" },
+  "testdef.noDraftsOnPageHint": {
+    en: "None of the definitions on this page are drafts. Try the next page or clear the search.",
+    ar: "لا توجد مسودات في هذه الصفحة. جرّب الصفحة التالية أو امسح البحث.",
+  },
+
   "testdef.eyebrow": { en: "Quality Assets", ar: "أصول الجودة" },
   "testdef.title": { en: "Test Definitions", ar: "تعريفات الاختبار" },
   "testdef.subtitle": {

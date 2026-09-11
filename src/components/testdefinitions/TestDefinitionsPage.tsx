@@ -19,6 +19,8 @@ type View = { kind: "list" } | { kind: "create" } | {
  * whether the admin-only lifecycle steps are offered, and the engine enforces the
  * same rule regardless of what the UI shows.
  */
+export type TestDefinitionsFilter = "ALL" | "READY" | "DRAFTS"
+
 export function TestDefinitionsPage({
   clientId,
   clientName,
@@ -29,8 +31,10 @@ export function TestDefinitionsPage({
   showWorkspaceHeader = false,
   showPageHeader = true,
   headerEyebrow,
+  headerTitle,
   headerSubtitle,
   initialDefinitionId,
+  filter = "ALL",
   /** False when the host already rendered its own page header (the admin console). */
 }: {
   clientId: number
@@ -40,10 +44,18 @@ export function TestDefinitionsPage({
   active?: string
   onSelect?: (key: string) => void
   showWorkspaceHeader?: boolean
+  /** False when the host already rendered its own page header (the admin console). */
   showPageHeader?: boolean
   headerEyebrow?: string
+  headerTitle?: string
   headerSubtitle?: string
   initialDefinitionId?: number | null
+  /**
+   * Lifecycle filter for IA views. The list endpoint reports no version
+   * status, so READY/DRAFTS resolve each row through the existing detail
+   * route and filter client-side (documented in the deliverable).
+   */
+  filter?: TestDefinitionsFilter
 }) {
   const { t } = useLang()
   const [view, setView] = useState<View>(
@@ -110,7 +122,7 @@ export function TestDefinitionsPage({
               {headerEyebrow ?? t("testdef.eyebrow")}
             </p>
             <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-navy">
-              {t("testdef.title")}
+              {headerTitle ?? t("testdef.title")}
             </h1>
             <p className="mt-1 text-[13px] text-slate-500">
               {headerSubtitle ?? t("testdef.subtitle")}
@@ -125,6 +137,7 @@ export function TestDefinitionsPage({
         onOpen={(definitionId) => setView({ kind: "detail", definitionId })}
         onCreate={() => setView({ kind: "create" })}
         onUnauthorized={onUnauthorized}
+        statusFilter={filter === "ALL" ? undefined : filter}
       />
     </div>
   )

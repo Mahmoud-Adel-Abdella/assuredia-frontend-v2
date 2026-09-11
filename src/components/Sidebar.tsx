@@ -233,13 +233,51 @@ const groups: NavGroup[] = [
         labelKey: "nav.automations",
         icon: Icon.automations,
       },
+    ],
+  },
+  {
+    titleKey: "nav.tests",
+    items: [
       {
-        key: "test-definitions",
-        labelKey: "nav.testDefinitions",
+        key: "active-tests",
+        labelKey: "nav.activeTests",
         icon: Icon.testDefinitions,
       },
-      { key: "requests", labelKey: "nav.requests", icon: Icon.requests },
-      { key: "history", labelKey: "nav.runHistory", icon: Icon.history },
+      {
+        key: "drafts-reviews",
+        labelKey: "nav.draftsReviews",
+        icon: Icon.overview,
+      },
+      {
+        key: "test-requests",
+        labelKey: "nav.testRequests",
+        icon: Icon.requests,
+      },
+      {
+        key: "create-test",
+        labelKey: "nav.createTest",
+        icon: Icon.ai,
+      },
+    ],
+  },
+  {
+    titleKey: "nav.runsResults",
+    items: [
+      {
+        key: "live-runs",
+        labelKey: "nav.liveRuns",
+        icon: Icon.automations,
+      },
+      {
+        key: "scheduled-runs",
+        labelKey: "nav.scheduledRuns",
+        icon: Icon.flows,
+      },
+      {
+        key: "run-history",
+        labelKey: "nav.history",
+        icon: Icon.history,
+      },
     ],
   },
   {
@@ -247,21 +285,6 @@ const groups: NavGroup[] = [
     items: [
       { key: "alerts", labelKey: "nav.alerts", icon: Icon.alerts },
       { key: "ai-analysis", labelKey: "nav.aiAnalysis", icon: Icon.ai },
-    ],
-  },
-  {
-    titleKey: "nav.testCreation",
-    items: [
-      {
-        key: "test-creation",
-        labelKey: "nav.newTest",
-        icon: Icon.testDefinitions,
-      },
-      {
-        key: "creation-requests",
-        labelKey: "nav.creationRequests",
-        icon: Icon.requests,
-      },
     ],
   },
   {

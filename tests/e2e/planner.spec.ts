@@ -55,7 +55,7 @@ async function setPlannerMode(request: APIRequestContext, mode: string) {
 }
 
 async function openAiBuilder(page: Page) {
-  await page.getByRole("button", { name: "New Test" }).first().click()
+  await page.getByRole("button", { name: "Create Test" }).first().click()
   await expect(
     page.getByRole("heading", { name: "Create a Test" }),
   ).toBeVisible()
@@ -220,7 +220,7 @@ test("duplicate confirm navigates to drafts", async ({ page }) => {
   ).toBeVisible()
   await page.getByRole("button", { name: "View in Drafts" }).click()
   await expect(
-    page.getByRole("heading", { name: "Test Definitions" }),
+    page.getByRole("heading", { name: "Drafts & Reviews" }),
   ).toBeVisible()
 })
 
@@ -266,7 +266,7 @@ test("missing origin shows the preflight state", async ({ page }) => {
 
 test("Arabic renders the builder mirrored", async ({ page }) => {
   await openAsClient(page, "ar")
-  await page.getByRole("button", { name: "اختبار جديد" }).first().click()
+  await page.getByRole("button", { name: "إنشاء اختبار" }).first().click()
   await expect(
     page.getByRole("heading", { name: "إنشاء اختبار" }),
   ).toBeVisible()

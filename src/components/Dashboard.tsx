@@ -734,7 +734,7 @@ export function Dashboard({
       </div>
 
       {/* Recent runs */}
-      <RecentRuns rows={runRows} loading={runs.loading} error={runs.error} onRetry={reload} onViewAll={onSelect ? () => onSelect("history") : undefined} />
+      <RecentRuns rows={runRows} loading={runs.loading} error={runs.error} onRetry={reload} onViewAll={onSelect ? () => onSelect("run-history") : undefined} />
     </div>
   )
 }

@@ -198,7 +198,7 @@ function timeCutoff(option: TimeOption): number {
 }
 
 export function RunHistory({
-  active = "history",
+  active = "run-history",
   onSelect = () => {},
   openRunId = null,
   onOpenRunConsumed,
