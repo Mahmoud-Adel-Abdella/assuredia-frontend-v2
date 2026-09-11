@@ -13,6 +13,7 @@
  *   POST /dashboard-api/alerts/{id}/resolve        Bearer token       → 200 { id, runId, executionStatus, failed, originalFailure, resolutionState, resolvedBy, resolvedAt, isRead } (idempotent)
  *   POST /dashboard-api/alerts/mark-all-read       Bearer token       → 200 { updated } (tenant-scoped)
  *   GET  /dashboard-api/clients/{id}               Bearer token       → 200 { client, flows } (tenant-scoped) | 401 | 404
+ *   POST /dashboard-api/clients/{id}/discovery     {} → 200 COMPLETED/FAILED discovery result | 400 | 401 | 404 | 503
  *   POST /dashboard-api/clients/{id}/flows         { flowName, tests? } → 200 { status, flowId, flowName, testsCreated } | 400 | 401 | 404 | 409
  *   DELETE /dashboard-api/flows/{flowId}           Bearer token       → 200 { status } (soft delete) | 401 | 404
  *   GET  /dashboard-api/flows/{flowId}/tests       Bearer token       → 200 flow_tests array (ordered) | 401 | 404
@@ -28,6 +29,12 @@
  * Cross-tenant access answers 404 (ownership is resolved server-side; body/path ids are never trusted).
  */
 
+import {
+  DISCOVERY_CLIENT_TIMEOUT_MS,
+  DiscoveryError,
+  type DiscoveryFailureToken,
+  type DiscoveryResult,
+} from "./discovery"
 import { translate } from "./i18n"
 
 const TOKEN_KEY = "assuredia.token"
@@ -85,6 +92,7 @@ type RequestOptions = {
    * verbatim; nothing here is ever logged.
    */
   headers?: Record<string, string>
+  signal?: AbortSignal
 }
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
@@ -107,6 +115,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
       method: opts.method ?? "GET",
       headers,
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      signal: opts.signal,
     })
   } catch {
     throw new ApiError(0, translate("errors.networkUnreachable"))
@@ -986,6 +995,61 @@ export async function apiDeleteFlow(
   return request<{ status: string }>(`/dashboard-api/flows/${flowId}`, {
     method: "DELETE",
   })
+}
+
+const DISCOVERY_FAILURE_TOKENS = new Set<DiscoveryFailureToken>([
+  "mcp_unavailable",
+  "mcp_initialization_failed",
+  "mcp_navigation_failed",
+  "mcp_snapshot_failed",
+  "mcp_call_timeout",
+  "client_configuration_invalid",
+  "origin_rejected",
+  "discovery_failed",
+])
+
+function normalizeDiscoveryFailureToken(token: unknown): DiscoveryFailureToken {
+  return DISCOVERY_FAILURE_TOKENS.has(token as DiscoveryFailureToken)
+    ? token as DiscoveryFailureToken
+    : "discovery_failed"
+}
+
+/**
+ * POST /dashboard-api/clients/{id}/discovery — one synchronous request with no
+ * polling or session lifecycle. A 200 FAILED body is surfaced as DiscoveryError.
+ */
+export async function apiRunDiscovery(
+  clientId: number,
+): Promise<DiscoveryResult> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    DISCOVERY_CLIENT_TIMEOUT_MS,
+  )
+
+  try {
+    const result = await request<DiscoveryResult>(
+      `/dashboard-api/clients/${clientId}/discovery`,
+      { method: "POST", body: {}, signal: controller.signal },
+    )
+
+    if (result.status !== "COMPLETED") {
+      throw new DiscoveryError(
+        result.status === "FAILED"
+          ? normalizeDiscoveryFailureToken(result.failureReason)
+          : "discovery_failed",
+      )
+    }
+
+    return result
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new DiscoveryError("mcp_call_timeout", true)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 /* ------------------------------------------------------------------ */

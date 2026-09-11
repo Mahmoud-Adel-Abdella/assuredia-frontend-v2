@@ -39,6 +39,8 @@ const state = {
   idempotency: new Map(),
   creations: new Map(),
   creationIdempotency: new Map(),
+  discoveryMode: "completed",
+  discoveryRequests: 0,
   /** Set by the spec to make the next proving run fail instead of pass. */
   nextExecutionStatus: "PASSED",
 }
@@ -431,6 +433,15 @@ const server = createServer(async (req, res) => {
     state.nextExecutionStatus = body?.status === "FAILED" ? "FAILED" : "PASSED"
     return json(res, 200, { status: state.nextExecutionStatus })
   }
+  if (path === "/__test__/discovery-mode" && method === "POST") {
+    const body = await readBody(req)
+    const allowed = ["completed", "empty", "truncated", "failed", "unavailable"]
+    state.discoveryMode = allowed.includes(body?.mode) ? body.mode : "completed"
+    return json(res, 200, { mode: state.discoveryMode })
+  }
+  if (path === "/__test__/discovery-count" && method === "GET") {
+    return json(res, 200, { count: state.discoveryRequests })
+  }
   if (path === "/__test__/reset" && method === "POST") {
     state.definitions.clear()
     state.versions.clear()
@@ -444,6 +455,8 @@ const server = createServer(async (req, res) => {
     state.nextArtifactId = 1
     state.nextCreationId = 1
     state.nextExecutionStatus = "PASSED"
+    state.discoveryMode = "completed"
+    state.discoveryRequests = 0
     return json(res, 200, { ok: true })
   }
 
@@ -458,6 +471,19 @@ const server = createServer(async (req, res) => {
 
   if (path === "/dashboard-api/auth/me") {
     // An ADMIN identity has no tenant scope, exactly like the real engine.
+    // Interactive visual testing sets MOCK_ENGINE_IDENTITY=client to receive a
+    // tenant-scoped identity instead; the E2E specs never set it.
+    if (process.env.MOCK_ENGINE_IDENTITY === "client") {
+      return json(res, 200, {
+        id: 2,
+        userId: 2,
+        email: "qa@example.test",
+        role: "CLIENT",
+        clientId: CLIENT.id,
+        clientName: CLIENT.client_name,
+        name: "QA Engineer",
+      })
+    }
     return json(res, 200, {
       id: 1,
       userId: 1,
@@ -502,6 +528,7 @@ const server = createServer(async (req, res) => {
       client: {
         id: CLIENT.id,
         client_name: CLIENT.client_name,
+        base_url: "https://shop.example.test",
         browser: "CHROMIUM",
         device_type: "DESKTOP",
         timezone: "UTC",
@@ -519,6 +546,76 @@ const server = createServer(async (req, res) => {
           next_run_at: null,
           last_run_at: null,
           is_running: null,
+        },
+      ],
+    })
+  }
+
+  /* ---- UI Discovery (PR10B synchronous contract) ---------------------- */
+  if (
+    path.startsWith("/dashboard-api/clients/") &&
+    path.endsWith("/discovery") &&
+    method === "POST"
+  ) {
+    if (path !== `/dashboard-api/clients/${CLIENT.id}/discovery`)
+      return error(res, 404, "This client does not exist")
+    state.discoveryRequests += 1
+    const body = await readBody(req)
+    if (body == null || Object.keys(body).length !== 0)
+      return error(res, 400, "Discovery request must be empty")
+    if (state.discoveryMode === "unavailable")
+      return error(res, 503, "Discovery is not configured on this deployment")
+    if (state.discoveryMode === "failed") {
+      return json(res, 200, {
+        sessionId: `discovery-${state.discoveryRequests}`,
+        status: "FAILED",
+        origin: "https://shop.example.test:443",
+        failureReason: "mcp_navigation_failed",
+      })
+    }
+    const elements =
+      state.discoveryMode === "empty"
+        ? []
+        : [
+            {
+              elementId: "e1",
+              role: "button",
+              name: "Add to cart",
+              attributes: { ref: "e1", type: "button" },
+              locatorCandidates: [
+                {
+                  strategy: "role",
+                  value: "button[name=Add to cart]",
+                  strength: "STRONG",
+                  state: "UNVERIFIED",
+                },
+              ],
+            },
+            {
+              elementId: "e2",
+              role: "textbox",
+              name: "Search products",
+              attributes: { ref: "e2", placeholder: "Search" },
+              locatorCandidates: [
+                {
+                  strategy: "placeholder",
+                  value: "Search",
+                  strength: "MEDIUM",
+                  state: "UNVERIFIED",
+                },
+              ],
+            },
+          ]
+    return json(res, 200, {
+      sessionId: `discovery-${state.discoveryRequests}`,
+      status: "COMPLETED",
+      origin: "https://shop.example.test:443",
+      truncated: state.discoveryMode === "truncated",
+      pages: [
+        {
+          url: "https://shop.example.test:443/",
+          title: "Northwind Store",
+          elements,
         },
       ],
     })
