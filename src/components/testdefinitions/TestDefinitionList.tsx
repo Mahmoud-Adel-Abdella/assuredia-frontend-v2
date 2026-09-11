@@ -34,6 +34,9 @@ function listStatus(row: TestDefinitionListItem): TestDefinitionStatus | null {
  * version status, so when set, each row's effective status (newest version,
  * detail route) is resolved through the existing API and rows filter
  * client-side. ARCHIVED aggregates never match a lifecycle filter.
+ *
+ * Backend follow-up: expose the latest version's status on the list
+ * endpoint to eliminate the per-row status resolution below.
  */
 export type TestDefinitionStatusFilter = "READY" | "DRAFTS"
 

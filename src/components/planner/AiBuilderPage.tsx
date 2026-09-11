@@ -294,7 +294,10 @@ export function AiBuilderPage({
           if (
             body.status === "FAILED" &&
             typeof body.errorCategory === "string" &&
-            body.errorCategory in PLAN_ERROR_MESSAGES
+            Object.prototype.hasOwnProperty.call(
+              PLAN_ERROR_MESSAGES,
+              body.errorCategory,
+            )
           ) {
             fail(
               PLAN_ERROR_MESSAGES[
