@@ -3094,3 +3094,75 @@ export async function apiCreateManualEditorDraft(
     },
   })
 }
+
+/* ------------------------------------------------------------------ */
+/* AI Test Builder (PR10C planner — frozen backend contract)            */
+/*                                                                     */
+/* POST /dashboard-api/clients/{id}/test-plans                         */
+/*   { intent, requestedType?, credentialId? }                          */
+/*   → 200 exactly one of PLAN_READY / NEEDS_CLARIFICATION / FAILED     */
+/* POST /dashboard-api/clients/{id}/test-plans/{planId}/confirm        */
+/*   Idempotency-Key required; {} or { name?, description? }            */
+/*   → 200 { definitionId, creationRequestId, status: "DRAFT" }         */
+/*   → 400 missing key · 404 unknown/expired/cross-tenant · 409 conflict*/
+/* Single synchronous request each: no polling, no session lifecycle.  */
+/* ------------------------------------------------------------------ */
+
+/** Wire type for POST /test-plans (customer selection mapped at the call site). */
+export type PlannerWireType = "USER_JOURNEY" | "BACKEND_CHECK" | "END_TO_END"
+
+export type CreateTestPlanBody = {
+  intent: string
+  requestedType?: PlannerWireType
+  credentialId?: number | null
+}
+
+export type ConfirmTestPlanBody = {
+  name?: string
+  description?: string | null
+}
+
+/** DRAFT handoff returned by POST /test-plans/{planId}/confirm. */
+export type ConfirmTestPlanResult = {
+  definitionId: number
+  creationRequestId: number
+  status: "DRAFT"
+  planId?: string
+  plannedTestType?: string
+}
+
+export const PLANNER_CLIENT_TIMEOUT_MS = 60_000
+
+export async function apiCreateTestPlan(
+  clientId: number,
+  body: CreateTestPlanBody,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  return request<unknown>(`/dashboard-api/clients/${clientId}/test-plans`, {
+    method: "POST",
+    body: {
+      intent: body.intent,
+      ...(body.requestedType ? { requestedType: body.requestedType } : {}),
+      ...(body.credentialId != null ? { credentialId: body.credentialId } : {}),
+    },
+    signal,
+  })
+}
+
+export async function apiConfirmTestPlan(
+  clientId: number,
+  planId: string,
+  idempotencyKey: string,
+  body?: ConfirmTestPlanBody,
+  signal?: AbortSignal,
+): Promise<ConfirmTestPlanResult> {
+  return request<ConfirmTestPlanResult>(
+    `/dashboard-api/clients/${clientId}/test-plans/${planId}/confirm`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: body ?? {},
+      signal,
+    },
+  )
+}

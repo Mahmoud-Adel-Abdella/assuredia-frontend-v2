@@ -1428,7 +1428,7 @@ export function AiAnalysis({
           <p className="mt-1 max-w-sm text-[13px] text-slate-500">
             {t("ai.emptyDesc")}
           </p>
-          <Button variant="secondary" size="sm" className="mt-5" onClick={() => onSelect("history")}>
+          <Button variant="secondary" size="sm" className="mt-5" onClick={() => onSelect("run-history")}>
             {t("ai.viewRunHistory")}
           </Button>
         </Card>

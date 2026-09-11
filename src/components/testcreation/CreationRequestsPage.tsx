@@ -373,7 +373,7 @@ export function CreationRequestsPage({
             Test Creation
           </p>
           <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-navy">
-            Creation Requests
+            Test Requests
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Track the status of your test creation requests.

@@ -235,7 +235,7 @@ async function setDiscoveryMode(
 }
 
 async function openCreateTest(page: Page) {
-  await page.getByRole("button", { name: "New Test" }).first().click()
+  await page.getByRole("button", { name: "Create Test" }).first().click()
   await expect(
     page.getByRole("heading", { name: "Create a Test" }),
   ).toBeVisible()
@@ -348,7 +348,7 @@ test("Arabic Create Test mirrors document direction and translates discovery", a
   )
   await page.goto("/")
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl")
-  await page.getByRole("button", { name: "اختبار جديد" }).first().click()
+  await page.getByRole("button", { name: "إنشاء اختبار" }).first().click()
   await expect(
     page.getByRole("heading", { name: "إنشاء اختبار" }),
   ).toBeVisible()
@@ -401,7 +401,7 @@ test("client wizard submits a Manual Request through the UI", async ({
   await expect(
     page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ }),
   ).toBeVisible()
-  await page.getByRole("button", { name: "New Test" }).first().click()
+  await page.getByRole("button", { name: "Create Test" }).first().click()
   await page.getByRole("button", { name: "Create Manual Request" }).click()
   await page.getByRole("radio", { name: /UI Journey/ }).click()
   await page.getByRole("button", { name: /Next/ }).click()
@@ -459,7 +459,7 @@ for (const journey of ["UI", "API", "MIXED"] as const) {
 }
 
 async function reopenDraftThroughRequests(page: Page, title: string) {
-  await page.getByRole("button", { name: "Creation Requests" }).first().click()
+  await page.getByRole("button", { name: "Test Requests" }).first().click()
   await page.getByRole("button", { name: title }).first().click()
   await page.getByRole("button", { name: "Open Test Definition" }).click()
   const editor = page.locator("#testdef-source-editor")

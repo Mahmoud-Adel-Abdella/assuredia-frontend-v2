@@ -563,9 +563,11 @@ function AppInner() {
               backLabel={
                 automationRun
                   ? t("autrun.backToAutomationRun")
-                  : active === "automations"
+                  : active === "automations" ||
+                      active === "live-runs" ||
+                      active === "scheduled-runs"
                     ? t("page.automations.back")
-                    : active === "history"
+                    : active === "run-history"
                       ? t("history.backToHistory")
                       : t("flowform.backToFlows")
               }
@@ -594,15 +596,18 @@ function AppInner() {
               onStartRun={setLiveRun}
               onRequestPreset={(preset) => setPendingRequest(preset)}
             />
-          ) : active === "automations" ? (
+          ) : active === "automations" ||
+            active === "live-runs" ||
+            active === "scheduled-runs" ? (
             <Automations
               active={active}
               onSelect={setActive}
               onOpenRun={(target, name) => setAutomationRun({ target, name })}
             />
-          ) : active === "test-definitions" && user?.clientId != null ? (
+          ) : (active === "active-tests" || active === "drafts-reviews") &&
+            user?.clientId != null ? (
             <TestDefinitionsPage
-              key={pendingDefinitionId ?? "list"}
+              key={`${active}:${pendingDefinitionId ?? "list"}`}
               active={active}
               onSelect={(k) => {
                 setPendingDefinitionId(null)
@@ -616,28 +621,39 @@ function AppInner() {
               isAdmin={user.role === "ADMIN"}
               onUnauthorized={logout}
               initialDefinitionId={pendingDefinitionId}
+              headerTitle={
+                active === "active-tests"
+                  ? t("nav.activeTests")
+                  : t("nav.draftsReviews")
+              }
+              headerSubtitle={
+                active === "active-tests"
+                  ? t("testdef.activeSubtitle")
+                  : t("testdef.draftsSubtitle")
+              }
+              filter={active === "active-tests" ? "READY" : "DRAFTS"}
             />
-          ) : active === "test-creation" && user?.clientId != null ? (
+          ) : active === "create-test" && user?.clientId != null ? (
             <CreateTestPage
               clientId={user.clientId}
               onViewDrafts={() => {
                 setPendingDefinitionId(null)
-                setActive("test-definitions")
+                setActive("drafts-reviews")
               }}
-              onViewRequests={() => setActive("creation-requests")}
+              onViewRequests={() => setActive("test-requests")}
               onOpenDefinition={(definitionId) => {
                 setPendingDefinitionId(definitionId)
-                setActive("test-definitions")
+                setActive("drafts-reviews")
               }}
               onUnauthorized={logout}
             />
-          ) : active === "creation-requests" && user?.clientId != null ? (
+          ) : active === "test-requests" && user?.clientId != null ? (
             <CreationRequestsPage
               clientId={user.clientId}
-              onNewTest={() => setActive("test-creation")}
+              onNewTest={() => setActive("create-test")}
               onOpenDefinition={(definitionId) => {
                 setPendingDefinitionId(definitionId)
-                setActive("test-definitions")
+                setActive("drafts-reviews")
               }}
               onUnauthorized={logout}
             />
@@ -648,7 +664,7 @@ function AppInner() {
               onOpenRun={(runId) => {
                 setPendingRunId(runId)
                 setAiOpenRunId(null)
-                setActive("history")
+                setActive("run-history")
               }}
               onAlertsChanged={() => setAlertsVersion((v) => v + 1)}
             />
@@ -658,7 +674,7 @@ function AppInner() {
               onSelect={setActive}
               onLogout={handleLogout}
             />
-          ) : active === "history" ? (
+          ) : active === "run-history" ? (
             <RunHistory
               active={active}
               onSelect={setActive}
@@ -683,7 +699,7 @@ function AppInner() {
               onOpenRunConsumed={() => setAiOpenRunId(null)}
               onOpenRun={(runId) => {
                 setPendingRunId(runId)
-                setActive("history")
+                setActive("run-history")
               }}
             />
           ) : active === "feedback" ? (
@@ -696,7 +712,7 @@ function AppInner() {
               onOpenRun={(runId) => {
                 setPendingRunId(runId)
                 setAiOpenRunId(null)
-                setActive("history")
+                setActive("run-history")
               }}
             />
           )}

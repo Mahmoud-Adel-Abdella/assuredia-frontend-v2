@@ -5,16 +5,17 @@ import { useLang } from "../lib/i18n"
 
 /* ------------------------------------------------------------------ */
 /* Shared Client Workspace header + navigation                        */
-/* Overview · Flows · Automations · Run History                       */
+/* Overview · Flows · Automations · Active Tests · Drafts · History    */
 /* Identity comes from the real /auth/me session — never hardcoded.   */
 /* ------------------------------------------------------------------ */
 export const WORKSPACE_NAV = [
   { key: "overview", labelKey: "nav.overview" },
   { key: "flows", labelKey: "nav.flows" },
   { key: "automations", labelKey: "nav.automations" },
-  { key: "test-definitions", labelKey: "nav.testDefinitions" },
-  { key: "requests", labelKey: "nav.requests" },
-  { key: "history", labelKey: "nav.runHistory" },
+  { key: "active-tests", labelKey: "nav.activeTests" },
+  { key: "drafts-reviews", labelKey: "nav.draftsReviews" },
+  { key: "requests", labelKey: "nav.assetRequests" },
+  { key: "run-history", labelKey: "nav.history" },
 ]
 
 export function WorkspaceHeader({
