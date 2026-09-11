@@ -883,7 +883,7 @@ const server = createServer(async (req, res) => {
       authenticationRequired: credentialId != null,
       credentialReference:
         credentialId != null
-          ? { credentialId, name: "Secure Credential" }
+          ? { credentialId, name: "Client site login" }
           : null,
       steps: plannerStepsFor(testType),
       expectedOutcomes: [
@@ -943,9 +943,13 @@ const server = createServer(async (req, res) => {
       }
       if (mode.startsWith("failed:")) {
         const category = mode.slice("failed:".length)
-        // Mirror the real contract: only INTENT_AMBIGUOUS answers 200;
-        // every other category answers 503 with the same FAILED body.
-        const status = category === "INTENT_AMBIGUOUS" ? 200 : 503
+        // Mirror the real contract: the clarification-shaped categories
+        // (INTENT_AMBIGUOUS, CREDENTIAL_REQUIRED) answer 200; every other
+        // category answers 503 with the same FAILED body.
+        const status =
+          category === "INTENT_AMBIGUOUS" || category === "CREDENTIAL_REQUIRED"
+            ? 200
+            : 503
         return json(res, status, {
           status: "FAILED",
           planId: null,

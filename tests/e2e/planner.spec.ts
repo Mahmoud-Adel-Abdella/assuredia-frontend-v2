@@ -227,6 +227,39 @@ test("HTTP 503 FAILED maps the credential message, not the generic one", async (
   ).toHaveCount(0)
 })
 
+test("HTTP 200 CREDENTIAL_REQUIRED maps the credential-required copy", async ({
+  page,
+  request,
+}) => {
+  // PR10C.5 Phase 0 / L-1: the backend delivers CREDENTIAL_REQUIRED over
+  // HTTP 200 (clarification-shaped) with the same FAILED body; the builder
+  // must map it to the credential copy, not the generic invalid-output one.
+  await setPlannerMode(request, "failed:CREDENTIAL_REQUIRED")
+  const api = await request.post(
+    `${ENGINE_URL}/dashboard-api/clients/${CLIENT_ID}/test-plans`,
+    {
+      headers: authHeaders(),
+      data: { intent: "Verify previous orders", requestedType: "USER_JOURNEY" },
+    },
+  )
+  expect(api.status()).toBe(200)
+  expect((await api.json()).errorCategory).toBe("CREDENTIAL_REQUIRED")
+
+  await openAsClient(page)
+  await openAiBuilder(page)
+  await fillAndBuild(page, "Verify previous orders")
+  await expect(
+    page.getByRole("heading", {
+      name: "This test requires a Secure Credential. Select one to continue.",
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      name: "The plan could not be finalized. Try again or adjust your request.",
+    }),
+  ).toHaveCount(0)
+})
+
 test("expired plan shows the expired message", async ({ page }) => {
   await openAsClient(page)
   await page.route("**/test-plans/*/confirm", (route) =>
