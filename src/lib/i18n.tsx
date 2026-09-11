@@ -3507,6 +3507,7 @@ const dict: Record<string, Entry> = {
   "nav.liveRuns": { en: "Live Runs", ar: "تشغيل مباشر" },
   "nav.scheduledRuns": { en: "Scheduled Runs", ar: "تشغيل مجدول" },
   "nav.history": { en: "History", ar: "السجل" },
+  "nav.assetRequests": { en: "Asset Requests", ar: "طلبات الأصول" },
 
   "testdef.activeSubtitle": {
     en: "Live, approved tests ready to run. Drafts live under Drafts & Reviews.",
@@ -3526,8 +3527,8 @@ const dict: Record<string, Entry> = {
   },
   "testdef.noReadyOnPage": { en: "No Active tests on this page", ar: "لا توجد اختبارات نشطة في هذه الصفحة" },
   "testdef.noReadyOnPageHint": {
-    en: "None of the definitions on this page are READY. Try the next page or clear the search.",
-    ar: "لا يوجد أي تعريف جاهز في هذه الصفحة. جرّب الصفحة التالية أو امسح البحث.",
+    en: "None of the definitions on this page are active yet. Try the next page or clear the search.",
+    ar: "لا توجد اختبارات نشطة في هذه الصفحة بعد. جرّب الصفحة التالية أو امسح البحث.",
   },
   "testdef.noDraftsOnPage": { en: "No drafts on this page", ar: "لا توجد مسودات في هذه الصفحة" },
   "testdef.noDraftsOnPageHint": {
@@ -5248,6 +5249,12 @@ const dict: Record<string, Entry> = {
     en: "This usually takes a few seconds.",
     ar: "يستغرق هذا عادة بضع ثوانٍ.",
   },
+  "pr10c.confirm.networkError": {
+    en: "Could not reach Assuredia. Check your connection and try again.",
+    ar: "تعذّر الوصول إلى Assuredia. تحقق من اتصالك وحاول مجددًا.",
+  },
+  "pr10c.confirm.tryAgain": { en: "Try again", ar: "حاول مجددًا" },
+  "pr10c.confirm.dismiss": { en: "Dismiss", ar: "إغلاق" },
   "pr10c.duplicate.title": {
     en: "Already confirmed",
     ar: "تم التأكيد مسبقًا",

@@ -457,7 +457,9 @@ const server = createServer(async (req, res) => {
       "failed:AI_UNAVAILABLE",
       "failed:AI_TIMEOUT",
       "failed:CREDENTIAL_REQUIRED",
+      "failed:CREDENTIAL_UNAVAILABLE",
       "failed:UNSUPPORTED_SCENARIO",
+      "failed:INTENT_AMBIGUOUS",
     ]
     state.plannerMode =
       typeof body?.mode === "string" && allowed.includes(body.mode)
@@ -941,7 +943,10 @@ const server = createServer(async (req, res) => {
       }
       if (mode.startsWith("failed:")) {
         const category = mode.slice("failed:".length)
-        return json(res, 200, {
+        // Mirror the real contract: only INTENT_AMBIGUOUS answers 200;
+        // every other category answers 503 with the same FAILED body.
+        const status = category === "INTENT_AMBIGUOUS" ? 200 : 503
+        return json(res, status, {
           status: "FAILED",
           planId: null,
           errorCategory: category,

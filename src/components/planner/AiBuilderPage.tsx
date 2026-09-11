@@ -282,6 +282,31 @@ export function AiBuilderPage({
           onUnauthorized()
           return
         }
+        // F-01: the backend delivers plan FAILED over HTTP error statuses
+        // (503 for 8 of 9 categories). Map those bodies exactly like the
+        // HTTP-200 FAILED shape instead of collapsing to AI_UNAVAILABLE.
+        if (error instanceof ApiError && error.body != null) {
+          const body = error.body as {
+            status?: unknown
+            errorCategory?: unknown
+            message?: unknown
+          }
+          if (
+            body.status === "FAILED" &&
+            typeof body.errorCategory === "string" &&
+            body.errorCategory in PLAN_ERROR_MESSAGES
+          ) {
+            fail(
+              PLAN_ERROR_MESSAGES[
+                body.errorCategory as PlanFailureCategory
+              ],
+              typeof body.message === "string" && body.message
+                ? body.message
+                : undefined,
+            )
+            return
+          }
+        }
         if (
           controller.signal.aborted ||
           (error instanceof ApiError && error.status === 0)
@@ -350,6 +375,7 @@ export function AiBuilderPage({
 
   function confirmDraft() {
     if (!plan || busy) return
+    setConfirmError(null)
     setPhase("confirming")
     setBusy(true)
     if (!confirmKeyRef.current) confirmKeyRef.current = newConfirmKey()
@@ -395,15 +421,38 @@ export function AiBuilderPage({
           setPhase("duplicate")
           return
         }
+        if (
+          (error instanceof ApiError && error.status === 0) ||
+          controller.signal.aborted
+        ) {
+          // Transport failure, outcome unknown: stay in review so the same
+          // logical confirm can be retried with its retained key.
+          setBusy(false)
+          setConfirmError(t("pr10c.confirm.networkError"))
+          setPhase("review")
+          return
+        }
         fail(CONFIRM_ERROR_MESSAGES.MISSING_IDEMPOTENCY_KEY)
       },
     )
   }
 
+  // Network-uncertain retry of the same logical confirm: the retained
+  // Idempotency-Key makes a replayed request return the original draft.
+  const [confirmError, setConfirmError] = useState<string | null>(null)
+
   function retryConfirm() {
-    // Same logical confirm reuses its key (network-uncertain retry).
+    setConfirmError(null)
     setPhase("review")
     window.setTimeout(() => confirmDraft(), 0)
+  }
+
+  function backToProposed() {
+    // Leaving review abandons this confirm attempt: the next confirm is a
+    // new logical submission with a fresh key.
+    confirmKeyRef.current = null
+    setConfirmError(null)
+    setPhase("proposed")
   }
 
   const stages = buildingStages(t)
@@ -619,7 +668,10 @@ export function AiBuilderPage({
             steps={steps}
             outcomes={plan.expectedOutcomes}
             onCreate={confirmDraft}
-            onBack={() => setPhase("proposed")}
+            onBack={backToProposed}
+            confirmError={confirmError}
+            onRetryConfirm={retryConfirm}
+            onDismissConfirmError={() => setConfirmError(null)}
           />
         </div>
       )}

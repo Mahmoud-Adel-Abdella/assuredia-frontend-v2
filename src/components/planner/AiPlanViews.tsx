@@ -476,6 +476,9 @@ export function ReviewView({
   outcomes,
   onCreate,
   onBack,
+  confirmError,
+  onRetryConfirm,
+  onDismissConfirmError,
 }: {
   testType: ComposerTestType
   title: string
@@ -486,6 +489,9 @@ export function ReviewView({
   outcomes: { type: "UI" | "API"; intent: string }[]
   onCreate: () => void
   onBack: () => void
+  confirmError?: string | null
+  onRetryConfirm?: () => void
+  onDismissConfirmError?: () => void
 }) {
   const { t } = useLang()
   const uiCount = steps.filter((s) => s.type === "UI").length
@@ -620,6 +626,31 @@ export function ReviewView({
       <p className="rounded-xl bg-amber-50 px-4 py-3 text-[12px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
         {t("pr10c.review.draftNote")}
       </p>
+
+      {confirmError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30"
+        >
+          <p className="min-w-0 flex-1 text-[13px] text-red-700 dark:text-red-400">
+            {confirmError}
+          </p>
+          {onRetryConfirm && (
+            <Button variant="primary" size="sm" onClick={onRetryConfirm}>
+              {t("pr10c.confirm.tryAgain")}
+            </Button>
+          )}
+          {onDismissConfirmError && (
+            <button
+              onClick={onDismissConfirmError}
+              aria-label={t("pr10c.confirm.dismiss")}
+              className="rounded-lg px-2 py-1 text-[13px] text-red-500 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/40"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-white/[0.06]">
         <button

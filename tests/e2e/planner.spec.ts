@@ -135,6 +135,41 @@ test("AI Builder full flow: build, review, confirm, open", async ({
   await expect(page.getByText("Mock planned test").first()).toBeVisible()
 })
 
+test("network-failed confirm retries with the same key", async ({
+  page,
+}) => {
+  await openAsClient(page)
+  await openAiBuilder(page)
+  await fillAndBuild(page, "Verify that a customer can complete checkout")
+  await expect(
+    page.getByRole("heading", { name: "Here's what Assuredia proposes" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: /Review Test/ }).click()
+  await expect(
+    page.getByRole("heading", { name: "Review your test" }),
+  ).toBeVisible()
+
+  const keys: (string | null)[] = []
+  await page.route("**/test-plans/*/confirm", async (route) => {
+    keys.push(await route.request().headerValue("idempotency-key"))
+    if (keys.length === 1) await route.abort()
+    else await route.continue()
+  })
+  await page.getByRole("button", { name: "Create Test Draft" }).click()
+  await expect(
+    page.getByText("Could not reach Assuredia. Check your connection", {
+      exact: false,
+    }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Try again" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Test Draft Created" }),
+  ).toBeVisible()
+  expect(keys.length).toBe(2)
+  expect(keys[0]).toBeTruthy()
+  expect(keys[1]).toBe(keys[0])
+})
+
 test("clarification answers rebuild the plan", async ({ page, request }) => {
   await setPlannerMode(request, "clarification")
   await openAsClient(page)
@@ -172,6 +207,24 @@ test("failure maps the timeout message with retry", async ({
   await expect(
     page.getByRole("heading", { name: "Here's what Assuredia proposes" }),
   ).toBeVisible()
+})
+
+test("HTTP 503 FAILED maps the credential message, not the generic one", async ({
+  page,
+  request,
+}) => {
+  await setPlannerMode(request, "failed:CREDENTIAL_UNAVAILABLE")
+  await openAsClient(page)
+  await openAiBuilder(page)
+  await fillAndBuild(page, "Verify that a customer can complete checkout")
+  await expect(
+    page.getByRole("heading", {
+      name: "The selected credential is not available. Choose another.",
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("AI Test Builder is temporarily unavailable", { exact: false }),
+  ).toHaveCount(0)
 })
 
 test("expired plan shows the expired message", async ({ page }) => {
