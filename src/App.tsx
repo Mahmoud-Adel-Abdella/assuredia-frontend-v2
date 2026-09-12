@@ -636,6 +636,7 @@ function AppInner() {
           ) : active === "create-test" && user?.clientId != null ? (
             <CreateTestPage
               clientId={user.clientId}
+              onOpenSettingsCredentials={() => setActive("settings-credentials")}
               onViewDrafts={() => {
                 setPendingDefinitionId(null)
                 setActive("drafts-reviews")
@@ -668,11 +669,12 @@ function AppInner() {
               }}
               onAlertsChanged={() => setAlertsVersion((v) => v + 1)}
             />
-          ) : active === "settings" ? (
+          ) : active === "settings" || active === "settings-credentials" ? (
             <Settings
               active={active}
               onSelect={setActive}
               onLogout={handleLogout}
+              initialSection={active === "settings-credentials" ? "credentials" : undefined}
             />
           ) : active === "run-history" ? (
             <RunHistory

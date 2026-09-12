@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { Alert, Button, Card } from "../primitives"
 import { useLang } from "../../lib/i18n"
 import {
@@ -10,6 +10,12 @@ import {
 } from "../../lib/testSourceBuilders"
 import { starterDefinitionSource } from "../../lib/testDefinitionSchema"
 import type { JourneyType } from "../../lib/testCreation"
+import {
+  ApiError,
+  apiListCredentials,
+  type CredentialView,
+} from "../../lib/api"
+import { CredentialSelector } from "../credentials/CredentialSelector"
 import {
   DraftSuccess,
   Field,
@@ -39,6 +45,8 @@ type ManualEditorProps = {
   onOpenDefinition: (definitionId: number) => void
   onViewDrafts: () => void
   onUnauthorized: () => void
+  /** Opens Settings → Secure Credentials (credential selector CTA). */
+  onOpenSettingsCredentials?: () => void
 }
 
 const methods: HttpMethod[] = [
@@ -127,6 +135,7 @@ export function ManualEditorFlow({
   onOpenDefinition,
   onViewDrafts,
   onUnauthorized,
+  onOpenSettingsCredentials,
 }: ManualEditorProps) {
   const { t } = useLang()
   const [step, setStep] = useState<EditorStep>("editor")
@@ -144,12 +153,51 @@ export function ManualEditorFlow({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const draft = useDraftSubmit({ clientId, onUnauthorized })
 
+  // PR10C.5 Phase 2: credential context for the draft. The frozen draft-
+  // creation contract has no credentialId field, so the selection follows the
+  // manual-request convention — it is recorded in the description metadata
+  // ("Authentication (references only)") and shown in the review step.
+  const [credentials, setCredentials] = useState<CredentialView[]>([])
+  const [credentialsLoaded, setCredentialsLoaded] = useState(false)
+  const [selectedCredentialId, setSelectedCredentialId] = useState<number | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    apiListCredentials(clientId)
+      .then((list) => {
+        if (cancelled) return
+        setCredentials(list)
+        setCredentialsLoaded(true)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        if (error instanceof ApiError && error.status === 401) {
+          onUnauthorized()
+          return
+        }
+        setCredentials([])
+        setCredentialsLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
+
+  const selectedCredential =
+    credentials.find((c) => c.id === selectedCredentialId) ?? null
+
   const payload = useMemo<DraftPayload>(() => {
+    // Credential references ride in the description metadata (same section
+    // format the manual-request wizard uses) — never secret values.
+    const descriptionWithCredential = selectedCredential
+      ? `${description}\n\nAuthentication (references only): Secure Credential — ${selectedCredential.name}`.slice(0, 2000)
+      : description
     if (journeyType === "UI") {
       return {
         journeyType,
         name: name.trim(),
-        description,
+        description: descriptionWithCredential,
         sourceJson: readBuilderSource(
           buildUIEditorSourceJson(
             name.trim(),
@@ -172,7 +220,7 @@ export function ManualEditorFlow({
       return {
         journeyType,
         name: name.trim(),
-        description,
+        description: descriptionWithCredential,
         sourceJson: readBuilderSource(
           buildAPIEditorSourceJson(name.trim(), description, config),
         ),
@@ -181,7 +229,7 @@ export function ManualEditorFlow({
     return {
       journeyType,
       name: name.trim(),
-      description,
+      description: descriptionWithCredential,
       sourceJson: starterDefinitionSource(name.trim(), "MIXED"),
     }
   }, [
@@ -195,6 +243,7 @@ export function ManualEditorFlow({
     method,
     name,
     query,
+    selectedCredential,
     status,
   ])
 
@@ -346,6 +395,21 @@ export function ManualEditorFlow({
                 onChange={(event) => setDescription(event.target.value)}
               />
             </Field>
+
+            {/* PR10C.5 Phase 2: credential context for the draft. The frozen
+                creation contract has no credentialId field, so the choice is
+                recorded in the description metadata (the manual-request
+                convention) and travels with the draft for review. */}
+            <div className="flex flex-wrap items-center gap-3">
+              <CredentialSelector
+                credentials={credentials}
+                selectedId={selectedCredentialId}
+                onSelect={setSelectedCredentialId}
+                onManage={() => onOpenSettingsCredentials?.()}
+                loading={!credentialsLoaded}
+                compact={false}
+              />
+            </div>
           </Card>
 
           {journeyType === "UI" && (
@@ -789,6 +853,20 @@ export function ManualEditorFlow({
               <p className="text-sm text-slate-600">
                 {t("pr10b.review.mixedStarter")}
               </p>
+            )}
+            {selectedCredential && (
+              <div>
+                <dt className="text-[12px] font-semibold text-slate-400">
+                  {t("pr10c.composer.credentialLabel")}
+                </dt>
+                <dd className="mt-1 font-medium text-navy">
+                  {selectedCredential.name}
+                  {" · "}
+                  {selectedCredential.status === "CONFIGURED"
+                    ? t("settings.credentials.statusConfigured")
+                    : t("settings.credentials.statusNeedsSetup")}
+                </dd>
+              </div>
             )}
           </Card>
           {draft.failure && (

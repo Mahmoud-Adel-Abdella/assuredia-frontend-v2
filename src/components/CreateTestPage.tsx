@@ -14,6 +14,8 @@ type CreateTestPageProps = {
   onViewDrafts: () => void
   onViewRequests: () => void
   onUnauthorized: () => void
+  /** Opens Settings → Secure Credentials (PR10C.5 credential selector CTA). */
+  onOpenSettingsCredentials?: () => void
 }
 
 export function CreateTestPage({
@@ -22,6 +24,7 @@ export function CreateTestPage({
   onViewDrafts,
   onViewRequests,
   onUnauthorized,
+  onOpenSettingsCredentials,
 }: CreateTestPageProps) {
   const { t } = useLang()
   const [method, setMethod] = useState<Method>("home")
@@ -34,6 +37,7 @@ export function CreateTestPage({
         onViewDrafts={onViewDrafts}
         onViewRequests={onViewRequests}
         onUnauthorized={onUnauthorized}
+        onOpenSettingsCredentials={onOpenSettingsCredentials}
       />
     )
   }
@@ -56,6 +60,7 @@ export function CreateTestPage({
         onOpenDefinition={onOpenDefinition}
         onViewDrafts={onViewDrafts}
         onUnauthorized={onUnauthorized}
+        onOpenSettingsCredentials={onOpenSettingsCredentials}
       />
     )
   }
