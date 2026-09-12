@@ -368,3 +368,89 @@ test("Arabic renders the credentials page mirrored", async ({ page }) => {
   expect(enDir).toBe("ltr")
   expect(arDir).toBe("rtl")
 })
+
+/* ------------------------------------------------------------------ */
+/* Audit F-01: review shows the exact submitted description           */
+/* ------------------------------------------------------------------ */
+
+test("manual editor review shows the exact submitted description with credential metadata", async ({
+  page,
+  request,
+}) => {
+  await openAsClient(page)
+  await page.getByRole("button", { name: "Create Test" }).first().click()
+  await page.getByRole("button", { name: "Open Manual Editor" }).click()
+
+  const rawDescription = "Verify the order confirmation page renders."
+  await page.locator("#pr10b-name").fill("Order Confirmation Check")
+  await page.locator("#pr10b-description").fill(rawDescription)
+  // The default UI action is a navigate; validation requires its URL.
+  await page.locator("#pr10b-action-url-0").fill("https://shop.example.test/orders")
+
+  // Attach the seeded Default credential (id 1) via the editor's selector.
+  await page.getByRole("button", { name: "Add credential" }).click()
+  await page
+    .getByRole("button", { name: "Default Configured", exact: true })
+    .click()
+
+  // Advance to review.
+  await page.getByRole("button", { name: "Review", exact: true }).click()
+  await expect(
+    page.getByRole("heading", { name: "Review Test" }),
+  ).toBeVisible()
+
+  // The review's description block must contain BOTH the raw text and the
+  // credential suffix in the SAME rendered element — the exact submitted
+  // string, labelled "As submitted:".
+  const reviewText = await page
+    .getByText(/Verify the order confirmation page renders\./)
+    .first()
+    .textContent()
+  expect(reviewText).toContain(rawDescription)
+  expect(reviewText).toContain(
+    "Authentication (references only): Secure Credential — Default",
+  )
+
+  // Submit and assert the backend received the reviewed text verbatim.
+  await page.getByRole("button", { name: "Create Draft" }).click()
+  await expect(
+    page.getByText(/Draft Created|definitionId/i).first(),
+  ).toBeVisible()
+  const probe = await request.get(
+    `${ENGINE_URL}/__test__/last-draft-description`,
+    { headers: authHeaders() },
+  )
+  const probeBody = await probe.json()
+  expect(probeBody.description).toBe(
+    `${rawDescription}\n\nAuthentication (references only): Secure Credential — Default`,
+  )
+})
+
+/* ------------------------------------------------------------------ */
+/* Audit F-02: double-click Save fires exactly one POST               */
+/* ------------------------------------------------------------------ */
+
+test("double-clicking Save Credential creates exactly one credential", async ({
+  page,
+  request,
+}) => {
+  await openSecureCredentials(page)
+  await page.getByRole("button", { name: "Add Credential" }).click()
+  const dialog = page.locator("form")
+  await dialog.getByPlaceholder("e.g. Customer Login").fill("Rapid Double Click")
+  await dialog.getByRole("textbox", { name: /Username/ }).fill("rapid.user")
+  await dialog.getByPlaceholder("••••••••").fill("pw")
+
+  // Two clicks in one gesture — the second must hit the submit latch.
+  await page
+    .getByRole("button", { name: "Save Credential" })
+    .click({ clickCount: 2 })
+  await expect(page.getByText("Rapid Double Click").first()).toBeVisible()
+
+  const probe = await request.get(
+    `${ENGINE_URL}/__test__/credential-create-count`,
+    { headers: authHeaders() },
+  )
+  const probeBody = await probe.json()
+  expect(probeBody.count).toBe(1)
+})

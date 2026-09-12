@@ -15,6 +15,10 @@ import {
   apiListCredentials,
   type CredentialView,
 } from "../../lib/api"
+import {
+  buildFinalDescription,
+  descriptionOverflow,
+} from "../../lib/credentials"
 import { CredentialSelector } from "../credentials/CredentialSelector"
 import {
   DraftSuccess,
@@ -187,17 +191,25 @@ export function ManualEditorFlow({
   const selectedCredential =
     credentials.find((c) => c.id === selectedCredentialId) ?? null
 
+  // Audit F-01: ONE source of truth for the submitted description. The
+  // review step renders this exact string and the payload sends this exact
+  // string. No silent truncation: when the combined text exceeds the
+  // backend limit the editor surfaces an inline error and blocks submit.
+  const finalDescription = useMemo(
+    () => buildFinalDescription(description, selectedCredential?.name ?? null),
+    [description, selectedCredential],
+  )
+  const descriptionOverflowCount = useMemo(
+    () => descriptionOverflow(description, selectedCredential?.name ?? null),
+    [description, selectedCredential],
+  )
+
   const payload = useMemo<DraftPayload>(() => {
-    // Credential references ride in the description metadata (same section
-    // format the manual-request wizard uses) — never secret values.
-    const descriptionWithCredential = selectedCredential
-      ? `${description}\n\nAuthentication (references only): Secure Credential — ${selectedCredential.name}`.slice(0, 2000)
-      : description
     if (journeyType === "UI") {
       return {
         journeyType,
         name: name.trim(),
-        description: descriptionWithCredential,
+        description: finalDescription,
         sourceJson: readBuilderSource(
           buildUIEditorSourceJson(
             name.trim(),
@@ -220,7 +232,7 @@ export function ManualEditorFlow({
       return {
         journeyType,
         name: name.trim(),
-        description: descriptionWithCredential,
+        description: finalDescription,
         sourceJson: readBuilderSource(
           buildAPIEditorSourceJson(name.trim(), description, config),
         ),
@@ -229,7 +241,7 @@ export function ManualEditorFlow({
     return {
       journeyType,
       name: name.trim(),
-      description: descriptionWithCredential,
+      description: finalDescription,
       sourceJson: starterDefinitionSource(name.trim(), "MIXED"),
     }
   }, [
@@ -238,12 +250,12 @@ export function ManualEditorFlow({
     body,
     description,
     endpoint,
+    finalDescription,
     headers,
     journeyType,
     method,
     name,
     query,
-    selectedCredential,
     status,
   ])
 
@@ -253,6 +265,12 @@ export function ManualEditorFlow({
     if (name.trim().length > 120) next.name = t("pr10b.validation.nameLong")
     if (description.length > 2000)
       next.description = t("pr10b.validation.descriptionLong")
+    // Audit F-01: the credential suffix must never be truncated — refuse to
+    // advance when the combined description exceeds the backend limit.
+    if (descriptionOverflowCount > 0)
+      next.description = t("credentials.manual.descriptionOverflow", {
+        count: descriptionOverflowCount,
+      })
     if (journeyType === "UI") {
       actions.forEach((action, index) => {
         if (action.kind === "navigate" && !action.url.trim())
@@ -830,9 +848,17 @@ export function ManualEditorFlow({
                 <div className="sm:col-span-2">
                   <dt className="text-[12px] font-semibold text-slate-400">
                     {t("pr10b.fields.description")}
+                    {selectedCredential && (
+                      <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-400">
+                        ({t("credentials.manual.asSubmitted")})
+                      </span>
+                    )}
                   </dt>
+                  {/* Audit F-01: the reviewer sees the EXACT string the submit
+                      handler sends — credential metadata included, never a
+                      separately-rendered approximation. */}
                   <dd className="mt-1 whitespace-pre-wrap text-slate-700">
-                    {description}
+                    {finalDescription}
                   </dd>
                 </div>
               )}
@@ -887,6 +913,7 @@ export function ManualEditorFlow({
             <Button
               variant="primary"
               loading={draft.submitting}
+              disabled={descriptionOverflowCount > 0}
               onClick={() => void draft.submit(payload)}
             >
               {t("pr10b.actions.createDraft")}

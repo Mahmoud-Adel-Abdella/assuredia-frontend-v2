@@ -56,6 +56,10 @@ const state = {
   credentialsUnavailable: false,
   /** Requests recording the credential the planner received (spec assertions). */
   lastPlannerCredentialId: undefined,
+  /** Audit F-02: count of credential CREATE POSTs (double-click guard). */
+  credentialCreateRequests: 0,
+  /** Audit F-01: the description of the last created draft (review/submit match). */
+  lastDraftDescription: null,
 }
 
 const CLIENT = { id: 7, client_name: "northwind sandbox" }
@@ -568,6 +572,8 @@ const server = createServer(async (req, res) => {
     state.nextCredentialId = 1
     state.credentialsUnavailable = false
     state.lastPlannerCredentialId = undefined
+    state.credentialCreateRequests = 0
+    state.lastDraftDescription = null
     seedCredentials()
     return json(res, 200, { ok: true })
   }
@@ -995,6 +1001,14 @@ const server = createServer(async (req, res) => {
     // assertion: the composer must send the REAL credential id).
     return json(res, 200, { credentialId: state.lastPlannerCredentialId ?? null })
   }
+  if (path === "/__test__/credential-create-count" && method === "GET") {
+    // Audit F-02: how many credential CREATE POSTs arrived.
+    return json(res, 200, { count: state.credentialCreateRequests })
+  }
+  if (path === "/__test__/last-draft-description" && method === "GET") {
+    // Audit F-01: the description the last draft creation carried.
+    return json(res, 200, { description: state.lastDraftDescription })
+  }
 
   const credentialsRoot = `/dashboard-api/clients/${CLIENT.id}/credentials`
   if (
@@ -1026,6 +1040,7 @@ const server = createServer(async (req, res) => {
 
     // CREATE
     if (segments.length === 0 && method === "POST") {
+      state.credentialCreateRequests += 1
       const body = await readBody(req)
       const name = typeof body?.name === "string" ? body.name.trim() : ""
       const type = typeof body?.type === "string" ? body.type : ""
@@ -1386,6 +1401,9 @@ const server = createServer(async (req, res) => {
         createdAt: nowIso(),
         updatedAt: nowIso(),
       }
+      // Audit F-01: record the EXACT description the client submitted so the
+      // spec can assert review display === submitted body.
+      state.lastDraftDescription = body?.description ?? null
       state.definitions.set(definition.id, definition)
 
       const journeyForFallback =

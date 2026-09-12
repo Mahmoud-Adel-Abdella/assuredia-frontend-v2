@@ -1,10 +1,15 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
 import test from "node:test"
 
 import { ApiError } from "./api"
 import {
   CREDENTIAL_NAME_MAX,
+  DRAFT_DESCRIPTION_MAX,
+  buildFinalDescription,
+  createSubmitLatch,
   credentialStats,
+  descriptionOverflow,
   formatLastUsed,
   groupByType,
   isCredentialConfigured,
@@ -284,4 +289,141 @@ test("credential error mapping", async (t) => {
     )
     assert.equal(mapCredentialError(new Error("nope"), errorCopy).message, errorCopy.fallback)
   })
+})
+
+/* ------------------------------------------------------------------ */
+/* Audit F-01: final description (single source of truth + overflow)  */
+/* ------------------------------------------------------------------ */
+
+test("audit F-01: buildFinalDescription + overflow guard", async (t) => {
+  await t.test("no credential -> the raw description, byte for byte", () => {
+    assert.equal(buildFinalDescription("Check the order page.", null), "Check the order page.")
+    assert.equal(buildFinalDescription("", null), "")
+  })
+
+  await t.test("with credential -> fixed suffix appended once", () => {
+    const combined = buildFinalDescription("Check the order page.", "Customer Login")
+    assert.equal(
+      combined,
+      "Check the order page.\n\nAuthentication (references only): Secure Credential — Customer Login"
+    )
+    // Idempotent shape: the suffix is exactly the credential metadata block.
+    assert.ok(combined.endsWith("Secure Credential — Customer Login"))
+  })
+
+  await t.test("overflow counts characters past the backend limit", () => {
+    const suffixLength = buildFinalDescription("", "Customer Login").length
+    const raw = "x".repeat(DRAFT_DESCRIPTION_MAX - 10)
+    // Combined = 1990 + suffix -> overflow = suffix - 10.
+    assert.equal(
+      descriptionOverflow(raw, "Customer Login"),
+      suffixLength - 10
+    )
+    assert.ok(descriptionOverflow(raw, "Customer Login") > 0)
+  })
+
+  await t.test("boundary: combined exactly at the limit is allowed (0)", () => {
+    const suffixLength = buildFinalDescription("", "Customer Login").length - 0
+    const raw = "x".repeat(DRAFT_DESCRIPTION_MAX - suffixLength)
+    assert.equal(
+      buildFinalDescription(raw, "Customer Login").length,
+      DRAFT_DESCRIPTION_MAX
+    )
+    assert.equal(descriptionOverflow(raw, "Customer Login"), 0)
+  })
+
+  await t.test("no credential never overflows at 2000 raw chars", () => {
+    assert.equal(
+      descriptionOverflow("x".repeat(DRAFT_DESCRIPTION_MAX), null),
+      0
+    )
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* Audit F-02: submit latch                                           */
+/* ------------------------------------------------------------------ */
+
+test("audit F-02: submit latch rejects rapid double-submit", async (t) => {
+  await t.test("two rapid handleSubmit calls invoke onSubmit exactly once", async () => {
+    const latch = createSubmitLatch()
+    let invocations = 0
+    async function handleSubmit(): Promise<void> {
+      // Mirrors the modal: latch BEFORE the await, release in finally.
+      if (!latch.tryEnter()) return
+      try {
+        invocations++
+        await new Promise((resolve) => setTimeout(resolve, 5)) // in-flight POST
+      } finally {
+        latch.exit()
+      }
+    }
+    const first = handleSubmit()
+    const second = handleSubmit() // same tick: latch still held
+    await Promise.all([first, second])
+    assert.equal(invocations, 1, "the second rapid click must be a no-op")
+  })
+
+  await t.test("latch is reusable after the in-flight submit settles", async () => {
+    const latch = createSubmitLatch()
+    assert.equal(latch.tryEnter(), true)
+    latch.exit()
+    assert.equal(latch.tryEnter(), true, "released latch admits the next submit")
+    latch.exit()
+  })
+
+  await t.test("double exit is safe", () => {
+    const latch = createSubmitLatch()
+    latch.tryEnter()
+    latch.exit()
+    latch.exit()
+    assert.equal(latch.tryEnter(), true)
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* Audit F-03: localized name placeholder                             */
+/* ------------------------------------------------------------------ */
+
+test("audit F-03: name placeholder is i18n-driven in EN and AR", async (t) => {
+  // Parse the i18n dictionary the same way terminology.test.ts does.
+  const i18nSource = readFileSync(new URL("./i18n.tsx", import.meta.url), "utf8")
+  const keyPattern = /"credentials\.form\.namePlaceholder":\s*\{([\s\S]*?)\}/
+  const match = keyPattern.exec(i18nSource)
+  assert.ok(match, "credentials.form.namePlaceholder must exist in i18n.tsx")
+  const en = /en:\s*"((?:[^"\\]|\\.)*)"/.exec(match[1])?.[1]
+  const ar = /ar:\s*"((?:[^"\\]|\\.)*)"/.exec(match[1])?.[1]
+  assert.equal(en, "e.g. Customer Login")
+  assert.ok(ar != null && ar.length > 0, "the AR value must be present")
+  assert.notEqual(ar, en, "the AR value must be a real translation, not the EN fallback")
+  assert.ok(/[\u0600-\u06FF]/.test(ar), "the AR value must contain Arabic script")
+
+  // Grep-level: no hardcoded English placeholder remains in the modal.
+  const modalSource = readFileSync(
+    new URL("../components/credentials/CredentialFormModal.tsx", import.meta.url),
+    "utf8"
+  )
+  assert.ok(
+    !modalSource.includes('placeholder="Customer Login"'),
+    "the hardcoded placeholder must be gone from the form modal"
+  )
+  assert.ok(
+    modalSource.includes('t("credentials.form.namePlaceholder")'),
+    "the placeholder must come from the i18n key"
+  )
+})
+
+/* ------------------------------------------------------------------ */
+/* Audit F-04: INVALID folding pinned                                 */
+/* ------------------------------------------------------------------ */
+
+test("audit F-04: INVALID credentials are counted under Needs Setup", () => {
+  const stats = credentialStats([
+    view({ status: "CONFIGURED" }),
+    view({ status: "NEEDS_SETUP" }),
+    view({ status: "INVALID" }),
+  ])
+  assert.equal(stats.needsSetup, 2, "INVALID folds into Needs Setup by design")
+  assert.equal(stats.configured, 1)
+  assert.equal(stats.total, 3)
 })

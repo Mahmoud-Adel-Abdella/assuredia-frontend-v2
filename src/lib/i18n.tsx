@@ -1017,6 +1017,10 @@ const dict: Record<string, Entry> = {
     en: "Name",
     ar: "الاسم",
   },
+  "credentials.form.namePlaceholder": {
+    en: "e.g. Customer Login",
+    ar: "مثال: تسجيل دخول العميل",
+  },
   "credentials.form.nameHint": {
     en: "A unique label for this credential (e.g. \"Customer Login\").",
     ar: "تسمية فريدة لبيانات الاعتماد هذه (مثل \"تسجيل دخول العميل\").",
@@ -1146,6 +1150,16 @@ const dict: Record<string, Entry> = {
   "credentials.row.remove": {
     en: "Remove",
     ar: "إزالة",
+  },
+
+  /* Manual editor credential context (audit F-01) */
+  "credentials.manual.asSubmitted": {
+    en: "As submitted:",
+    ar: "كما سيُرسل:",
+  },
+  "credentials.manual.descriptionOverflow": {
+    en: "Description is too long when combined with credential metadata. Reduce by {count} characters.",
+    ar: "الوصف طويل جدًا عند دمجه مع بيانات تعريف بيانات الاعتماد. قلّل بمقدار {count} حرفًا.",
   },
 
   /* Selector (AI Composer + manual editors) */

@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from "react"
+import React, { useMemo, useRef, useState } from "react"
 import { cx, Modal, PasswordInput, Select } from "../primitives"
 import { useLang } from "../../lib/i18n"
 import { IconLock } from "../planner/AiIcons"
 import {
+  createSubmitLatch,
   toCreateRequest,
   toUpdateRequest,
   validateCredentialForm,
@@ -45,7 +46,11 @@ export function CredentialFormModal({
   saving: boolean
   /** Inline mapped error from the last submit attempt, if any. */
   error: { message: string; field?: string } | null
-  onSubmit: (values: CredentialFormValues) => void
+  /**
+   * May return a promise: when it does, the modal latches until it settles
+   * (audit F-02 — a rapid double-click must not fire two POSTs).
+   */
+  onSubmit: (values: CredentialFormValues) => void | Promise<void>
   onClose: () => void
 }) {
   const { t } = useLang()
@@ -54,6 +59,11 @@ export function CredentialFormModal({
     initialValues(credential),
   )
   const [fieldErrors, setFieldErrors] = useState<CredentialFormErrors>({})
+  // Audit F-02: synchronous double-submit latch. React state (`saving`)
+  // only disables the button after a re-render, so two rapid clicks can
+  // both run submit(); the latch is checked synchronously inside the
+  // handler and released when the parent's onSubmit promise settles.
+  const submitLatch = useRef(createSubmitLatch())
 
   // Re-seed when switching between credentials while the modal stays open.
   const editId = credential?.id ?? null
@@ -61,6 +71,7 @@ export function CredentialFormModal({
     if (open) {
       setValues(initialValues(credential))
       setFieldErrors({})
+      submitLatch.current.exit()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editId])
@@ -82,10 +93,20 @@ export function CredentialFormModal({
     setValues((prev) => ({ ...prev, [key]: value }))
   }
 
-  function submit() {
+  async function submit() {
+    // Validation happens BEFORE latching: a field error must not consume
+    // the in-flight slot.
     const found = validateCredentialForm(values, mode, validationCopy)
     setFieldErrors(found)
-    if (Object.keys(found).length === 0) onSubmit(values)
+    if (Object.keys(found).length > 0) return
+    // Audit F-02: the second of two rapid clicks re-enters here before the
+    // parent's `saving` prop has re-rendered — the latch rejects it.
+    if (!submitLatch.current.tryEnter()) return
+    try {
+      await onSubmit(values)
+    } finally {
+      submitLatch.current.exit()
+    }
   }
 
   return (
@@ -117,7 +138,7 @@ export function CredentialFormModal({
           <input
             value={values.name}
             onChange={(e) => set("name", e.target.value)}
-            placeholder="Customer Login"
+            placeholder={t("credentials.form.namePlaceholder")}
             maxLength={121}
             autoFocus
             className={cx(

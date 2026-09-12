@@ -17,6 +17,9 @@ import type { CredentialView } from "../../lib/api"
 /* document portal: the pill often lives inside cards with              */
 /* overflow-hidden (the AI Composer), which would clip a plain          */
 /* absolutely-positioned panel.                                         */
+/*                                                                      */
+/* Adapted from Figma Make export (Assuredia UI (7).zip);               */
+/* originals retained in the Figma source, not in this repo.            */
 /* ------------------------------------------------------------------ */
 
 export type CredentialOption = {

@@ -222,7 +222,13 @@ export function testResultMessage(
   return result.success ? copy.works : result.message || copy.failed
 }
 
-/** Stat counts for the settings page cards. */
+/**
+ * UX decision (audit F-04): INVALID credentials are grouped under
+ * "Needs Setup" because both represent states where the user must take
+ * action (complete the setup, or re-test after a failure). This is
+ * intentional and documented in the audit follow-up — do NOT split
+ * INVALID into a third card.
+ */
 export function credentialStats(
   credentials: CredentialView[],
 ): { total: number; configured: number; needsSetup: number } {
@@ -233,4 +239,65 @@ export function credentialStats(
     (c) => c.status === "NEEDS_SETUP" || c.status === "INVALID",
   ).length
   return { total: credentials.length, configured, needsSetup }
+}
+
+/* ------------------------------------------------------------------ */
+/* Draft description with credential metadata (audit F-01)             */
+/* ------------------------------------------------------------------ */
+
+/** The frozen draft-creation contract's description limit (backend, chars). */
+export const DRAFT_DESCRIPTION_MAX = 2000
+
+/**
+ * Single source of truth for the submitted draft description: the review
+ * step renders EXACTLY this string and the submit handler sends EXACTLY
+ * this string, so a reviewer always sees the bytes that reach the backend.
+ * The credential reference is appended as fixed suffix metadata.
+ */
+export function buildFinalDescription(
+  rawDescription: string,
+  credentialName: string | null,
+): string {
+  if (!credentialName) return rawDescription
+  return `${rawDescription}\n\nAuthentication (references only): Secure Credential — ${credentialName}`
+}
+
+/**
+ * How many characters the combined description exceeds the backend limit
+ * by (0 when it fits). Callers must surface this as an inline error and
+ * refuse to submit — the credential suffix is NEVER truncated silently.
+ */
+export function descriptionOverflow(
+  rawDescription: string,
+  credentialName: string | null,
+): number {
+  const combined = buildFinalDescription(rawDescription, credentialName)
+  return Math.max(0, combined.length - DRAFT_DESCRIPTION_MAX)
+}
+
+/* ------------------------------------------------------------------ */
+/* Submit latch (audit F-02)                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Synchronous double-submit latch (audit F-02): a React state flag only
+ * disables the Save button after a re-render, so a rapid double-click can
+ * fire two POSTs. The latch is checked synchronously inside the click
+ * handler, latched for the whole in-flight submit (released when the
+ * onSubmit promise settles), and reusable afterwards.
+ */
+export function createSubmitLatch() {
+  let held = false
+  return {
+    /** Returns true when the caller owns the in-flight slot. */
+    tryEnter(): boolean {
+      if (held) return false
+      held = true
+      return true
+    },
+    /** Releases the slot; safe to call more than once. */
+    exit(): void {
+      held = false
+    },
+  }
 }

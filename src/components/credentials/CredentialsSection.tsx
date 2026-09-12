@@ -31,6 +31,9 @@ import { CredentialFormModal } from "./CredentialFormModal"
 /* backend contract, the placeholder modal replaced by the real          */
 /* CredentialFormModal, and window.confirm replaced by a proper delete   */
 /* confirmation dialog.                                                 */
+/*                                                                      */
+/* Adapted from Figma Make export (Assuredia UI (7).zip);               */
+/* originals retained in the Figma source, not in this repo.            */
 /* ------------------------------------------------------------------ */
 
 export function CredentialsSection({
@@ -322,7 +325,9 @@ export function CredentialsSection({
         credential={formCredential}
         saving={formSaving}
         error={formError}
-        onSubmit={(values) => void submitForm(values)}
+        // The async submitForm is passed directly so the modal's F-02 latch
+        // holds until the POST settles (not just until the next render).
+        onSubmit={submitForm}
         onClose={() => setFormOpen(false)}
       />
 
