@@ -3,6 +3,7 @@ import { Button, Card, ErrorState, Spinner, cx, useToast } from "./primitives"
 import { useAuth } from "../lib/auth"
 import { useLang, type Lang } from "../lib/i18n"
 import { useTheme } from "../lib/theme"
+import { CredentialsSection } from "./credentials/CredentialsSection"
 import {
   ApiError,
   apiClientDetails,
@@ -979,6 +980,7 @@ function SaveBar({ saving, onSave }: { saving: boolean; onSave: () => Promise<vo
 const NAV: { key: string; labelKey: string; needsClient: boolean }[] = [
   { key: "account", labelKey: "settings.section.account", needsClient: false },
   { key: "security", labelKey: "settings.section.security", needsClient: false },
+  { key: "credentials", labelKey: "settings.section.credentials", needsClient: true },
   { key: "environment", labelKey: "settings.section.environment", needsClient: true },
   { key: "execution", labelKey: "settings.section.execution", needsClient: true },
   { key: "notifications", labelKey: "settings.section.notifications", needsClient: true },
@@ -996,6 +998,12 @@ const NavIcon: Record<string, React.ReactNode> = {
   security: (
     <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
+    </svg>
+  ),
+  credentials: (
+    <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0110 0v4" />
     </svg>
   ),
   environment: (
@@ -1034,17 +1042,20 @@ export function Settings({
   active = "settings",
   onSelect = () => {},
   onLogout,
+  initialSection,
 }: {
   active?: string
   onSelect?: (k: string) => void
   onLogout?: () => void
+  /** Section to open first (e.g. "credentials" for the settings-credentials route). */
+  initialSection?: string
 }) {
   void active
   void onSelect
   const { user, logout } = useAuth()
   const { t } = useLang()
   const toast = useToast()
-  const [section, setSection] = useState("account")
+  const [section, setSection] = useState(initialSection ?? "account")
   const [client, setClient] = useState<BackendClientInfo | null>(null)
   const clientId = user?.clientId ?? null
   const [loading, setLoading] = useState(clientId != null)
@@ -1144,6 +1155,18 @@ export function Settings({
           {section === "account" && <AccountSection />}
           {section === "security" && <SecuritySection onLogout={onLogout ?? logout} />}
           {section === "preferences" && <PreferencesSection />}
+
+          {/* Secure Credentials (PR10C.5 Phase 2): client-backed and
+              self-fetching — it owns its own loading/error states, so it
+              renders whenever a client is linked, independent of the
+              client-details fetch below. */}
+          {clientId != null && section === "credentials" && (
+            <CredentialsSection
+              key={`creds-${clientId}`}
+              clientId={clientId}
+              onUnauthorized={logout}
+            />
+          )}
 
           {/* Client-backed sections */}
           {clientId != null && loading && (

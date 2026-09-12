@@ -20,6 +20,8 @@ import {
   apiClientDetails,
   apiConfirmTestPlan,
   apiCreateTestPlan,
+  apiListCredentials,
+  type CredentialView,
 } from "../../lib/api"
 import {
   COMPOSER_TO_WIRE,
@@ -85,20 +87,25 @@ export function AiBuilderPage({
   onViewDrafts,
   onViewRequests,
   onUnauthorized,
+  onOpenSettingsCredentials = () => {},
 }: {
   clientId: number
   onOpenDefinition: (definitionId: number) => void
   onViewDrafts: () => void
   onViewRequests: () => void
   onUnauthorized: () => void
+  /** "Set up in Settings" CTA from the credential selector (PR10C.5 Phase 2). */
+  onOpenSettingsCredentials?: () => void
 }) {
   const { t } = useLang()
   const [phase, setPhase] = useState<Phase>("idle")
   const [composerType, setComposerType] = useState<ComposerTestType>("UI")
   const [intent, setIntent] = useState("")
-  const [wantCredential, setWantCredential] = useState(false)
-  const [credConfigured, setCredConfigured] = useState<boolean | null>(null)
-  const [credName, setCredName] = useState("")
+  // PR10C.5 Phase 2: the REAL selected credential id (client_credentials.id),
+  // replacing the pre-018 `credentialId = clientId` alias.
+  const [selectedCredentialId, setSelectedCredentialId] = useState<number | null>(null)
+  const [credentials, setCredentials] = useState<CredentialView[]>([])
+  const [credentialsLoaded, setCredentialsLoaded] = useState(false)
   const [origin, setOrigin] = useState<string | null | undefined>(undefined)
   const [stage, setStage] = useState(0)
   const [plan, setPlan] = useState<TestPlan | null>(null)
@@ -131,8 +138,6 @@ export function AiBuilderPage({
       .then((details) => {
         if (cancelled) return
         setOrigin(details.client.base_url ?? null)
-        setCredConfigured(details.client.site_password_set === true)
-        setCredName(details.client.site_username || t("pr10c.credential.defaultName"))
       })
       .catch((error) => {
         if (cancelled) return
@@ -141,8 +146,24 @@ export function AiBuilderPage({
           return
         }
         setOrigin(null)
-        setCredConfigured(false)
-        setCredName(t("pr10c.credential.defaultName"))
+      })
+    // PR10C.5 Phase 2: real multi-credential list feeds the composer's
+    // selector; a failed fetch degrades to an empty list (the "No
+    // credentials configured" state), never a blocked composer.
+    apiListCredentials(clientId)
+      .then((list) => {
+        if (cancelled) return
+        setCredentials(list)
+        setCredentialsLoaded(true)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        if (error instanceof ApiError && error.status === 401) {
+          onUnauthorized()
+          return
+        }
+        setCredentials([])
+        setCredentialsLoaded(true)
       })
     return () => {
       cancelled = true
@@ -177,7 +198,9 @@ export function AiBuilderPage({
     }
     // A selected-but-unconfigured credential can never succeed — surface the
     // auth state instead of spending a plan call.
-    if (wantCredential && credConfigured === false) {
+    const selectedCredential =
+      credentials.find((c) => c.id === selectedCredentialId) ?? null
+    if (selectedCredential != null && selectedCredential.status !== "CONFIGURED") {
       setPhase("auth-required")
       return
     }
@@ -202,7 +225,9 @@ export function AiBuilderPage({
     }, PLANNER_CLIENT_TIMEOUT_MS)
     timersRef.current.push(stepper, timeoutId)
 
-    const credentialId = wantCredential ? clientId : null
+    // PR10C.5 Phase 2: send the REAL credential id (client_credentials.id);
+    // the backend's dual-id transition accepts it natively.
+    const credentialId = selectedCredentialId
     apiCreateTestPlan(
       clientId,
       {
@@ -344,7 +369,7 @@ export function AiBuilderPage({
     confirmKeyRef.current = null
     setPhase("idle")
     setIntent("")
-    setWantCredential(false)
+    setSelectedCredentialId(null)
     setComposerType("UI")
     setPlan(null)
     setSteps([])
@@ -505,11 +530,12 @@ export function AiBuilderPage({
                 setTestType={setComposerType}
                 intent={intent}
                 setIntent={setIntent}
-                credential={{
-                  configured: credConfigured === true,
-                  selected: wantCredential,
-                  displayName: credName,
-                  onToggle: () => setWantCredential((v) => !v),
+                credentials={credentials}
+                credentialsLoading={!credentialsLoaded}
+                selectedCredentialId={selectedCredentialId}
+                onSelectCredential={setSelectedCredentialId}
+                onManageCredentials={() => {
+                  onOpenSettingsCredentials()
                 }}
                 onBuild={() => startBuild(intent)}
                 building={busy}
@@ -594,7 +620,7 @@ export function AiBuilderPage({
             <AuthRequiredView
               onBack={() => setPhase("idle")}
               onContinueWithout={() => {
-                setWantCredential(false)
+                setSelectedCredentialId(null)
                 runPlan(intent)
               }}
             />

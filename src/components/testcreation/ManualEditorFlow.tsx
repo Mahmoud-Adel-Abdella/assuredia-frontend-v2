@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { Alert, Button, Card } from "../primitives"
 import { useLang } from "../../lib/i18n"
 import {
@@ -10,6 +10,16 @@ import {
 } from "../../lib/testSourceBuilders"
 import { starterDefinitionSource } from "../../lib/testDefinitionSchema"
 import type { JourneyType } from "../../lib/testCreation"
+import {
+  ApiError,
+  apiListCredentials,
+  type CredentialView,
+} from "../../lib/api"
+import {
+  buildFinalDescription,
+  descriptionOverflow,
+} from "../../lib/credentials"
+import { CredentialSelector } from "../credentials/CredentialSelector"
 import {
   DraftSuccess,
   Field,
@@ -39,6 +49,8 @@ type ManualEditorProps = {
   onOpenDefinition: (definitionId: number) => void
   onViewDrafts: () => void
   onUnauthorized: () => void
+  /** Opens Settings → Secure Credentials (credential selector CTA). */
+  onOpenSettingsCredentials?: () => void
 }
 
 const methods: HttpMethod[] = [
@@ -127,6 +139,7 @@ export function ManualEditorFlow({
   onOpenDefinition,
   onViewDrafts,
   onUnauthorized,
+  onOpenSettingsCredentials,
 }: ManualEditorProps) {
   const { t } = useLang()
   const [step, setStep] = useState<EditorStep>("editor")
@@ -144,12 +157,59 @@ export function ManualEditorFlow({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const draft = useDraftSubmit({ clientId, onUnauthorized })
 
+  // PR10C.5 Phase 2: credential context for the draft. The frozen draft-
+  // creation contract has no credentialId field, so the selection follows the
+  // manual-request convention — it is recorded in the description metadata
+  // ("Authentication (references only)") and shown in the review step.
+  const [credentials, setCredentials] = useState<CredentialView[]>([])
+  const [credentialsLoaded, setCredentialsLoaded] = useState(false)
+  const [selectedCredentialId, setSelectedCredentialId] = useState<number | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    apiListCredentials(clientId)
+      .then((list) => {
+        if (cancelled) return
+        setCredentials(list)
+        setCredentialsLoaded(true)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        if (error instanceof ApiError && error.status === 401) {
+          onUnauthorized()
+          return
+        }
+        setCredentials([])
+        setCredentialsLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
+
+  const selectedCredential =
+    credentials.find((c) => c.id === selectedCredentialId) ?? null
+
+  // Audit F-01: ONE source of truth for the submitted description. The
+  // review step renders this exact string and the payload sends this exact
+  // string. No silent truncation: when the combined text exceeds the
+  // backend limit the editor surfaces an inline error and blocks submit.
+  const finalDescription = useMemo(
+    () => buildFinalDescription(description, selectedCredential?.name ?? null),
+    [description, selectedCredential],
+  )
+  const descriptionOverflowCount = useMemo(
+    () => descriptionOverflow(description, selectedCredential?.name ?? null),
+    [description, selectedCredential],
+  )
+
   const payload = useMemo<DraftPayload>(() => {
     if (journeyType === "UI") {
       return {
         journeyType,
         name: name.trim(),
-        description,
+        description: finalDescription,
         sourceJson: readBuilderSource(
           buildUIEditorSourceJson(
             name.trim(),
@@ -172,7 +232,7 @@ export function ManualEditorFlow({
       return {
         journeyType,
         name: name.trim(),
-        description,
+        description: finalDescription,
         sourceJson: readBuilderSource(
           buildAPIEditorSourceJson(name.trim(), description, config),
         ),
@@ -181,7 +241,7 @@ export function ManualEditorFlow({
     return {
       journeyType,
       name: name.trim(),
-      description,
+      description: finalDescription,
       sourceJson: starterDefinitionSource(name.trim(), "MIXED"),
     }
   }, [
@@ -190,6 +250,7 @@ export function ManualEditorFlow({
     body,
     description,
     endpoint,
+    finalDescription,
     headers,
     journeyType,
     method,
@@ -204,6 +265,12 @@ export function ManualEditorFlow({
     if (name.trim().length > 120) next.name = t("pr10b.validation.nameLong")
     if (description.length > 2000)
       next.description = t("pr10b.validation.descriptionLong")
+    // Audit F-01: the credential suffix must never be truncated — refuse to
+    // advance when the combined description exceeds the backend limit.
+    if (descriptionOverflowCount > 0)
+      next.description = t("credentials.manual.descriptionOverflow", {
+        count: descriptionOverflowCount,
+      })
     if (journeyType === "UI") {
       actions.forEach((action, index) => {
         if (action.kind === "navigate" && !action.url.trim())
@@ -346,6 +413,21 @@ export function ManualEditorFlow({
                 onChange={(event) => setDescription(event.target.value)}
               />
             </Field>
+
+            {/* PR10C.5 Phase 2: credential context for the draft. The frozen
+                creation contract has no credentialId field, so the choice is
+                recorded in the description metadata (the manual-request
+                convention) and travels with the draft for review. */}
+            <div className="flex flex-wrap items-center gap-3">
+              <CredentialSelector
+                credentials={credentials}
+                selectedId={selectedCredentialId}
+                onSelect={setSelectedCredentialId}
+                onManage={() => onOpenSettingsCredentials?.()}
+                loading={!credentialsLoaded}
+                compact={false}
+              />
+            </div>
           </Card>
 
           {journeyType === "UI" && (
@@ -762,13 +844,24 @@ export function ManualEditorFlow({
                 </dt>
                 <dd className="mt-1 font-medium text-navy">{journeyType}</dd>
               </div>
-              {description && (
+              {/* Re-audit LOW: guard on the computed value so an empty raw
+                  description with a selected credential still shows the
+                  suffix the submit handler sends. */}
+              {finalDescription && (
                 <div className="sm:col-span-2">
                   <dt className="text-[12px] font-semibold text-slate-400">
                     {t("pr10b.fields.description")}
+                    {selectedCredential && (
+                      <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-400">
+                        ({t("credentials.manual.asSubmitted")})
+                      </span>
+                    )}
                   </dt>
+                  {/* Audit F-01: the reviewer sees the EXACT string the submit
+                      handler sends — credential metadata included, never a
+                      separately-rendered approximation. */}
                   <dd className="mt-1 whitespace-pre-wrap text-slate-700">
-                    {description}
+                    {finalDescription}
                   </dd>
                 </div>
               )}
@@ -790,6 +883,20 @@ export function ManualEditorFlow({
                 {t("pr10b.review.mixedStarter")}
               </p>
             )}
+            {selectedCredential && (
+              <div>
+                <dt className="text-[12px] font-semibold text-slate-400">
+                  {t("pr10c.composer.credentialLabel")}
+                </dt>
+                <dd className="mt-1 font-medium text-navy">
+                  {selectedCredential.name}
+                  {" · "}
+                  {selectedCredential.status === "CONFIGURED"
+                    ? t("settings.credentials.statusConfigured")
+                    : t("settings.credentials.statusNeedsSetup")}
+                </dd>
+              </div>
+            )}
           </Card>
           {draft.failure && (
             <SubmitFailureAlert
@@ -809,6 +916,7 @@ export function ManualEditorFlow({
             <Button
               variant="primary"
               loading={draft.submitting}
+              disabled={descriptionOverflowCount > 0}
               onClick={() => void draft.submit(payload)}
             >
               {t("pr10b.actions.createDraft")}

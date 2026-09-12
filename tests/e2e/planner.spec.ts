@@ -313,11 +313,16 @@ test("duplicate confirm navigates to drafts", async ({ page }) => {
 test("credential pill reflects the configured credential", async ({
   page,
 }) => {
+  // PR10C.5 Phase 2: the composer's credential dropdown now lists the real
+  // credential rows (grouped by type) instead of the pre-018 single-credential
+  // pill sourced from client details.
   await openAsClient(page)
   await openAiBuilder(page)
   await page.getByRole("button", { name: "Add credential" }).click()
-  await expect(page.getByText("customer").first()).toBeVisible()
-  await expect(page.getByText("Configured").first()).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Default Configured", exact: true }),
+  ).toBeVisible()
+  await expect(page.getByText("User Account", { exact: true })).toBeVisible()
   await expect(
     page.getByText("Managed in Settings · values never shown"),
   ).toBeVisible()

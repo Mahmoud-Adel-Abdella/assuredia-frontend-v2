@@ -3169,3 +3169,137 @@ export async function apiConfirmTestPlan(
     },
   )
 }
+
+/* ------------------------------------------------------------------ */
+/* Secure Credentials (PR10C.5 Phase 1 backend — frozen contract)      */
+/*                                                                     */
+/* GET    /dashboard-api/clients/{id}/credentials                      */
+/*   → 200 { credentials: CredentialView[] } | 401 | 503               */
+/* GET    /dashboard-api/clients/{id}/credentials/{cid}                */
+/*   → 200 CredentialView | 401 | 404 (unknown/cross-tenant) | 503     */
+/* POST   /dashboard-api/clients/{id}/credentials                      */
+/*   → 201 CredentialView | 400 | 401 | 409 | 503                       */
+/* PUT    /dashboard-api/clients/{id}/credentials/{cid}                */
+/*   → 200 CredentialView | 400 | 401 | 404 | 409 | 503                 */
+/*   (blank/missing password = keep the stored secret)                 */
+/* DELETE /dashboard-api/clients/{id}/credentials/{cid}                */
+/*   → 204 | 401 | 404 | 503                                           */
+/* POST   /dashboard-api/clients/{id}/credentials/{cid}/test          */
+/*   → 200 TestResult | 401 | 404 | 503                                 */
+/* CredentialView carries metadata only — the secret never crosses the */
+/* wire in either direction except the plaintext password on           */
+/* CREATE/UPDATE request bodies, which the backend encrypts on arrival  */
+/* and never echoes back.                                               */
+/* ------------------------------------------------------------------ */
+
+/** Display-only credential type vocabulary (PR10C.5; behavior is uniform until PR10D). */
+export type CredentialType = "USER_ACCOUNT" | "API_SERVICE"
+
+/** Closed credential status vocabulary. */
+export type CredentialStatus = "CONFIGURED" | "NEEDS_SETUP" | "INVALID"
+
+/** Credential metadata as returned by every credentials endpoint. */
+export type CredentialView = {
+  id: number
+  name: string
+  type: CredentialType
+  status: CredentialStatus
+  /** Masked username, e.g. "abc***"; null when the credential has no username. */
+  usernameMasked: string | null
+  /** ISO timestamp of the last execution use, or null. */
+  lastUsedAt: string | null
+  useCount: number
+}
+
+/** Body of POST /credentials. All fields required; the backend encrypts the password. */
+export type CreateCredentialRequest = {
+  name: string
+  type: CredentialType
+  username: string
+  password: string
+}
+
+/**
+ * Body of PUT /credentials/{cid}. Every field optional; a blank/missing
+ * password keeps the stored secret (same partial-update semantics as the
+ * client-level sitePassword).
+ */
+export type UpdateCredentialRequest = {
+  name?: string
+  type?: CredentialType
+  username?: string
+  password?: string
+}
+
+/** Result of POST /credentials/{cid}/test — a bounded, user-safe message. */
+export type CredentialTestResult = {
+  success: boolean
+  message: string
+}
+
+export async function apiListCredentials(
+  clientId: number,
+  signal?: AbortSignal,
+): Promise<CredentialView[]> {
+  const body = await request<{ credentials?: CredentialView[] }>(
+    `/dashboard-api/clients/${clientId}/credentials`,
+    { signal },
+  )
+  return Array.isArray(body?.credentials) ? body.credentials : []
+}
+
+export async function apiGetCredential(
+  clientId: number,
+  credentialId: number,
+  signal?: AbortSignal,
+): Promise<CredentialView> {
+  return request<CredentialView>(
+    `/dashboard-api/clients/${clientId}/credentials/${credentialId}`,
+    { signal },
+  )
+}
+
+export async function apiCreateCredential(
+  clientId: number,
+  body: CreateCredentialRequest,
+  signal?: AbortSignal,
+): Promise<CredentialView> {
+  return request<CredentialView>(
+    `/dashboard-api/clients/${clientId}/credentials`,
+    { method: "POST", body, signal },
+  )
+}
+
+export async function apiUpdateCredential(
+  clientId: number,
+  credentialId: number,
+  body: UpdateCredentialRequest,
+  signal?: AbortSignal,
+): Promise<CredentialView> {
+  return request<CredentialView>(
+    `/dashboard-api/clients/${clientId}/credentials/${credentialId}`,
+    { method: "PUT", body, signal },
+  )
+}
+
+export async function apiDeleteCredential(
+  clientId: number,
+  credentialId: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  await request<void>(
+    `/dashboard-api/clients/${clientId}/credentials/${credentialId}`,
+    { method: "DELETE", signal },
+  )
+}
+
+export async function apiTestCredential(
+  clientId: number,
+  credentialId: number,
+  signal?: AbortSignal,
+): Promise<CredentialTestResult> {
+  return request<CredentialTestResult>(
+    `/dashboard-api/clients/${clientId}/credentials/${credentialId}/test`,
+    { method: "POST", body: {}, signal },
+  )
+}

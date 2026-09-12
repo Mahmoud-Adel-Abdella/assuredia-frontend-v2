@@ -49,6 +49,17 @@ const state = {
   nextConfirmDefinitionId: 501,
   /** Set by the spec to make the next proving run fail instead of pass. */
   nextExecutionStatus: "PASSED",
+  /** PR10C.5 credentials: rows keyed by id; mirrors the frozen contract. */
+  credentials: new Map(),
+  nextCredentialId: 1,
+  /** When set, every credentials endpoint answers the 503 migration window. */
+  credentialsUnavailable: false,
+  /** Requests recording the credential the planner received (spec assertions). */
+  lastPlannerCredentialId: undefined,
+  /** Audit F-02: count of credential CREATE POSTs (double-click guard). */
+  credentialCreateRequests: 0,
+  /** Audit F-01: the description of the last created draft (review/submit match). */
+  lastDraftDescription: null,
 }
 
 const CLIENT = { id: 7, client_name: "northwind sandbox" }
@@ -56,6 +67,75 @@ const FLOW = { id: 300, flow_name: "Checkout" }
 
 function nowIso() {
   return new Date().toISOString()
+}
+
+/* ---- Secure Credentials (PR10C.5) ----------------------------------- */
+/** The fake's plaintext secret for the seeded Default row — never served. */
+const DEFAULT_CREDENTIAL_SECRET = "mock-secret"
+
+/**
+ * Seeds the fixture set every reset. Mirrors what the real engine serves
+ * after migration-018's backfill: one "Default" USER_ACCOUNT row (usable,
+ * masked username), one API_SERVICE row, and one incomplete row so the UI's
+ * three statuses all render. The secret is stored only in the fake's head;
+ * views never expose it.
+ */
+function seedCredentials() {
+  const seeded = [
+    {
+      name: "Default",
+      type: "USER_ACCOUNT",
+      status: "CONFIGURED",
+      username: "customer",
+      hasSecret: true,
+    },
+    {
+      name: "Shop API",
+      type: "API_SERVICE",
+      status: "CONFIGURED",
+      username: "svc-shop",
+      hasSecret: true,
+    },
+    {
+      name: "Staging Login",
+      type: "USER_ACCOUNT",
+      status: "NEEDS_SETUP",
+      username: "staging.user",
+      hasSecret: false,
+    },
+  ]
+  for (const row of seeded) {
+    const id = state.nextCredentialId++
+    state.credentials.set(id, {
+      id,
+      name: row.name,
+      type: row.type,
+      status: row.status,
+      username: row.username,
+      hasSecret: row.hasSecret,
+      lastUsedAt: null,
+      useCount: 0,
+    })
+  }
+}
+
+/** The wire CredentialView — metadata only; the secret never crosses. */
+function credentialView(row) {
+  const masked =
+    row.username == null || row.username === ""
+      ? null
+      : row.username.length <= 3
+        ? "***"
+        : `${row.username.slice(0, 3)}***`
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    status: row.status,
+    usernameMasked: masked,
+    lastUsedAt: row.lastUsedAt,
+    useCount: row.useCount,
+  }
 }
 
 function json(res, status, body) {
@@ -488,6 +568,13 @@ const server = createServer(async (req, res) => {
     state.confirmKeys.clear()
     state.nextPlanId = 1
     state.nextConfirmDefinitionId = 501
+    state.credentials.clear()
+    state.nextCredentialId = 1
+    state.credentialsUnavailable = false
+    state.lastPlannerCredentialId = undefined
+    state.credentialCreateRequests = 0
+    state.lastDraftDescription = null
+    seedCredentials()
     return json(res, 200, { ok: true })
   }
 
@@ -903,6 +990,156 @@ const server = createServer(async (req, res) => {
     const { consumed, ...body } = plan
     return body
   }
+  /* ---- Secure Credentials (PR10C.5, frozen contract) ----------------- */
+  if (path === "/__test__/credentials-unavailable" && method === "POST") {
+    const body = await readBody(req)
+    state.credentialsUnavailable = body?.unavailable === true
+    return json(res, 200, { unavailable: state.credentialsUnavailable })
+  }
+  if (path === "/__test__/last-planner-credential" && method === "GET") {
+    // The credentialId of the most recent plan request (PR10C.5 Phase 2
+    // assertion: the composer must send the REAL credential id).
+    return json(res, 200, { credentialId: state.lastPlannerCredentialId ?? null })
+  }
+  if (path === "/__test__/credential-create-count" && method === "GET") {
+    // Audit F-02: how many credential CREATE POSTs arrived.
+    return json(res, 200, { count: state.credentialCreateRequests })
+  }
+  if (path === "/__test__/last-draft-description" && method === "GET") {
+    // Audit F-01: the description the last draft creation carried.
+    return json(res, 200, { description: state.lastDraftDescription })
+  }
+
+  const credentialsRoot = `/dashboard-api/clients/${CLIENT.id}/credentials`
+  if (
+    path.startsWith(`/dashboard-api/clients/`) &&
+    path.includes("/credentials")
+  ) {
+    if (!path.startsWith(credentialsRoot))
+      return error(res, 404, "This client does not exist")
+
+    // Migration-window mode: until migration-018 is applied the real engine
+    // answers 503 from every credentials endpoint.
+    if (state.credentialsUnavailable)
+      return error(res, 503, "Secure credentials aren't available on this deployment yet")
+
+    const rest = path.slice(credentialsRoot.length).replace(/^\//, "")
+    const segments = rest === "" ? [] : rest.split("/")
+    const credentialId = segments.length > 0 ? Number(segments[0]) : NaN
+    const row = Number.isInteger(credentialId)
+      ? state.credentials.get(credentialId)
+      : undefined
+
+    // LIST
+    if (segments.length === 0 && method === "GET") {
+      const rows = [...state.credentials.values()].sort((a, b) =>
+        a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1
+      )
+      return json(res, 200, { credentials: rows.map(credentialView) })
+    }
+
+    // CREATE
+    if (segments.length === 0 && method === "POST") {
+      state.credentialCreateRequests += 1
+      const body = await readBody(req)
+      const name = typeof body?.name === "string" ? body.name.trim() : ""
+      const type = typeof body?.type === "string" ? body.type : ""
+      const username = typeof body?.username === "string" ? body.username.trim() : ""
+      const password = typeof body?.password === "string" ? body.password : ""
+      if (name.length === 0 || name.length > 120)
+        return error(res, 400, "The credential name must be between 1 and 120 characters")
+      if (!["USER_ACCOUNT", "API_SERVICE"].includes(type))
+        return error(res, 400, "The credential type must be USER_ACCOUNT or API_SERVICE")
+      if (username === "" || password === "")
+        return error(res, 400, "A username and password are required")
+      const duplicate = [...state.credentials.values()].find(
+        (c) => c.name.toLowerCase() === name.toLowerCase()
+      )
+      if (duplicate)
+        return error(res, 409, "A credential with this name already exists for this client")
+      const id = state.nextCredentialId++
+      const created = {
+        id,
+        name,
+        type,
+        status: "CONFIGURED",
+        username,
+        hasSecret: true,
+        lastUsedAt: null,
+        useCount: 0,
+      }
+      state.credentials.set(id, created)
+      return json(res, 201, credentialView(created))
+    }
+
+    if (!row) return error(res, 404, "The credential does not exist")
+
+    // GET ONE
+    if (segments.length === 1 && method === "GET")
+      return json(res, 200, credentialView(row))
+
+    // UPDATE (blank password = keep)
+    if (segments.length === 1 && method === "PUT") {
+      const body = await readBody(req)
+      if (body?.name != null) {
+        const name = String(body.name).trim()
+        if (name.length === 0 || name.length > 120)
+          return error(res, 400, "The credential name must be between 1 and 120 characters")
+        const duplicate = [...state.credentials.values()].find(
+          (c) => c.id !== row.id && c.name.toLowerCase() === name.toLowerCase()
+        )
+        if (duplicate)
+          return error(res, 409, "A credential with this name already exists for this client")
+        row.name = name
+      }
+      if (body?.type != null) {
+        if (!["USER_ACCOUNT", "API_SERVICE"].includes(body.type))
+          return error(res, 400, "The credential type must be USER_ACCOUNT or API_SERVICE")
+        row.type = body.type
+      }
+      if (body?.username != null) {
+        const username = String(body.username).trim()
+        if (username === "")
+          return error(res, 400, "A username is required")
+        row.username = username
+      }
+      if (typeof body?.password === "string" && body.password !== "")
+        row.hasSecret = true
+      row.status = row.hasSecret && row.username ? "CONFIGURED" : "NEEDS_SETUP"
+      return json(res, 200, credentialView(row))
+    }
+
+    // DELETE
+    if (segments.length === 1 && method === "DELETE") {
+      state.credentials.delete(row.id)
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": ORIGIN,
+        "Access-Control-Allow-Credentials": "true",
+      })
+      return res.end()
+    }
+
+    // TEST CONNECTION — mirrors the real contract: proves the stored secret
+    // decrypts and the client's base URL is reachable. A spec can force the
+    // failure via the row's name ("fail:" prefix) for the INVALID path.
+    if (segments.length === 2 && segments[1] === "test" && method === "POST") {
+      if (!row.hasSecret)
+        return json(res, 200, {
+          success: false,
+          message: "The credential isn't fully configured yet. Set a username and password first.",
+        })
+      if (row.name.startsWith("fail:"))
+        return json(res, 200, {
+          success: false,
+          message: "The target application couldn't be reached.",
+        })
+      return json(res, 200, {
+        success: true,
+        message: "The target application is reachable and the secret decrypts.",
+      })
+    }
+  }
+
   const plansRoot = `/dashboard-api/clients/${CLIENT.id}/test-plans`
   if (
     path.startsWith(`/dashboard-api/clients/`) &&
@@ -957,6 +1194,9 @@ const server = createServer(async (req, res) => {
           message: `Mock ${category}`,
         })
       }
+      // Records the REAL credential id the composer sent (spec assertion);
+      // undefined when none was referenced.
+      state.lastPlannerCredentialId = body?.credentialId ?? null
       return json(res, 200, plannerPlan(requestedType, body?.credentialId ?? null))
     }
     if (segments.length === 2 && segments[1] === "confirm" && method === "POST") {
@@ -1161,6 +1401,9 @@ const server = createServer(async (req, res) => {
         createdAt: nowIso(),
         updatedAt: nowIso(),
       }
+      // Audit F-01: record the EXACT description the client submitted so the
+      // spec can assert review display === submitted body.
+      state.lastDraftDescription = body?.description ?? null
       state.definitions.set(definition.id, definition)
 
       const journeyForFallback =
@@ -1586,5 +1829,6 @@ const server = createServer(async (req, res) => {
 })
 
 server.listen(PORT, "127.0.0.1", () => {
+  seedCredentials()
   process.stdout.write(`mock engine listening on http://127.0.0.1:${PORT}\n`)
 })

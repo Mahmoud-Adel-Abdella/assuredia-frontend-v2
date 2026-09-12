@@ -882,6 +882,10 @@ const dict: Record<string, Entry> = {
   },
   "settings.section.account": { en: "Account", ar: "الحساب" },
   "settings.section.security": { en: "Security", ar: "الأمان" },
+  "settings.section.credentials": {
+    en: "Secure Credentials",
+    ar: "بيانات الاعتماد الآمنة",
+  },
   "settings.section.environment": {
     en: "Client Environment",
     ar: "بيئة العميل",
@@ -896,6 +900,284 @@ const dict: Record<string, Entry> = {
   "settings.noClient": {
     en: "No client environment is linked to this account. Client configuration settings are not available.",
     ar: "لا توجد بيئة عميل مرتبطة بهذا الحساب. إعدادات تهيئة العميل غير متاحة.",
+  },
+
+  /* Secure Credentials (PR10C.5 Phase 2) */
+  "settings.credentials.eyebrow": {
+    en: "Secure Credentials",
+    ar: "بيانات الاعتماد الآمنة",
+  },
+  "settings.credentials.subtitle": {
+    en: "Manage authentication credentials for tests that require secure access. Actual secret values are never displayed here.",
+    ar: "إدارة بيانات اعتماد المصادقة للاختبارات التي تتطلب وصولًا آمنًا. لا تُعرض القيم السرية الفعلية هنا أبدًا.",
+  },
+  "settings.credentials.noticeTitle": {
+    en: "Credential values are always protected",
+    ar: "قيم بيانات الاعتماد محمية دائمًا",
+  },
+  "settings.credentials.noticeBody": {
+    en: "Assuredia stores credentials securely and never exposes them in the UI. Only metadata such as name, type, and status are shown here. Credentials are referenced by name in test configurations — never by value.",
+    ar: "تخزّن Assuredia بيانات الاعتماد بشكل آمن ولا تعرضها أبدًا في الواجهة. تُعرض هنا بيانات التعريف فقط مثل الاسم والنوع والحالة. يُشار إلى بيانات الاعتماد بالاسم في تكوينات الاختبار — وليس بالقيمة.",
+  },
+  "settings.credentials.statTotal": {
+    en: "Total",
+    ar: "الإجمالي",
+  },
+  "settings.credentials.statTotalHint": {
+    en: "credentials defined",
+    ar: "بيانات اعتماد محددة",
+  },
+  "settings.credentials.statConfigured": {
+    en: "Configured",
+    ar: "مُعد",
+  },
+  "settings.credentials.statConfiguredHint": {
+    en: "ready to use",
+    ar: "جاهزة للاستخدام",
+  },
+  "settings.credentials.statNeedsSetup": {
+    en: "Needs Setup",
+    ar: "تحتاج إعدادًا",
+  },
+  "settings.credentials.statNeedsSetupHint": {
+    en: "not yet configured",
+    ar: "غير مُعدة بعد",
+  },
+  "settings.credentials.addCredential": {
+    en: "Add Credential",
+    ar: "إضافة بيانات اعتماد",
+  },
+  "settings.credentials.emptyTitle": {
+    en: "No credentials configured",
+    ar: "لا توجد بيانات اعتماد مُعدة",
+  },
+  "settings.credentials.emptyBody": {
+    en: "Add a secure credential to enable authenticated tests.",
+    ar: "أضف بيانات اعتماد آمنة لتمكين الاختبارات المصادقة.",
+  },
+  "settings.credentials.typeUserAccount": {
+    en: "User Account",
+    ar: "حساب مستخدم",
+  },
+  "settings.credentials.typeApiService": {
+    en: "API Service",
+    ar: "خدمة API",
+  },
+  "settings.credentials.statusConfigured": {
+    en: "Configured",
+    ar: "مُعد",
+  },
+  "settings.credentials.statusNeedsSetup": {
+    en: "Not configured",
+    ar: "غير مُعد",
+  },
+  "settings.credentials.statusInvalid": {
+    en: "Needs attention",
+    ar: "تحتاج انتباهًا",
+  },
+  "settings.credentials.lastUsed": {
+    en: "Last used",
+    ar: "آخر استخدام",
+  },
+  "settings.credentials.lastUsedNever": {
+    en: "Never used",
+    ar: "لم تُستخدم مطلقًا",
+  },
+  "settings.credentials.useCount": {
+    en: "Used in {count} run(s)",
+    ar: "استُخدمت في {count} تشغيل(ات)",
+  },
+  "settings.credentials.username": {
+    en: "Username",
+    ar: "اسم المستخدم",
+  },
+  "settings.credentials.unavailable503": {
+    en: "Secure credentials aren't available on this deployment yet. Please try again later.",
+    ar: "بيانات الاعتماد الآمنة غير متاحة على هذا النشر بعد. يرجى المحاولة لاحقًا.",
+  },
+
+  /* Credential form */
+  "credentials.form.addTitle": {
+    en: "Add Secure Credential",
+    ar: "إضافة بيانات اعتماد آمنة",
+  },
+  "credentials.form.editTitle": {
+    en: "Edit Secure Credential",
+    ar: "تعديل بيانات الاعتماد الآمنة",
+  },
+  "credentials.form.addNotice": {
+    en: "Credential values are encrypted at rest. You enter the secret only once during configuration and it is never shown again.",
+    ar: "تُشفَّر قيم بيانات الاعتماد عند التخزين. تُدخل القيمة السرية مرة واحدة فقط أثناء التهيئة ولا تُعرض مرة أخرى أبدًا.",
+  },
+  "credentials.form.editNotice": {
+    en: "Leave the username or password blank to keep the current stored values. Enter a new password to replace it.",
+    ar: "اترك اسم المستخدم أو كلمة المرور فارغين للاحتفاظ بالقيم المخزنة الحالية. أدخل كلمة مرور جديدة لاستبدالها.",
+  },
+  "credentials.form.name": {
+    en: "Name",
+    ar: "الاسم",
+  },
+  "credentials.form.namePlaceholder": {
+    en: "e.g. Customer Login",
+    ar: "مثال: تسجيل دخول العميل",
+  },
+  "credentials.form.nameHint": {
+    en: "A unique label for this credential (e.g. \"Customer Login\").",
+    ar: "تسمية فريدة لبيانات الاعتماد هذه (مثل \"تسجيل دخول العميل\").",
+  },
+  "credentials.form.type": {
+    en: "Type",
+    ar: "النوع",
+  },
+  "credentials.form.username": {
+    en: "Username",
+    ar: "اسم المستخدم",
+  },
+  "credentials.form.password": {
+    en: "Password",
+    ar: "كلمة المرور",
+  },
+  "credentials.form.passwordNew": {
+    en: "New password",
+    ar: "كلمة مرور جديدة",
+  },
+  "credentials.form.nameRequired": {
+    en: "A credential name is required.",
+    ar: "اسم بيانات الاعتماد مطلوب.",
+  },
+  "credentials.form.nameTooLong": {
+    en: "The credential name must be at most 120 characters.",
+    ar: "يجب ألا يزيد اسم بيانات الاعتماد عن 120 حرفًا.",
+  },
+  "credentials.form.usernameRequired": {
+    en: "A username is required.",
+    ar: "اسم المستخدم مطلوب.",
+  },
+  "credentials.form.passwordRequired": {
+    en: "A password is required.",
+    ar: "كلمة المرور مطلوبة.",
+  },
+  "credentials.form.save": {
+    en: "Save Credential",
+    ar: "حفظ بيانات الاعتماد",
+  },
+  "credentials.form.cancel": {
+    en: "Cancel",
+    ar: "إلغاء",
+  },
+  "credentials.form.saved": {
+    en: "Credential saved.",
+    ar: "تم حفظ بيانات الاعتماد.",
+  },
+  "credentials.form.errorValidation": {
+    en: "Please check the highlighted fields and try again.",
+    ar: "يرجى التحقق من الحقول المميزة والمحاولة مرة أخرى.",
+  },
+  "credentials.form.errorConflict": {
+    en: "A credential with this name already exists. Choose a different name.",
+    ar: "توجد بيانات اعتماد بهذا الاسم بالفعل. اختر اسمًا مختلفًا.",
+  },
+  "credentials.form.errorNotFound": {
+    en: "This credential no longer exists. Refresh the list and try again.",
+    ar: "لم تعد بيانات الاعتماد هذه موجودة. حدّث القائمة وحاول مرة أخرى.",
+  },
+  "credentials.form.errorUnavailable": {
+    en: "Secure credentials aren't available on this deployment yet.",
+    ar: "بيانات الاعتماد الآمنة غير متاحة على هذا النشر بعد.",
+  },
+  "credentials.form.errorNetwork": {
+    en: "Could not reach Assuredia. Check your connection and try again.",
+    ar: "تعذر الوصول إلى Assuredia. تحقق من اتصالك وحاول مرة أخرى.",
+  },
+  "credentials.form.errorFallback": {
+    en: "Something went wrong. Please try again.",
+    ar: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+  },
+
+  /* Delete confirmation */
+  "credentials.delete.title": {
+    en: "Delete credential?",
+    ar: "حذف بيانات الاعتماد؟",
+  },
+  "credentials.delete.body": {
+    en: "Tests using this credential will need to be updated. This cannot be undone.",
+    ar: "ستحتاج الاختبارات التي تستخدم بيانات الاعتماد هذه إلى تحديث. لا يمكن التراجع عن هذا الإجراء.",
+  },
+  "credentials.delete.confirm": {
+    en: "Delete Credential",
+    ar: "حذف بيانات الاعتماد",
+  },
+  "credentials.delete.cancel": {
+    en: "Cancel",
+    ar: "إلغاء",
+  },
+  "credentials.delete.success": {
+    en: "Credential deleted.",
+    ar: "تم حذف بيانات الاعتماد.",
+  },
+  "credentials.delete.failed": {
+    en: "Could not delete this credential.",
+    ar: "تعذر حذف بيانات الاعتماد هذه.",
+  },
+
+  /* Test connection */
+  "credentials.test.action": {
+    en: "Test connection",
+    ar: "اختبار الاتصال",
+  },
+  "credentials.test.testing": {
+    en: "Testing…",
+    ar: "جارٍ الاختبار…",
+  },
+  "credentials.test.works": {
+    en: "Credential works",
+    ar: "بيانات الاعتماد تعمل",
+  },
+  "credentials.test.failed": {
+    en: "The connection test failed",
+    ar: "فشل اختبار الاتصال",
+  },
+  "credentials.test.invalidNote": {
+    en: "This credential is marked as needing attention.",
+    ar: "تم وضع علامة على بيانات الاعتماد هذه بأنها تحتاج انتباهًا.",
+  },
+
+  /* Row actions */
+  "credentials.row.edit": {
+    en: "Edit",
+    ar: "تعديل",
+  },
+  "credentials.row.remove": {
+    en: "Remove",
+    ar: "إزالة",
+  },
+
+  /* Manual editor credential context (audit F-01) */
+  "credentials.manual.asSubmitted": {
+    en: "As submitted:",
+    ar: "كما سيُرسل:",
+  },
+  "credentials.manual.descriptionOverflow": {
+    en: "Description is too long when combined with credential metadata. Reduce by {count} characters.",
+    ar: "الوصف طويل جدًا عند دمجه مع بيانات تعريف بيانات الاعتماد. قلّل بمقدار {count} حرفًا.",
+  },
+
+  /* Selector (AI Composer + manual editors) */
+  "credentials.selector.none": {
+    en: "No credential",
+    ar: "بدون بيانات اعتماد",
+  },
+  "credentials.selector.empty": {
+    en: "No credentials configured",
+    ar: "لا توجد بيانات اعتماد مُعدة",
+  },
+  "credentials.selector.emptyCta": {
+    en: "Set up in Settings",
+    ar: "الإعداد في الإعدادات",
+  },
+  "credentials.selector.managedNote": {
+    en: "Managed in Settings · values never shown",
+    ar: "تُدار في الإعدادات · لا تُعرض القيم أبدًا",
   },
 
   /* Account */
