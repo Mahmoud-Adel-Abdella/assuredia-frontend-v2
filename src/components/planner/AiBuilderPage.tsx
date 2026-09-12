@@ -283,8 +283,11 @@ export function AiBuilderPage({
           return
         }
         // F-01: the backend delivers plan FAILED over HTTP error statuses
-        // (503 for 8 of 9 categories). Map those bodies exactly like the
-        // HTTP-200 FAILED shape instead of collapsing to AI_UNAVAILABLE.
+        // (503 for every category except the clarification-shaped
+        // INTENT_AMBIGUOUS and CREDENTIAL_REQUIRED, which answer 200 and
+        // are handled in the success path above). Map those bodies exactly
+        // like the HTTP-200 FAILED shape instead of collapsing to
+        // AI_UNAVAILABLE.
         if (error instanceof ApiError && error.body != null) {
           const body = error.body as {
             status?: unknown

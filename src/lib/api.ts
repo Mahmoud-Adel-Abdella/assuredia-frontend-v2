@@ -3100,7 +3100,10 @@ export async function apiCreateManualEditorDraft(
 /*                                                                     */
 /* POST /dashboard-api/clients/{id}/test-plans                         */
 /*   { intent, requestedType?, credentialId? }                          */
-/*   → 200 exactly one of PLAN_READY / NEEDS_CLARIFICATION / FAILED     */
+/*   → 200 PLAN_READY / NEEDS_CLARIFICATION, plus FAILED bodies for the */
+/*     clarification-shaped categories (INTENT_AMBIGUOUS,               */
+/*     CREDENTIAL_REQUIRED) — actionable answers, not faults           */
+/*   → 503 FAILED for every other category                             */
 /* POST /dashboard-api/clients/{id}/test-plans/{planId}/confirm        */
 /*   Idempotency-Key required; {} or { name?, description? }            */
 /*   → 200 { definitionId, creationRequestId, status: "DRAFT" }         */
