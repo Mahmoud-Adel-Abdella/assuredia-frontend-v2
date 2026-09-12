@@ -454,3 +454,53 @@ test("double-clicking Save Credential creates exactly one credential", async ({
   const probeBody = await probe.json()
   expect(probeBody.count).toBe(1)
 })
+
+/* ------------------------------------------------------------------ */
+/* Re-audit LOW: empty description + credential still shows the suffix */
+/* ------------------------------------------------------------------ */
+
+test("manual editor review shows credential suffix with empty description", async ({
+  page,
+  request,
+}) => {
+  await openAsClient(page)
+  await page.getByRole("button", { name: "Create Test" }).first().click()
+  await page.getByRole("button", { name: "Open Manual Editor" }).click()
+
+  await page.locator("#pr10b-name").fill("Empty Description Check")
+  // Description intentionally left empty.
+  await page.locator("#pr10b-action-url-0").fill("https://shop.example.test/orders")
+
+  await page.getByRole("button", { name: "Add credential" }).click()
+  await page
+    .getByRole("button", { name: "Default Configured", exact: true })
+    .click()
+
+  await page.getByRole("button", { name: "Review", exact: true }).click()
+  await expect(
+    page.getByRole("heading", { name: "Review Test" }),
+  ).toBeVisible()
+
+  // The suffix must be visible even though the raw description is empty.
+  const reviewText = await page
+    .getByText(/Authentication \(references only\): Secure Credential — Default/)
+    .first()
+    .textContent()
+  expect(reviewText).toContain("Secure Credential — Default")
+
+  await page.getByRole("button", { name: "Create Draft" }).click()
+  await expect(
+    page.getByText(/Draft Created|definitionId/i).first(),
+  ).toBeVisible()
+  const probe = await request.get(
+    `${ENGINE_URL}/__test__/last-draft-description`,
+    { headers: authHeaders() },
+  )
+  const probeBody = await probe.json()
+  // The shared draft helper trims edge whitespace at submit
+  // (CreateTestShared), so the leading separator is collapsed —
+  // the suffix itself must arrive verbatim.
+  expect(probeBody.description).toBe(
+    `Authentication (references only): Secure Credential — Default`,
+  )
+})

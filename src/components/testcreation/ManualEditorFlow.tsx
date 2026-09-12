@@ -844,7 +844,10 @@ export function ManualEditorFlow({
                 </dt>
                 <dd className="mt-1 font-medium text-navy">{journeyType}</dd>
               </div>
-              {description && (
+              {/* Re-audit LOW: guard on the computed value so an empty raw
+                  description with a selected credential still shows the
+                  suffix the submit handler sends. */}
+              {finalDescription && (
                 <div className="sm:col-span-2">
                   <dt className="text-[12px] font-semibold text-slate-400">
                     {t("pr10b.fields.description")}

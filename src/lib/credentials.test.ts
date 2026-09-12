@@ -338,6 +338,15 @@ test("audit F-01: buildFinalDescription + overflow guard", async (t) => {
       0
     )
   })
+
+  await t.test("empty description + credential -> review shows the suffix", () => {
+    // Re-audit LOW: the review guard runs on the computed value, so an
+    // empty raw description with a selected credential still renders.
+    const shown = buildFinalDescription("", "Customer Login")
+    assert.ok(shown.length > 0)
+    assert.ok(shown.includes("Secure Credential — Customer Login"))
+    assert.equal(descriptionOverflow("", "Customer Login"), 0)
+  })
 })
 
 /* ------------------------------------------------------------------ */
