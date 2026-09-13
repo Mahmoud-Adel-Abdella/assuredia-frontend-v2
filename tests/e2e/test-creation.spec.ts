@@ -549,3 +549,29 @@ test("journey mismatch is shown as a safe submission error", async ({
     page.getByText("Definition is not compatible with journey type API"),
   ).toBeVisible()
 })
+
+test("wizard review resolves the related flow's name, not its id (F-6)", async ({
+  page,
+}) => {
+  await openAsClient(page)
+  await page.getByRole("button", { name: "Create Test" }).first().click()
+  await page.getByRole("button", { name: "Create Manual Request" }).click()
+  await page.getByRole("radio", { name: /UI Journey/ }).click()
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.getByRole("radio", { name: /Manual Request/ }).first().click()
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.locator("#tc-title").fill("E2E flow name check")
+  await page.locator("#tc-desc").fill("Verify the review shows the flow name")
+  // The seeded flow (mock engine FLOW id 300) is offered by NAME.
+  await page.locator("#tc-flow").selectOption({ label: "Checkout" })
+  await page.getByRole("button", { name: /Next/ }).click()
+  await page.locator("#tc-objective").fill("Protect checkout revenue")
+  await page.locator("#tc-journey").fill("Guest completes checkout")
+  await page.locator("#tc-expected").fill("Order confirmation is shown")
+  await page.getByRole("button", { name: /Next/ }).click()
+  await expect(
+    page.getByRole("heading", { name: "Request Summary" }),
+  ).toBeVisible()
+  // The Flow row shows the resolved flow NAME — never the bare id.
+  await expect(page.getByText("Checkout", { exact: true })).toBeVisible()
+})

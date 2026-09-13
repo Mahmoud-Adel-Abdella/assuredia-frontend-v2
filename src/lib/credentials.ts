@@ -301,3 +301,16 @@ export function createSubmitLatch() {
     },
   }
 }
+
+/**
+ * Whether the credential selector's pill should show the "Loading..." label
+ * (live-test F-10). Only a genuinely in-flight first fetch qualifies: once
+ * any credentials are loaded the pill shows the real label, so the loading
+ * text can never linger or flash back after the data arrived.
+ */
+export function selectorShowsLoading(
+  loading: boolean,
+  credentialCount: number,
+): boolean {
+  return loading && credentialCount === 0
+}

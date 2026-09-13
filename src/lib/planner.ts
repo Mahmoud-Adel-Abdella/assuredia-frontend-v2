@@ -29,6 +29,28 @@ export type PlanOutcome = {
   intent: string
 }
 
+/**
+ * The planner returns steps and expectedOutcomes as index-aligned parallel
+ * lists. Attaching each outcome to its step makes structural edits safe:
+ * moving or deleting a step carries its expected result with it, so a
+ * deleted step can never leave an orphaned outcome behind (F-7).
+ */
+export type WithOutcome = { outcome?: PlanOutcome }
+
+export function attachOutcomesToSteps<S extends object>(
+  steps: S[],
+  outcomes: PlanOutcome[] | null | undefined,
+): (S & WithOutcome)[] {
+  return steps.map((step, index) =>
+    outcomes && outcomes[index] ? { ...step, outcome: outcomes[index] } : step,
+  )
+}
+
+/** Expected results that survive with their steps, in display order. */
+export function outcomesOfSteps(steps: ReadonlyArray<WithOutcome>): PlanOutcome[] {
+  return steps.flatMap((step) => (step.outcome ? [step.outcome] : []))
+}
+
 export type PlanCredentialReference = {
   credentialId: number
   name: string

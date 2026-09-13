@@ -5,10 +5,13 @@ import {
   COMPOSER_TO_WIRE,
   CONFIRM_ERROR_MESSAGES,
   PLAN_ERROR_MESSAGES,
+  attachOutcomesToSteps,
   clarificationCategoryLabel,
   isPlanClarification,
   isPlanReady,
   newConfirmKey,
+  outcomesOfSteps,
+  type WithOutcome,
 } from "./planner"
 
 type CapturedRequest = {
@@ -149,4 +152,80 @@ test("Planner domain vocabulary", async (t) => {
       (error: unknown) => error instanceof ApiError && error.status === 409,
     )
   })
+})
+
+/* ------------------------------------------------------------------ */
+/* F-7: expected results stay attached to their steps                  */
+/* ------------------------------------------------------------------ */
+
+test("attachOutcomesToSteps pairs each outcome with its step by index", () => {
+  const steps = [
+    { type: "UI" as const, intent: "Search", requiresDiscovery: true, key: "s1" },
+    { type: "API" as const, intent: "Verify order", requiresDiscovery: false, key: "s2" },
+  ]
+  const outcomes = [
+    { type: "UI" as const, intent: "Results appear" },
+    { type: "API" as const, intent: "Order exists" },
+  ]
+  const attached = attachOutcomesToSteps(steps, outcomes)
+  assert.deepEqual(
+    attached.map((s) => s.outcome?.intent),
+    ["Results appear", "Order exists"],
+  )
+})
+
+test("attachOutcomesToSteps tolerates missing or empty outcome lists", () => {
+  const steps = [
+    { type: "UI" as const, intent: "Search", requiresDiscovery: true, key: "s1" },
+  ]
+  for (const outcomes of [undefined, null, []]) {
+    const attached = attachOutcomesToSteps(steps, outcomes)
+    assert.equal(attached.length, 1)
+    assert.equal(attached[0].outcome, undefined)
+  }
+})
+
+test("deleting a step removes its expected result — no orphans (F-7)", () => {
+  const steps = [
+    { type: "UI" as const, intent: "Search", requiresDiscovery: true, key: "s1" },
+    { type: "UI" as const, intent: "Add to cart", requiresDiscovery: true, key: "s2" },
+  ]
+  const outcomes = [
+    { type: "UI" as const, intent: "Results appear" },
+    { type: "UI" as const, intent: "Cart holds the product" },
+  ]
+  let editable = attachOutcomesToSteps(steps, outcomes)
+
+  // The ProposedView delete handler filters the step list; the outcome is
+  // attached to the step, so it is pruned by the same operation.
+  editable = editable.filter((s) => s.key !== "s1")
+  const remaining = outcomesOfSteps(editable)
+  assert.deepEqual(
+    remaining.map((o) => o.intent),
+    ["Cart holds the product"],
+  )
+})
+
+test("moving a step carries its expected result with it", () => {
+  const steps = [
+    { type: "UI" as const, intent: "Search", requiresDiscovery: true, key: "s1" },
+    { type: "UI" as const, intent: "Add to cart", requiresDiscovery: true, key: "s2" },
+  ]
+  const outcomes = [
+    { type: "UI" as const, intent: "Results appear" },
+    { type: "UI" as const, intent: "Cart holds the product" },
+  ]
+  const editable = attachOutcomesToSteps(steps, outcomes)
+  const moved = [...editable]
+  const [first] = moved.splice(0, 1)
+  moved.splice(1, 0, first)
+  assert.deepEqual(
+    outcomesOfSteps(moved).map((o) => o.intent),
+    ["Cart holds the product", "Results appear"],
+  )
+})
+
+test("outcomesOfSteps returns an empty list when no step has an outcome", () => {
+  const bare: Array<WithOutcome & { key: string }> = [{ key: "s1" }, { key: "s2" }]
+  assert.deepEqual(outcomesOfSteps(bare), [])
 })

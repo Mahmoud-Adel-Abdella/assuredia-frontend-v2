@@ -38,6 +38,7 @@ import {
   apiTriggerAnalysis,
   apiSavedLiveRunExecution,
   type BackendLiveRunState,
+  type ClientRunsQuery,
   type DashboardRun,
 } from "./api"
 import { isAnalysisInFlight, isTerminalAnalysisStatus, parseAiReport } from "./aiAnalysis"
@@ -74,6 +75,75 @@ export type HistoryMeta = {
 }
 
 export type HistoryEntry = { run: Run; meta: HistoryMeta }
+
+/* ------------------------------------------------------------------ */
+/* Time filter + server query (F-5)                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Time filter options for the history list. "All time" is the DEFAULT so the
+ * page shows the same window as the Overview's Recent Runs (an unfiltered
+ * GET /clients/{id}/runs?limit=200) — the previous "Last 7 days" default hid
+ * every older run behind a bare "No runs yet" (live-test F-5). The remaining
+ * options narrow the window; "Custom range" bounds come from the date inputs.
+ */
+export const HISTORY_TIME_OPTIONS = [
+  "All time",
+  "Today",
+  "Last 7 days",
+  "Last 30 days",
+  "Custom range",
+] as const
+
+export type HistoryTimeOption = (typeof HISTORY_TIME_OPTIONS)[number]
+
+/** Inclusive lower bound (epoch ms) of a time option; null = no lower bound. */
+export function historyTimeCutoff(option: HistoryTimeOption): number | null {
+  if (option === "All time") return null
+  if (option === "Today") {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d.getTime()
+  }
+  const days = option === "Last 7 days" ? 7 : 30
+  return Date.now() - days * 86_400_000
+}
+
+/**
+ * The verified GET /dashboard-api/clients/{id}/runs query for the history
+ * list: `limit` is passed separately (server-clamped 1–200), the filters
+ * below map onto the DashboardController contract, and inclusive ISO-8601
+ * `from`/`to` bounds apply only when a time window is actually selected.
+ */
+export function buildClientRunsQuery(input: {
+  /** Backend `status` value for the active status tab; undefined = All. */
+  status?: string
+  trigger: string
+  flowId: string
+  test: string
+  time: HistoryTimeOption
+  customFrom?: string
+  customTo?: string
+  customRangeInvalid?: boolean
+}): ClientRunsQuery {
+  const q: ClientRunsQuery = {}
+  if (input.status) q.status = input.status
+  if (input.trigger !== "all") q.source = input.trigger
+  if (input.flowId !== "all") q.flowId = Number(input.flowId)
+  if (input.test !== "all") q.test = input.test
+  if (input.time === "Custom range") {
+    // An inverted range is rejected by the backend (400), so send nothing
+    // until the user fixes it.
+    if (!input.customRangeInvalid) {
+      if (input.customFrom) q.from = new Date(`${input.customFrom}T00:00:00`).toISOString()
+      if (input.customTo) q.to = new Date(`${input.customTo}T23:59:59.999`).toISOString()
+    }
+  } else {
+    const cutoff = historyTimeCutoff(input.time)
+    if (cutoff != null) q.from = new Date(cutoff).toISOString()
+  }
+  return q
+}
 
 /* ------------------------------------------------------------------ */
 /* Status / trigger mapping                                            */
