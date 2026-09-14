@@ -536,9 +536,10 @@ test("credentials page surfaces render in both light and dark themes", async ({
     fullPage: true,
   })
 
-  // Exercise the two formerly-broken dark surfaces as part of the visual
-  // evidence: the Add Credential form and the selector portal.
-  await page.getByRole("button", { name: "Add credential" }).click()
+  // Exercise the formerly-broken dark Add Credential form as part of the
+  // page-surface evidence. Selector portal coverage is kept in focused tests
+  // below because the portal is mounted only by the AI Composer.
+  await page.getByRole("button", { name: "Add Credential" }).first().click()
   await expect(
     page.getByRole("heading", { name: "Add Secure Credential" }),
   ).toBeVisible()
@@ -547,4 +548,58 @@ test("credentials page surfaces render in both light and dark themes", async ({
     fullPage: true,
   })
   await page.getByRole("button", { name: "Cancel" }).click()
+})
+
+test("credential selector dropdown — dark mode", async ({ page }, testInfo) => {
+  await openAsClient(page)
+  await page.evaluate(() => {
+    document.documentElement.classList.add("dark")
+    window.localStorage.setItem("theme", "dark")
+  })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.getByRole("button", { name: "Create Test" }).first().click()
+  await expect(
+    page.getByPlaceholder("Describe what you want to verify..."),
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "Add credential" }).click()
+  const panel = page.locator("#credential-selector-panel")
+  await expect(panel).toBeVisible()
+  await expect(page.getByRole("button", { name: "Default Configured", exact: true })).toBeVisible()
+  expect(await panel.evaluate((element) => element.parentElement === document.body)).toBe(true)
+  const classes = (await panel.getAttribute("class")) ?? ""
+  expect(classes).toContain("bg-surface/95")
+  expect(classes).not.toContain("dark:bg-slate-900")
+  expect(classes).toContain("[box-shadow:var(--shadow-card)]")
+  await page.screenshot({
+    path: testInfo.outputPath("credential-selector-dark.png"),
+    fullPage: true,
+  })
+})
+
+test("credential selector dropdown — light mode", async ({ page }, testInfo) => {
+  await openAsClient(page)
+  await page.evaluate(() => {
+    document.documentElement.classList.remove("dark")
+    window.localStorage.setItem("theme", "light")
+  })
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await page.getByRole("button", { name: "Create Test" }).first().click()
+  await expect(
+    page.getByPlaceholder("Describe what you want to verify..."),
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "Add credential" }).click()
+  const panel = page.locator("#credential-selector-panel")
+  await expect(panel).toBeVisible()
+  await expect(page.getByRole("button", { name: "Default Configured", exact: true })).toBeVisible()
+  expect(await panel.evaluate((element) => element.parentElement === document.body)).toBe(true)
+  const classes = (await panel.getAttribute("class")) ?? ""
+  expect(classes).toContain("bg-surface/95")
+  expect(classes).not.toContain("dark:bg-slate-900")
+  expect(classes).toContain("[box-shadow:var(--shadow-card)]")
+  await page.screenshot({
+    path: testInfo.outputPath("credential-selector-light.png"),
+    fullPage: true,
+  })
 })

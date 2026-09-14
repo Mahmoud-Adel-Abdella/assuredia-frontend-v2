@@ -6,6 +6,7 @@ import {
   apiAlertResolve,
   apiAlerts,
   apiAlertsMarkAllRead,
+  apiAlertsUnreadCount,
   type AlertResolveResponse,
   type DashboardAlert,
 } from "../lib/api"
@@ -14,7 +15,7 @@ import { translate, useLang } from "../lib/i18n"
 import { automationErrorMessage } from "../lib/automations"
 import { parseBackendTimestamp } from "../lib/dashboardData"
 import { formatFull, formatShort } from "../lib/runData"
-import { unreadOutsideFilter } from "../lib/alerts"
+import { authoritativeUnreadCount, unreadOutsideFilter } from "../lib/alerts"
 
 /* ------------------------------------------------------------------ */
 /* Contract (frozen backend — DashboardController)                     */
@@ -468,6 +469,7 @@ export function Alerts({
   const { lang, t } = useLang()
 
   const [alerts, setAlerts] = useState<DashboardAlert[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>("All")
@@ -495,9 +497,13 @@ export function Alerts({
         setError(null)
       }
       try {
-        const rows = await apiAlerts(200)
+        const [rows, unread] = await Promise.all([
+          apiAlerts(200),
+          apiAlertsUnreadCount(),
+        ])
         if (requestId !== requestRef.current) return
         setAlerts(rows)
+        setUnreadCount(authoritativeUnreadCount(unread.count))
       } catch (err) {
         if (requestId !== requestRef.current) return
         if (err instanceof ApiError && err.status === 401) return logout()
@@ -539,9 +545,10 @@ export function Alerts({
   const rangeOptions: FilterOption[] = RANGE_OPTIONS.map((v) => ({ label: t(RANGE_LABEL_KEY[v]), value: v }))
 
   const summary = useMemo(() => {
-    // Matches GET /alerts/unread-count: unread means is_read = false,
-    // independent of resolution state.
-    const unread = alerts.filter((a) => !a.isRead).length
+    // The count endpoint is authoritative for the tenant-wide unread total.
+    // The list is bounded and locally filtered, so deriving this card from
+    // `alerts` would reintroduce the badge/page mismatch.
+    const unread = unreadCount
     const critical = alerts.filter((a) => alertKind(a) === "failure" && alertState(a) !== "Resolved").length
     const failures = alerts.filter((a) => alertKind(a) === "failure").length
     const now = new Date()
@@ -555,7 +562,7 @@ export function Alerts({
       )
     }).length
     return { unread, critical, failures, today }
-  }, [alerts])
+  }, [alerts, unreadCount])
 
   const filtered = useMemo(() => {
     const cutoff = rangeCutoff(range)
@@ -606,6 +613,7 @@ export function Alerts({
     try {
       await apiAlertRead(id)
       setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, isRead: true } : a)))
+      setUnreadCount((count) => Math.max(0, count - 1))
       onAlertsChanged?.()
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) return logout()
@@ -669,6 +677,7 @@ export function Alerts({
     try {
       await apiAlertsMarkAllRead()
       setAlerts((prev) => prev.map((a) => ({ ...a, isRead: true })))
+      setUnreadCount(0)
       onAlertsChanged?.()
       toast({ title: t("alerts.allReadTitle"), variant: "success" })
     } catch (err) {

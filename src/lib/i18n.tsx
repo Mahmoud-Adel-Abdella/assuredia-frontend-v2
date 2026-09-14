@@ -4279,235 +4279,16 @@ const dict: Record<string, Entry> = {
   },
 
   /* ---------- Test Creation (PR10B: discovery and structured editors) ---------- */
-  "pr10b.landing.eyebrow": { en: "Test Creation", ar: "إنشاء الاختبار" },
-  "pr10b.landing.title": { en: "Create a Test", ar: "إنشاء اختبار" },
-  "pr10b.landing.subtitle": {
-    en: "Choose how you want to create your monitored test journey.",
-    ar: "اختر الطريقة التي تريد بها إنشاء رحلة الاختبار المراقبة.",
-  },
-  "pr10b.eyebrow": { en: "Test Creation", ar: "إنشاء الاختبار" },
-  "pr10b.title": { en: "Create a Test", ar: "إنشاء اختبار" },
-  "pr10b.subtitle": {
-    en: "Discover your application, submit a request, or build a test manually.",
-    ar: "استكشف تطبيقك أو أرسل طلباً أو أنشئ اختباراً يدوياً.",
-  },
-  "pr10b.methods.discovery.title": {
-    en: "UI Discovery",
-    ar: "استكشاف واجهة المستخدم",
-  },
-  "pr10b.methods.discovery.description": {
-    en: "Explore the target application and select discovered elements for a test draft.",
-    ar: "استكشف التطبيق المستهدف واختر العناصر المكتشفة لمسودة اختبار.",
-  },
-  "pr10b.methods.discovery.action": {
-    en: "Start UI Discovery",
-    ar: "بدء استكشاف الواجهة",
-  },
-  "pr10b.methods.request.title": { en: "Manual Request", ar: "طلب يدوي" },
-  "pr10b.methods.request.description": {
-    en: "Describe what should be tested and send it to an Assuredia Test Engineer.",
-    ar: "صِف ما يجب اختباره وأرسله إلى مهندس اختبارات Assuredia.",
-  },
-  "pr10b.methods.request.action": {
-    en: "Create Manual Request",
-    ar: "إنشاء طلب يدوي",
-  },
-  "pr10b.methods.editor.title": { en: "Manual Editor", ar: "المحرر اليدوي" },
-  "pr10b.methods.editor.description": {
-    en: "Build structured UI or API steps and create a draft immediately.",
-    ar: "أنشئ خطوات منظمة للواجهة أو لواجهة API وأنشئ مسودة فوراً.",
-  },
-  "pr10b.methods.editor.action": {
-    en: "Open Manual Editor",
-    ar: "فتح المحرر اليدوي",
-  },
-  "pr10b.actions.viewRequests": {
-    en: "View Creation Requests",
-    ar: "عرض طلبات الإنشاء",
-  },
-  "pr10b.create.title": { en: "Create a Test", ar: "إنشاء اختبار" },
-  "pr10b.create.subtitle": {
-    en: "Discover your application or build a test journey manually.",
-    ar: "استكشف تطبيقك أو أنشئ رحلة اختبار يدوياً.",
-  },
-  "pr10b.cards.discovery.title": {
-    en: "UI Discovery",
-    ar: "استكشاف واجهة المستخدم",
-  },
-  "pr10b.cards.discovery.description": {
-    en: "Explore the target application and select discovered elements to create a test draft.",
-    ar: "استكشف التطبيق المستهدف واختر العناصر المكتشفة لإنشاء مسودة اختبار.",
-  },
-  "pr10b.cards.discovery.action": {
-    en: "Start UI Discovery",
-    ar: "بدء استكشاف الواجهة",
-  },
-  "pr10b.cards.manualRequest.title": { en: "Manual Request", ar: "طلب يدوي" },
-  "pr10b.cards.manualRequest.description": {
-    en: "Describe what you need tested and let an Assuredia Test Engineer implement it.",
-    ar: "صِف ما تريد اختباره ودع مهندس اختبارات Assuredia ينفّذه.",
-  },
-  "pr10b.cards.manualRequest.action": {
-    en: "Create Manual Request",
-    ar: "إنشاء طلب يدوي",
-  },
-  "pr10b.cards.manualEditor.title": {
-    en: "Manual Editor",
-    ar: "المحرر اليدوي",
-  },
-  "pr10b.cards.manualEditor.description": {
-    en: "Build structured UI or API steps and create a Test Definition Draft immediately.",
-    ar: "أنشئ خطوات منظمة للواجهة أو لواجهة API وأنشئ مسودة تعريف اختبار فوراً.",
-  },
-  "pr10b.cards.manualEditor.action": {
-    en: "Open Manual Editor",
-    ar: "فتح المحرر اليدوي",
-  },
-  "pr10b.journey.title": { en: "Journey Type", ar: "نوع الرحلة" },
-  "pr10b.journey.ui.title": { en: "UI Journey", ar: "رحلة واجهة مستخدم" },
-  "pr10b.journey.ui.description": {
-    en: "Browser interactions and UI assertions across the application.",
-    ar: "تفاعلات المتصفح وعمليات التحقق من واجهة المستخدم عبر التطبيق.",
-  },
-  "pr10b.journey.api.title": { en: "API Journey", ar: "رحلة واجهة API" },
-  "pr10b.journey.api.description": {
-    en: "HTTP requests and response assertions for backend APIs.",
-    ar: "طلبات HTTP وعمليات التحقق من استجابات واجهات API الخلفية.",
-  },
-  "pr10b.journey.mixed.title": { en: "Mixed Journey", ar: "رحلة مختلطة" },
-  "pr10b.journey.mixed.description": {
-    en: "Combine API and UI steps with shared variables in one journey.",
-    ar: "ادمج خطوات API والواجهة مع متغيرات مشتركة في رحلة واحدة.",
-  },
-  "pr10b.details.title": { en: "Test Details", ar: "تفاصيل الاختبار" },
-  "pr10b.details.description": {
-    en: "Provide the core information for this test.",
-    ar: "أدخل المعلومات الأساسية لهذا الاختبار.",
-  },
-  "pr10b.details.name": { en: "Test name", ar: "اسم الاختبار" },
-  "pr10b.details.namePlaceholder": {
-    en: "e.g. Checkout UI flow — guest purchase",
-    ar: "مثال: مسار شراء ضيف عبر الواجهة",
-  },
-  "pr10b.details.descriptionLabel": { en: "Description", ar: "الوصف" },
-  "pr10b.details.descriptionPlaceholder": {
-    en: "Briefly describe what this test should verify.",
-    ar: "صِف بإيجاز ما يجب أن يتحقق منه هذا الاختبار.",
-  },
-  "pr10b.details.flow": { en: "Related Flow", ar: "التدفق المرتبط" },
-  "pr10b.details.flowOptional": {
-    en: "Related Flow (optional)",
-    ar: "التدفق المرتبط (اختياري)",
-  },
-  "pr10b.details.noFlow": { en: "No flow", ar: "لا يوجد تدفق" },
-  "pr10b.details.targetUrl": { en: "Target URL", ar: "الرابط المستهدف" },
-  "pr10b.details.targetUrlPlaceholder": {
-    en: "https://app.example.com",
-    ar: "https://app.example.com",
-  },
-  "pr10b.details.validation.nameRequired": {
-    en: "Test name is required.",
-    ar: "اسم الاختبار مطلوب.",
-  },
-  "pr10b.details.validation.nameTooLong": {
-    en: "Test name must be 120 characters or fewer.",
-    ar: "يجب ألا يتجاوز اسم الاختبار 120 حرفاً.",
-  },
-  "pr10b.details.validation.descriptionRequired": {
-    en: "Description is required.",
-    ar: "الوصف مطلوب.",
-  },
-  "pr10b.details.validation.descriptionTooLong": {
-    en: "Description must be 2000 characters or fewer.",
-    ar: "يجب ألا يتجاوز الوصف 2000 حرف.",
-  },
-  "pr10b.details.validation.targetUrlRequired": {
-    en: "Target URL is required.",
-    ar: "الرابط المستهدف مطلوب.",
-  },
-  "pr10b.details.validation.targetUrlInvalid": {
-    en: "Enter a valid target URL.",
-    ar: "أدخل رابطاً مستهدفاً صالحاً.",
-  },
-  "pr10b.details.validation.required": {
-    en: "This field is required.",
-    ar: "هذا الحقل مطلوب.",
-  },
-  "pr10b.details.security.title": {
-    en: "Keep sensitive data secure",
-    ar: "حافظ على أمان البيانات الحساسة",
-  },
-  "pr10b.details.security.message": {
-    en: "Do not enter passwords, tokens, cookies, private keys, or personal data. Use approved secret references where available.",
-    ar: "لا تُدخل كلمات المرور أو الرموز أو ملفات تعريف الارتباط أو المفاتيح الخاصة أو البيانات الشخصية. استخدم مراجع الأسرار المعتمدة حيثما توفرت.",
-  },
   "pr10b.review.title": { en: "Review Test", ar: "مراجعة الاختبار" },
-  "pr10b.review.subtitle": {
-    en: "Review the details and steps before creating the draft.",
-    ar: "راجع التفاصيل والخطوات قبل إنشاء المسودة.",
-  },
-  "pr10b.review.details": { en: "Test Details", ar: "تفاصيل الاختبار" },
-  "pr10b.review.steps": { en: "Test Steps", ar: "خطوات الاختبار" },
-  "pr10b.review.backToEdit": { en: "Back to Editor", ar: "العودة إلى المحرر" },
-  "pr10b.review.editDetails": { en: "Edit Details", ar: "تعديل التفاصيل" },
-  "pr10b.review.createDraft": { en: "Create Draft", ar: "إنشاء مسودة" },
-  "pr10b.review.creatingDraft": {
-    en: "Creating Draft…",
-    ar: "جارٍ إنشاء المسودة…",
-  },
-  "pr10b.review.errorTitle": {
-    en: "Could not create the draft",
-    ar: "تعذّر إنشاء المسودة",
-  },
-  "pr10b.review.errorMessage": {
-    en: "Review the highlighted details and try again.",
-    ar: "راجع التفاصيل المميزة وحاول مرة أخرى.",
-  },
-  "pr10b.draft.errors.validationTitle": {
-    en: "Some details need attention",
-    ar: "بعض التفاصيل تحتاج إلى مراجعة",
-  },
-  "pr10b.draft.errors.duplicateTitle": {
-    en: "A Test Definition with this name already exists",
-    ar: "يوجد بالفعل تعريف اختبار بهذا الاسم",
-  },
-  "pr10b.draft.errors.unavailableTitle": {
-    en: "Assuredia is temporarily unavailable",
-    ar: "Assuredia غير متاحة مؤقتاً",
-  },
-  "pr10b.draft.errors.genericTitle": {
-    en: "Could not create the draft",
-    ar: "تعذّر إنشاء المسودة",
-  },
   "pr10b.success.title": { en: "Draft Created", ar: "تم إنشاء المسودة" },
   "pr10b.success.description": {
     en: "Your Test Definition Draft is ready for review.",
     ar: "مسودة تعريف الاختبار جاهزة للمراجعة.",
   },
-  "pr10b.success.openDefinition": {
-    en: "Open Test Definition",
-    ar: "فتح تعريف الاختبار",
-  },
-  "pr10b.success.createAnother": {
-    en: "Create Another Test",
-    ar: "إنشاء اختبار آخر",
-  },
   "pr10b.success.viewDrafts": {
     en: "View in Drafts & Reviews",
     ar: "عرض في المسودات والمراجعات",
   },
-  "pr10b.buttons.back": { en: "Back", ar: "رجوع" },
-  "pr10b.buttons.next": { en: "Next", ar: "التالي" },
-  "pr10b.buttons.continue": { en: "Continue", ar: "متابعة" },
-  "pr10b.buttons.cancel": { en: "Cancel", ar: "إلغاء" },
-  "pr10b.buttons.retry": { en: "Retry", ar: "إعادة المحاولة" },
-  "pr10b.buttons.edit": { en: "Edit", ar: "تعديل" },
-  "pr10b.buttons.remove": { en: "Remove", ar: "إزالة" },
-  "pr10b.buttons.add": { en: "Add", ar: "إضافة" },
-  "pr10b.buttons.save": { en: "Save", ar: "حفظ" },
-  "pr10b.buttons.close": { en: "Close", ar: "إغلاق" },
-  "pr10b.buttons.createDraft": { en: "Create Draft", ar: "إنشاء مسودة" },
-  "pr10b.buttons.startOver": { en: "Start Over", ar: "البدء من جديد" },
 
   /* Discovery compatibility keys are intentionally un-namespaced. */
   "discovery.title": { en: "Discovery", ar: "الاستكشاف" },
@@ -4957,40 +4738,14 @@ const dict: Record<string, Entry> = {
     ar: "بعض التفاصيل تحتاج إلى مراجعة",
   },
 
-  /* Stable PR10B aliases for shared feature panels. */
+  /* PR10E internal-only aliases retained for DiscoveryFlow. The flow is not
+   * mounted in the customer Create Test path; do not reuse these in customer UI. */
   "pr10b.discovery.title": { en: "Discovery", ar: "الاستكشاف" },
-  "pr10b.discovery.run": { en: "Run Discovery", ar: "تشغيل الاستكشاف" },
-  "pr10b.discovery.running": {
-    en: "Discovering application…",
-    ar: "جاري استكشاف التطبيق...",
-  },
   "pr10b.discovery.results": { en: "Discovery Results", ar: "نتائج الاستكشاف" },
-  "pr10b.discovery.empty": {
-    en: "No elements were discovered on this page.",
-    ar: "لم يتم اكتشاف أي عناصر في هذه الصفحة.",
-  },
   "pr10b.discovery.retry": {
     en: "Retry Discovery",
     ar: "إعادة محاولة الاستكشاف",
   },
-  "pr10b.discovery.review": { en: "Review Selection", ar: "مراجعة التحديد" },
-  "pr10b.discovery.createDraft": { en: "Create Draft", ar: "إنشاء مسودة" },
-  "pr10b.manualEditor.title": { en: "Manual Editor", ar: "المحرر اليدوي" },
-  "pr10b.manualEditor.uiTitle": {
-    en: "User Journey Editor",
-    ar: "محرر رحلة المستخدم",
-  },
-  "pr10b.manualEditor.apiTitle": {
-    en: "Backend Check Editor",
-    ar: "محرر فحص الخلفية",
-  },
-  "pr10b.manualEditor.addStep": { en: "Add Step", ar: "إضافة خطوة" },
-  "pr10b.manualEditor.removeStep": { en: "Remove Step", ar: "إزالة الخطوة" },
-  "pr10b.aiBuilder.title": {
-    en: "AI Test Builder",
-    ar: "منشئ الاختبارات الذكي",
-  },
-  "pr10b.aiBuilder.build": { en: "Build Test", ar: "بناء الاختبار" },
 
   /* Stable keys consumed by the PR10B structured editor flow. */
   "pr10b.editor.title": {
@@ -5122,6 +4877,10 @@ const dict: Record<string, Entry> = {
     en: "Create Another Test",
     ar: "إنشاء اختبار آخر",
   },
+  /* PR10E internal dictionary: DiscoveryFlow is retained for the future
+   * recorder/internal capability and is intentionally not customer-mounted.
+   * Keep these translations available for that internal flow; do not reuse them
+   * in the current AI-first Create Test UI. */
   "pr10b.discovery.noOrigin": {
     en: "Target URL is not configured. Configure it in Settings.",
     ar: "لم يتم إعداد الرابط المستهدف. قم بإعداده في الإعدادات.",
