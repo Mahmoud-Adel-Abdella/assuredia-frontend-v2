@@ -4738,7 +4738,8 @@ const dict: Record<string, Entry> = {
     ar: "بعض التفاصيل تحتاج إلى مراجعة",
   },
 
-  /* Stable PR10B aliases for shared feature panels. */
+  /* PR10E internal-only aliases retained for DiscoveryFlow. The flow is not
+   * mounted in the customer Create Test path; do not reuse these in customer UI. */
   "pr10b.discovery.title": { en: "Discovery", ar: "الاستكشاف" },
   "pr10b.discovery.results": { en: "Discovery Results", ar: "نتائج الاستكشاف" },
   "pr10b.discovery.retry": {
