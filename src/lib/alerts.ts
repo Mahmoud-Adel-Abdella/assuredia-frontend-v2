@@ -10,6 +10,15 @@
  * nothing needs attention. This comparison drives the "unread outside the
  * current filter" banner so hidden attention items stay visible as a count.
  */
+/**
+ * The server count is authoritative for the page summary and shell badge.
+ * Keep the normalization in one pure helper so both surfaces share the same
+ * non-negative integer contract even when the bounded list is filtered.
+ */
+export function authoritativeUnreadCount(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0
+}
+
 export function unreadOutsideFilter<T extends { isRead?: boolean }>(
   all: readonly T[],
   visible: readonly T[],

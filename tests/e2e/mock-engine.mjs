@@ -1799,9 +1799,18 @@ const server = createServer(async (req, res) => {
     return error(res, 404, "Test Definition not found")
   }
 
+  /* ---- Alerts badge parity --------------------------------------------- */
+  if (path === "/dashboard-api/alerts/unread-count") {
+    const count = [...state.runs.values()].filter(
+      (run) =>
+        !run.isRead &&
+        (run.failed > 0 || ["FAIL", "FAILED"].includes(String(run.status).toUpperCase())) &&
+        String(run.status).toUpperCase() !== "CANCELLED",
+    ).length
+    return json(res, 200, { count })
+  }
+
   /* ---- Everything else the shells poll on load ------------------------ */
-  if (path === "/dashboard-api/alerts/unread-count")
-    return json(res, 200, { count: 0 })
   if (path === "/dashboard-api/onboarding/requests") return json(res, 200, [])
   if (path === "/dashboard-api/admin/asset-requests") return json(res, 200, [])
   if (path === "/dashboard-api/admin/overview") {

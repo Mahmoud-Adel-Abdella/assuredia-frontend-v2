@@ -1,13 +1,20 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { unreadOutsideFilter } from "./alerts"
+import { authoritativeUnreadCount, unreadOutsideFilter } from "./alerts"
 
 type AlertLike = { id: string; isRead?: boolean }
 
 const UNREAD_OLD: AlertLike = { id: "a1", isRead: false }
 const UNREAD_NEW: AlertLike = { id: "a2", isRead: false }
 const READ: AlertLike = { id: "a3", isRead: true }
+
+test("authoritativeUnreadCount normalizes the server badge/page count", () => {
+  assert.equal(authoritativeUnreadCount(7), 7)
+  assert.equal(authoritativeUnreadCount(2.9), 2)
+  assert.equal(authoritativeUnreadCount(-1), 0)
+  assert.equal(authoritativeUnreadCount(Number.NaN), 0)
+})
 
 test("unreadOutsideFilter counts unread alerts hidden by the current filter", () => {
   const all = [UNREAD_OLD, UNREAD_NEW, READ]

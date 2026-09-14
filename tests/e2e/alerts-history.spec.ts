@@ -80,6 +80,13 @@ test("unread alerts are visible on load and a banner counts hidden unread (F-9)"
 }) => {
   const now = new Date().toISOString()
   const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString()
+  await page.route("**/dashboard-api/alerts/unread-count", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ count: 2 }),
+    }),
+  )
   await page.route("**/dashboard-api/alerts?*", (route) =>
     route.fulfill({
       status: 200,
@@ -118,10 +125,17 @@ test("unread alerts are visible on load and a banner counts hidden unread (F-9)"
   )
 
   await openAsClient(page)
+
+  // The shell badge and Alerts summary both consume the same authoritative
+  // tenant-wide count, even though the list is filtered locally.
+  await expect(page.getByRole("button", { name: "2 unread alerts" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Alerts" }).first()).toContainText("2")
   await page.getByRole("button", { name: "Alerts" }).first().click()
 
   // Default range "All time": the older unread alert is visible on load.
   await expect(page.getByText("testOldAlert")).toBeVisible()
+  await expect(page.getByText("Unread").first()).toBeVisible()
+  await expect(page.locator("main").getByText("2", { exact: true }).first()).toBeVisible()
 
   // Narrowing the range hides it — but a banner now says unread work exists
   // outside the filter, with a one-click way back.
