@@ -5391,8 +5391,20 @@ const dict: Record<string, Entry> = {
   },
   "pr10c.building.cancel": { en: "Cancel", ar: "إلغاء" },
   "pr10c.plan.needsDiscovery": {
-    en: "Needs discovery",
-    ar: "يحتاج إلى استكشاف",
+    en: "Application exploration needed",
+    ar: "يلزم استكشاف التطبيق",
+  },
+  "pr10c.advanced.title": {
+    en: "Advanced Options",
+    ar: "خيارات متقدمة",
+  },
+  "pr10c.advanced.manualJourney": {
+    en: "Manual User Journey",
+    ar: "رحلة مستخدم يدوية",
+  },
+  "pr10c.advanced.manualBackend": {
+    en: "Manual Backend Check",
+    ar: "فحص خلفية يدوي",
   },
   "pr10c.plan.actionLabel": { en: "Action", ar: "إجراء" },
   "pr10c.plan.moveUp": { en: "Move action up", ar: "نقل الإجراء لأعلى" },

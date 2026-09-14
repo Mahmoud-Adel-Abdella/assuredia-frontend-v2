@@ -1,4 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
+
+/* PR10E TODO: keep this implementation for the future recorder/internal
+ * capability. It is intentionally not mounted as a customer-selected method:
+ * the AI Test Builder owns discovery selection under PR10C D-1. */
+
 import {
   Alert,
   Button,

@@ -241,92 +241,18 @@ async function openCreateTest(page: Page) {
   ).toBeVisible()
 }
 
-async function runDiscovery(page: Page) {
-  await openCreateTest(page)
-  await page.getByRole("button", { name: "Start UI Discovery" }).click()
-  await expect(page.getByRole("heading", { name: "Discovery" })).toBeVisible()
-  await page.getByRole("button", { name: "Run Discovery" }).click()
-}
-
-async function runCompletedDiscovery(page: Page) {
-  await runDiscovery(page)
-  await expect(page.getByText("Northwind Store")).toBeVisible()
-}
-
-test("UI Discovery creates a real Draft and opens the returned definition", async ({
+test("Create Test opens the AI composer immediately and hides discovery capabilities", async ({
   page,
-  request,
 }) => {
-  await openAsClient(page)
-  await runCompletedDiscovery(page)
-  await page.locator("#pr10b-discovery-name").fill("Discovered checkout")
-  await page
-    .locator("#pr10b-discovery-description")
-    .fill("Created from the bounded discovery result")
-  await page.getByRole("button", { name: "Review", exact: true }).click()
-  await page.getByRole("button", { name: "Create Draft" }).click()
-  await expect(
-    page.getByRole("heading", { name: "Draft Created" }),
-  ).toBeVisible()
-
-  const countResponse = await request.get(
-    `${ENGINE_URL}/__test__/discovery-count`,
-  )
-  expect((await countResponse.json()).count).toBe(1)
-
-  await page.getByRole("button", { name: "Open Test Definition" }).click()
-  const editor = page.locator("#testdef-source-editor")
-  await expect(editor).toBeVisible()
-  const source = await editor.inputValue()
-  const document = JSON.parse(source)
-  expect(document.schemaVersion).toBe("1.1")
-  expect(document.steps.map((step: { action: string }) => step.action)).toEqual(
-    ["ui.navigate", "ui.click", "ui.fill"],
-  )
-  expect(document.expectedOutcomes).toEqual([
-    { action: "ui.assertUrl", expected: "https://shop.example.test" },
-  ])
-})
-
-test("HTTP 200 FAILED discovery shows the exact mapped error and can retry", async ({
-  page,
-  request,
-}) => {
-  await setDiscoveryMode(request, "failed")
   await openAsClient(page)
   await openCreateTest(page)
-  await page.getByRole("button", { name: "Start UI Discovery" }).click()
-  await page.getByRole("button", { name: "Run Discovery" }).click()
   await expect(
-    page.getByText("Could not reach the target application."),
+    page.getByPlaceholder("Describe what you want to verify...")
   ).toBeVisible()
-
-  await setDiscoveryMode(request, "completed")
-  await page.getByRole("button", { name: "Retry" }).last().click()
-  await expect(page.getByText("Northwind Store")).toBeVisible()
-  const countResponse = await request.get(
-    `${ENGINE_URL}/__test__/discovery-count`,
-  )
-  expect((await countResponse.json()).count).toBe(2)
-})
-
-test("empty and truncated discovery states use real response fields", async ({
-  page,
-  request,
-}) => {
-  await setDiscoveryMode(request, "empty")
-  await openAsClient(page)
-  await runDiscovery(page)
-  await expect(
-    page.getByText("No elements were discovered on this page."),
-  ).toBeVisible()
-
-  await setDiscoveryMode(request, "truncated")
-  await page
-    .getByRole("button", { name: "Retry Discovery" })
-    .first()
-    .click()
-  await expect(page.getByText("Results were truncated")).toBeVisible()
+  await expect(page.getByText("UI Discovery", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("App Discovery", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("Backend Discovery", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("MCP Discovery", { exact: true })).toHaveCount(0)
 })
 
 test("Arabic Create Test mirrors document direction and translates discovery", async ({
@@ -352,7 +278,8 @@ test("Arabic Create Test mirrors document direction and translates discovery", a
   await expect(
     page.getByRole("heading", { name: "إنشاء اختبار" }),
   ).toBeVisible()
-  await expect(page.getByText("استكشاف واجهة المستخدم")).toBeVisible()
+  await expect(page.getByPlaceholder("صف ما تريد التحقق منه...")).toBeVisible()
+  await expect(page.getByText("استكشاف واجهة المستخدم", { exact: true })).toHaveCount(0)
 })
 
 async function createEditorDraftThroughWizard(
@@ -361,7 +288,8 @@ async function createEditorDraftThroughWizard(
   title: string,
 ) {
   await openCreateTest(page)
-  await page.getByRole("button", { name: "Open Manual Editor" }).click()
+  await page.getByRole("button", { name: "Advanced Options" }).click()
+  await page.getByRole("button", { name: "Manual User Journey" }).click()
   await page.locator("#pr10b-name").fill(title)
   await page.locator("#pr10b-description").fill(`Verify ${title}`)
   await page.locator("#pr10b-type").selectOption(journey)
@@ -381,7 +309,8 @@ async function createEditorDraftThroughWizard(
 
 async function submitEditorDraftExpectingFailure(page: Page, title: string) {
   await openCreateTest(page)
-  await page.getByRole("button", { name: "Open Manual Editor" }).click()
+  await page.getByRole("button", { name: "Advanced Options" }).click()
+  await page.getByRole("button", { name: "Manual User Journey" }).click()
   await page.locator("#pr10b-name").fill(title)
   await page.locator("#pr10b-description").fill(`Verify ${title}`)
   await page.locator("#pr10b-type").selectOption("API")
@@ -402,7 +331,7 @@ test("client wizard submits a Manual Request through the UI", async ({
     page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ }),
   ).toBeVisible()
   await page.getByRole("button", { name: "Create Test" }).first().click()
-  await page.getByRole("button", { name: "Create Manual Request" }).click()
+  await page.getByRole("button", { name: "Ask an Engineer" }).click()
   await page.getByRole("radio", { name: /UI Journey/ }).click()
   await page.getByRole("button", { name: /Next/ }).click()
   await page
@@ -555,7 +484,7 @@ test("wizard review resolves the related flow's name, not its id (F-6)", async (
 }) => {
   await openAsClient(page)
   await page.getByRole("button", { name: "Create Test" }).first().click()
-  await page.getByRole("button", { name: "Create Manual Request" }).click()
+  await page.getByRole("button", { name: "Ask an Engineer" }).click()
   await page.getByRole("radio", { name: /UI Journey/ }).click()
   await page.getByRole("button", { name: /Next/ }).click()
   await page.getByRole("radio", { name: /Manual Request/ }).first().click()

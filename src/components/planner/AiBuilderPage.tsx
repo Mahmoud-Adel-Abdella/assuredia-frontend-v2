@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react"
-import { Button, cx } from "../primitives"
+import { Button, Card, cx } from "../primitives"
 import { useLang } from "../../lib/i18n"
 import {
   Composer,
@@ -10,6 +10,7 @@ import {
   IconEngineer,
   IconFork,
   IconLock,
+  IconChevronDown,
   IconRecord,
   IconSparkle,
   IconUpload,
@@ -97,7 +98,13 @@ export function AiBuilderPage({
   onViewRequests,
   onUnauthorized,
   onOpenSettingsCredentials = () => {},
+  onOpenManualEditor,
+  onOpenManualRequest,
 }: {
+  /** Opens the hidden-by-default manual capability picker. */
+  onOpenManualEditor?: (journey: "UI" | "API") => void
+  /** Opens the legitimate Ask an Engineer/manual request flow. */
+  onOpenManualRequest?: () => void
   clientId: number
   onOpenDefinition: (definitionId: number) => void
   onViewDrafts: () => void
@@ -130,6 +137,7 @@ export function AiBuilderPage({
     stepCount: number
   } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const timersRef = useRef<number[]>([])
@@ -570,7 +578,7 @@ export function AiBuilderPage({
             <div className="h-px flex-1 bg-gradient-to-l from-transparent via-slate-200 to-transparent dark:via-white/[0.07]" />
           </div>
 
-          <div className="mb-10 mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="mb-6 mt-6 grid gap-3 sm:grid-cols-2">
             <OtherWayCard
               icon={<IconRecord className="h-5 w-5" />}
               title={t("pr10c.other.recordTitle")}
@@ -590,7 +598,7 @@ export function AiBuilderPage({
               title={t("pr10c.other.engineerTitle")}
               description={t("pr10c.other.engineerDescription")}
               cta={t("pr10c.other.engineerCta")}
-              onClick={onViewRequests}
+              onClick={onOpenManualRequest ?? onViewRequests}
             />
             <OtherWayCard
               icon={<IconFork className="h-5 w-5" />}
@@ -600,6 +608,43 @@ export function AiBuilderPage({
               onClick={onViewDrafts}
             />
           </div>
+
+          {onOpenManualEditor && (
+            <Card className="mb-10 overflow-hidden p-0">
+              <button
+                type="button"
+                aria-expanded={advancedOpen}
+                onClick={() => setAdvancedOpen((open) => !open)}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start text-[13px] font-semibold text-navy transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+              >
+                <span>{t("pr10c.advanced.title")}</span>
+                <IconChevronDown
+                  className={cx(
+                    "size-4 text-slate-400 transition-transform dark:text-white/35",
+                    advancedOpen && "rotate-180",
+                  )}
+                />
+              </button>
+              {advancedOpen && (
+                <div className="grid gap-2 border-t border-slate-100 p-3 dark:border-white/[0.07] sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => onOpenManualEditor("UI")}
+                    className="rounded-lg border border-slate-200 px-3 py-2.5 text-start text-[13px] font-medium text-slate-600 transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-400 dark:border-white/[0.08] dark:text-white/60 dark:hover:border-white/20 dark:hover:bg-white/[0.04]"
+                  >
+                    {t("pr10c.advanced.manualJourney")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenManualEditor("API")}
+                    className="rounded-lg border border-slate-200 px-3 py-2.5 text-start text-[13px] font-medium text-slate-600 transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-400 dark:border-white/[0.08] dark:text-white/60 dark:hover:border-white/20 dark:hover:bg-white/[0.04]"
+                  >
+                    {t("pr10c.advanced.manualBackend")}
+                  </button>
+                </div>
+              )}
+            </Card>
+          )}
         </div>
       )}
 

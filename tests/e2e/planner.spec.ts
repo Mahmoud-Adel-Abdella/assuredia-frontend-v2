@@ -59,7 +59,7 @@ async function openAiBuilder(page: Page) {
   await expect(
     page.getByRole("heading", { name: "Create a Test" }),
   ).toBeVisible()
-  await page.getByRole("button", { name: "Start Building" }).click()
+  await expect(page.getByPlaceholder("Describe what you want to verify...")).toBeVisible()
 }
 
 async function fillAndBuild(page: Page, intent: string) {
@@ -364,7 +364,7 @@ test("Arabic renders the builder mirrored", async ({ page }) => {
   const dir = await page.evaluate(() => document.documentElement.dir)
   expect(dir).toBe("rtl")
   await expect(
-    page.getByRole("button", { name: "بدء البناء" }),
+    page.getByPlaceholder("صف ما تريد التحقق منه..."),
   ).toBeVisible()
 })
 
@@ -416,4 +416,36 @@ test("a short intent shows the min-length hint until the threshold is reached (F
     page.getByText("Describe your test in at least 11 characters."),
   ).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Build Test" })).toBeEnabled()
+})
+
+/* ------------------------------------------------------------------ */
+/* Workstream B visual/architecture evidence                            */
+/* ------------------------------------------------------------------ */
+
+test("Create Test lands on AI Builder with hidden discovery and collapsed advanced options", async ({
+  page,
+}, testInfo) => {
+  await openAsClient(page)
+  await openAiBuilder(page)
+
+  await expect(
+    page.getByPlaceholder("Describe what you want to verify..."),
+  ).toBeVisible()
+  await expect(page.getByText("UI Discovery", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("App Discovery", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("Backend Discovery", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("MCP Discovery", { exact: true })).toHaveCount(0)
+
+  const advanced = page.getByRole("button", { name: "Advanced Options" })
+  await expect(advanced).toBeVisible()
+  await expect(advanced).toHaveAttribute("aria-expanded", "false")
+  await page.screenshot({
+    path: testInfo.outputPath("create-test-ai-first.png"),
+    fullPage: true,
+  })
+
+  await advanced.click()
+  await expect(advanced).toHaveAttribute("aria-expanded", "true")
+  await expect(page.getByRole("button", { name: "Manual User Journey" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Manual Backend Check" })).toBeVisible()
 })
