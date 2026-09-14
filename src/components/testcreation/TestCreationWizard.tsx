@@ -687,7 +687,6 @@ export function TestCreationWizard({
           <div className="grid gap-2 opacity-60" aria-label="Future methods">
             {[
               "AI Description",
-              "MCP Discovery",
               "Browser Recorder",
               "OpenAPI / Postman / HAR import",
             ].map((label) => (

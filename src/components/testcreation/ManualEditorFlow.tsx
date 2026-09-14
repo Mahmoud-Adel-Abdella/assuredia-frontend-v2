@@ -45,6 +45,8 @@ type UIActionForm = {
 
 type ManualEditorProps = {
   clientId: number
+  /** Advanced Options entry: preselect the requested manual capability. */
+  initialJourneyType?: JourneyType
   onBack: () => void
   onOpenDefinition: (definitionId: number) => void
   onViewDrafts: () => void
@@ -135,6 +137,7 @@ function readBuilderSource(value: unknown): string {
 
 export function ManualEditorFlow({
   clientId,
+  initialJourneyType = "UI",
   onBack,
   onOpenDefinition,
   onViewDrafts,
@@ -143,7 +146,7 @@ export function ManualEditorFlow({
 }: ManualEditorProps) {
   const { t } = useLang()
   const [step, setStep] = useState<EditorStep>("editor")
-  const [journeyType, setJourneyType] = useState<JourneyType>("UI")
+  const [journeyType, setJourneyType] = useState<JourneyType>(initialJourneyType)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [actions, setActions] = useState<UIActionForm[]>([blankAction()])

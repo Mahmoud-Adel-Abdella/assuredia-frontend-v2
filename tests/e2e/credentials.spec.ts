@@ -298,7 +298,7 @@ test("composer dropdown lists grouped credentials and sends the REAL id", async 
 }) => {
   await openAsClient(page)
   await page.getByRole("button", { name: "Create Test" }).first().click()
-  await page.getByRole("button", { name: "Start Building" }).click()
+  await expect(page.getByPlaceholder("Describe what you want to verify...")).toBeVisible()
   await page.getByRole("button", { name: "Add credential" }).click()
 
   // Grouped by type with per-credential status badges.
@@ -339,7 +339,7 @@ test("selecting an unconfigured credential surfaces the auth-required state", as
 }) => {
   await openAsClient(page)
   await page.getByRole("button", { name: "Create Test" }).first().click()
-  await page.getByRole("button", { name: "Start Building" }).click()
+  await expect(page.getByPlaceholder("Describe what you want to verify...")).toBeVisible()
   await page.getByRole("button", { name: "Add credential" }).click()
   // Staging Login is seeded NEEDS_SETUP.
   await page
@@ -384,7 +384,8 @@ test("manual editor review shows the exact submitted description with credential
 }) => {
   await openAsClient(page)
   await page.getByRole("button", { name: "Create Test" }).first().click()
-  await page.getByRole("button", { name: "Open Manual Editor" }).click()
+  await page.getByRole("button", { name: "Advanced Options" }).click()
+  await page.getByRole("button", { name: "Manual User Journey" }).click()
 
   const rawDescription = "Verify the order confirmation page renders."
   await page.locator("#pr10b-name").fill("Order Confirmation Check")
@@ -470,7 +471,8 @@ test("manual editor review shows credential suffix with empty description", asyn
 }) => {
   await openAsClient(page)
   await page.getByRole("button", { name: "Create Test" }).first().click()
-  await page.getByRole("button", { name: "Open Manual Editor" }).click()
+  await page.getByRole("button", { name: "Advanced Options" }).click()
+  await page.getByRole("button", { name: "Manual User Journey" }).click()
 
   await page.locator("#pr10b-name").fill("Empty Description Check")
   // Description intentionally left empty.
@@ -508,4 +510,41 @@ test("manual editor review shows credential suffix with empty description", asyn
   expect(probeBody.description).toBe(
     `Authentication (references only): Secure Credential — Default`,
   )
+})
+
+/* ------------------------------------------------------------------ */
+/* Workstream A visual evidence: light/dark credentials surfaces        */
+/* ------------------------------------------------------------------ */
+
+test("credentials page surfaces render in both light and dark themes", async ({
+  page,
+}, testInfo) => {
+  await openSecureCredentials(page)
+
+  await page.screenshot({
+    path: testInfo.outputPath("credentials-light.png"),
+    fullPage: true,
+  })
+
+  await page.evaluate(() => {
+    document.documentElement.classList.add("dark")
+    window.localStorage.setItem("theme", "dark")
+  })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.screenshot({
+    path: testInfo.outputPath("credentials-dark.png"),
+    fullPage: true,
+  })
+
+  // Exercise the two formerly-broken dark surfaces as part of the visual
+  // evidence: the Add Credential form and the selector portal.
+  await page.getByRole("button", { name: "Add credential" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Add Secure Credential" }),
+  ).toBeVisible()
+  await page.screenshot({
+    path: testInfo.outputPath("credentials-form-dark.png"),
+    fullPage: true,
+  })
+  await page.getByRole("button", { name: "Cancel" }).click()
 })

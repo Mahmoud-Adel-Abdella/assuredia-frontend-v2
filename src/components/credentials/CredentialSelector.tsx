@@ -146,7 +146,7 @@ export function CredentialSelector({
           id={CREDENTIAL_PANEL_ID}
           style={panelStyle}
           className={cx(
-            "z-[110] overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-xl backdrop-blur-xl dark:border-white/[0.09] dark:bg-slate-900/90 dark:shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.04)_inset]",
+            "z-[110] overflow-hidden rounded-xl border border-slate-200/80 bg-surface/95 [box-shadow:var(--shadow-card)] backdrop-blur-xl dark:border-white/[0.09] dark:bg-surface/95",
             !compact && "!static !w-full rounded-lg border-slate-200 dark:border-white/[0.08]",
           )}
         >
