@@ -303,6 +303,21 @@ function AppInner() {
     setActive("ai-analysis")
   }
 
+  /**
+   * Navigate from anywhere (sidebar, header bell/help). While a run view is
+   * open the content branch renders that view regardless of `active`, so a
+   * bare setActive would only move the sidebar highlight and leave Run Detail
+   * frozen on screen — the queued destination would then flush in when the
+   * user pressed "Back". Closing the run/automation views first makes the
+   * content follow the selection immediately (F-4).
+   */
+  function navigateTo(key: string) {
+    setLiveRun(null)
+    setAutomationRun(null)
+    setAiOpenRunId(null)
+    setActive(key)
+  }
+
   // Unread alert count: fetched once per session, per navigation, and after
   // alert mutations. The backend has no push channel, so there is no polling —
   // the count is never simulated between fetches.
@@ -486,7 +501,7 @@ function AppInner() {
       >
         <Sidebar
           active={active}
-          onSelect={setActive}
+          onSelect={navigateTo}
           onAdmin={
             user?.role === "ADMIN" ? () => setAuthedView("admin") : undefined
           }
@@ -514,7 +529,7 @@ function AppInner() {
           >
             <Sidebar
               active={active}
-              onSelect={setActive}
+              onSelect={navigateTo}
               onNavigate={() => setMobileOpen(false)}
               onAdmin={
                 user?.role === "ADMIN"
@@ -542,19 +557,14 @@ function AppInner() {
         <Header
           onMenu={() => setMobileOpen(true)}
           alertsUnread={alertsUnread}
-          onBell={() => setActive("alerts")}
-          onHelp={() => setActive("help")}
+          onBell={() => navigateTo("alerts")}
+          onHelp={() => navigateTo("help")}
         />
         <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {liveRun ? (
             <LiveRunView
               active={active}
-              onSelect={(k) => {
-                setLiveRun(null)
-                setAutomationRun(null)
-                setAiOpenRunId(null)
-                setActive(k)
-              }}
+              onSelect={navigateTo}
               session={liveRun}
               onBack={() => setLiveRun(null)}
               onUnauthorized={logout}
@@ -575,11 +585,7 @@ function AppInner() {
           ) : automationRun && user?.clientId != null ? (
             <AutomationRunView
               active={active}
-              onSelect={(k) => {
-                setAutomationRun(null)
-                setAiOpenRunId(null)
-                setActive(k)
-              }}
+              onSelect={navigateTo}
               clientId={user.clientId}
               clientName={user?.clientName ?? ""}
               automationName={automationRun.name}

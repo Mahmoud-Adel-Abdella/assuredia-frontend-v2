@@ -956,7 +956,13 @@ export function TestCreationWizard({
               {flowId && (
                 <div className="flex justify-between gap-4">
                   <dt className="text-slate-500">Flow</dt>
-                  <dd className="font-medium text-navy">{flowId}</dd>
+                  <dd className="max-w-[60%] truncate text-end font-medium text-navy">
+                    {/* Resolve the selected flow's name from the same list
+                        that backs the dropdown; a stale/unknown id stays
+                        honest instead of showing a bare number (F-6). */}
+                    {flows.find((f) => String(f.id) === flowId)?.flow_name ||
+                      `Flow #${flowId} (name unavailable)`}
+                  </dd>
                 </div>
               )}
               <div>

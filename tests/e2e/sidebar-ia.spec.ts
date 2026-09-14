@@ -173,3 +173,101 @@ test("sidebar collapse still works with the new IA", async ({ page }) => {
     page.getByRole("button", { name: "Drafts & Reviews" }).first(),
   ).toBeVisible()
 })
+
+/* ------------------------------------------------------------------ */
+/* F-4: the app sidebar must navigate away from the Run Detail view    */
+/* ------------------------------------------------------------------ */
+
+/** Routes a full "Run full flow" execution against synthetic run state. */
+async function routeFlowRun(page: Page) {
+  await page.route("**/dashboard-api/clients/7/flows/300/run", (route) =>
+    route.fulfill({
+      status: 202,
+      contentType: "application/json",
+      body: JSON.stringify({
+        runId: "run-e2e-sidebar",
+        status: "RUNNING",
+        client: "northwind sandbox",
+        flow: "Checkout",
+        totalTests: 2,
+        message: "Run started",
+      }),
+    }),
+  )
+  await page.route("**/dashboard-api/runs/run-e2e-sidebar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        runId: "run-e2e-sidebar",
+        status: "COMPLETED",
+        flow: "Checkout",
+        totalTests: 2,
+        completedTests: 2,
+        passedTests: 2,
+        durationSeconds: 4,
+      }),
+    }),
+  )
+  // Healthy flow card: two tests for the full-flow run.
+  await page.route("**/dashboard-api/flows/300/tests", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        { id: 1, flow_id: 300, test_class: "CheckoutTest", test_method: "testLogin", order: 1 },
+        { id: 2, flow_id: 300, test_class: "CheckoutTest", test_method: "testCheckout", order: 2 },
+      ]),
+    }),
+  )
+}
+
+async function openRunDetail(page: Page) {
+  await page.getByRole("button", { name: "Flows" }).first().click()
+  await page.getByRole("button", { name: "Run full flow" }).click()
+  // The Run Detail view is open — its heading is the flow name.
+  await expect(page.getByRole("heading", { name: "Checkout" })).toBeVisible()
+}
+
+test("sidebar navigation from Run Detail updates the content immediately (F-4)", async ({
+  page,
+}) => {
+  await openAsClient(page)
+  await routeFlowRun(page)
+  await openRunDetail(page)
+
+  // Scope to the app <aside>: the in-page workspace header has its own
+  // (already working) nav, the app sidebar was the frozen one.
+  await page
+    .locator("aside")
+    .getByRole("button", { name: "Overview" })
+    .first()
+    .click()
+  await expect(
+    page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ }),
+  ).toBeVisible()
+})
+
+test("sidebar Flows from Run Detail lands on Flows, and Back to Flows never flushes a queued destination (F-4)", async ({
+  page,
+}) => {
+  await openAsClient(page)
+  await routeFlowRun(page)
+  await openRunDetail(page)
+
+  await page
+    .locator("aside")
+    .getByRole("button", { name: "Flows" })
+    .first()
+    .click()
+  await expect(
+    page.getByRole("heading", { name: "Automation checkpoints" }),
+  ).toBeVisible()
+
+  // Back to Flows goes to Flows — not to some previously clicked page.
+  await openRunDetail(page)
+  await page.getByRole("button", { name: "Back to Flows" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Automation checkpoints" }),
+  ).toBeVisible()
+})

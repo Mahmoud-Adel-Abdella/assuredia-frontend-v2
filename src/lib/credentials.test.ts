@@ -14,6 +14,7 @@ import {
   groupByType,
   isCredentialConfigured,
   mapCredentialError,
+  selectorShowsLoading,
   testResultMessage,
   toCreateRequest,
   toUpdateRequest,
@@ -435,4 +436,15 @@ test("audit F-04: INVALID credentials are counted under Needs Setup", () => {
   assert.equal(stats.needsSetup, 2, "INVALID folds into Needs Setup by design")
   assert.equal(stats.configured, 1)
   assert.equal(stats.total, 3)
+})
+
+/* ------------------------------------------------------------------ */
+/* F-10: the selector pill must not show "Loading..." once data exists */
+/* ------------------------------------------------------------------ */
+
+test("selectorShowsLoading is true only for an in-flight first fetch", () => {
+  assert.equal(selectorShowsLoading(true, 0), true)
+  assert.equal(selectorShowsLoading(true, 3), false, "loaded credentials must never regress to Loading")
+  assert.equal(selectorShowsLoading(false, 0), false)
+  assert.equal(selectorShowsLoading(false, 3), false)
 })

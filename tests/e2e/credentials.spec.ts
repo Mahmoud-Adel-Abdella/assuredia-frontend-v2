@@ -303,6 +303,11 @@ test("composer dropdown lists grouped credentials and sends the REAL id", async 
 
   // Grouped by type with per-credential status badges.
   await expect(page.getByText("User Account", { exact: true })).toBeVisible()
+  // F-10: once the list is loaded the pill label is stable — the
+  // "Loading..." placeholder never lingers or flashes back.
+  await expect(
+    page.getByRole("button", { name: "Loading...", exact: true }),
+  ).toHaveCount(0)
   await expect(page.getByText("API Service", { exact: true })).toBeVisible()
   await expect(page.getByText("Managed in Settings · values never shown")).toBeVisible()
 

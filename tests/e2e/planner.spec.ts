@@ -367,3 +367,53 @@ test("Arabic renders the builder mirrored", async ({ page }) => {
     page.getByRole("button", { name: "بدء البناء" }),
   ).toBeVisible()
 })
+
+/* ------------------------------------------------------------------ */
+/* F-7: deleting a proposed step prunes its expected result            */
+/* ------------------------------------------------------------------ */
+
+test("deleting a proposed step removes its expected result (F-7)", async ({
+  page,
+}) => {
+  await openAsClient(page)
+  await openAiBuilder(page)
+  await fillAndBuild(page, "Verify the complete checkout journey")
+  await expect(
+    page.getByRole("heading", { name: "Here's what Assuredia proposes" }),
+  ).toBeVisible()
+
+  // The mock plan ships one expected result ("It works"), attached to the
+  // first step. Delete that step and the outcome must go with it.
+  await expect(page.getByText("It works")).toBeVisible()
+  await page.getByRole("button", { name: /Search for a product/ }).click()
+  await page.getByRole("button", { name: "Delete action" }).click()
+  await expect(page.getByText("It works")).toHaveCount(0)
+  // The surviving step keeps the plan coherent.
+  await expect(
+    page.getByText("Add the product to the cart"),
+  ).toBeVisible()
+})
+
+/* ------------------------------------------------------------------ */
+/* F-8: the composer explains its minimum intent length                */
+/* ------------------------------------------------------------------ */
+
+test("a short intent shows the min-length hint until the threshold is reached (F-8)", async ({
+  page,
+}) => {
+  await openAsClient(page)
+  await openAiBuilder(page)
+  const input = page.getByPlaceholder("Describe what you want to verify...")
+
+  await input.fill("Test it")
+  await expect(
+    page.getByText("Describe your test in at least 11 characters."),
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Build Test" })).toBeDisabled()
+
+  await input.fill("Test it please")
+  await expect(
+    page.getByText("Describe your test in at least 11 characters."),
+  ).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Build Test" })).toBeEnabled()
+})

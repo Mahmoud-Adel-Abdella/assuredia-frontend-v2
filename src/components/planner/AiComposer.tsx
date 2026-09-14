@@ -106,7 +106,12 @@ export function Composer({
   building?: boolean
 }) {
   const { t } = useLang()
-  const canBuild = intent.trim().length > 10 && !building
+  const MIN_INTENT_LENGTH = 11
+  const canBuild = intent.trim().length >= MIN_INTENT_LENGTH && !building
+  // The disabled Build button alone gives no reason; tell the user how much
+  // more is needed once they started typing (live-test F-8).
+  const showMinLengthHint =
+    !building && intent.trim().length > 0 && intent.trim().length < MIN_INTENT_LENGTH
 
   return (
     <div
@@ -201,6 +206,15 @@ export function Composer({
           })}
         </div>
       </div>
+
+      {showMinLengthHint && (
+        <p
+          role="note"
+          className="px-5 pb-3 text-[12px] text-slate-400 dark:text-white/30"
+        >
+          {t("pr10c.composer.minLengthHint")}
+        </p>
+      )}
     </div>
   )
 }

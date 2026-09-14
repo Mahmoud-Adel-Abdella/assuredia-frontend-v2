@@ -6,7 +6,14 @@ import { Run, StatusBadge, StatusIcon, TriggerTag, statusTone } from "./runShare
 import { ApiError, apiClientDetails, apiClientRuns, apiFlowTests, type ClientRunsQuery } from "../lib/api"
 import { useAuth } from "../lib/auth"
 import { translate, useLang } from "../lib/i18n"
-import { toHistoryEntry, useHistoryRun, type HistoryEntry } from "../lib/runHistory"
+import {
+  HISTORY_TIME_OPTIONS,
+  buildClientRunsQuery,
+  toHistoryEntry,
+  useHistoryRun,
+  type HistoryEntry,
+  type HistoryTimeOption,
+} from "../lib/runHistory"
 import { automationErrorMessage } from "../lib/automations"
 
 /* ------------------------------------------------------------------ */
@@ -170,11 +177,9 @@ const TRIGGER_FILTERS: { labelKey: string; value: string }[] = [
   { labelKey: "trigger.scheduled", value: "SCHEDULED" },
 ]
 
-const TIME_OPTIONS = ["Today", "Last 7 days", "Last 30 days", "Custom range"] as const
-type TimeOption = (typeof TIME_OPTIONS)[number]
-
 /** Time filter option → display label key (tokens stay English). */
-const TIME_LABEL_KEY: Record<TimeOption, string> = {
+const TIME_LABEL_KEY: Record<HistoryTimeOption, string> = {
+  "All time": "history.time.allTime",
   Today: "common.today",
   "Last 7 days": "history.time.last7",
   "Last 30 days": "history.time.last30",
@@ -186,16 +191,6 @@ const LIST_POLL_MS = 10_000
 
 /** Backend `limit` ceiling — the server clamps every request to this max. */
 const HISTORY_LIMIT = 200
-
-function timeCutoff(option: TimeOption): number {
-  if (option === "Today") {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d.getTime()
-  }
-  const days = option === "Last 7 days" ? 7 : 30
-  return Date.now() - days * 86_400_000
-}
 
 export function RunHistory({
   active = "run-history",
@@ -232,7 +227,7 @@ export function RunHistory({
   const [trigger, setTrigger] = useState("all")
   const [flowId, setFlowId] = useState("all")
   const [test, setTest] = useState("all")
-  const [time, setTime] = useState<TimeOption>("Last 7 days")
+  const [time, setTime] = useState<HistoryTimeOption>("All time")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
   const [openEntry, setOpenEntry] = useState<HistoryEntry | null>(null)
@@ -255,24 +250,20 @@ export function RunHistory({
   const customRangeInvalid =
     time === "Custom range" && customFrom !== "" && customTo !== "" && customFrom > customTo
 
-  const query = useMemo<ClientRunsQuery>(() => {
-    const q: ClientRunsQuery = {}
-    if (statusTab !== "All") q.status = STATUS_QUERY[statusTab]
-    if (trigger !== "all") q.source = trigger
-    if (flowId !== "all") q.flowId = Number(flowId)
-    if (test !== "all") q.test = test
-    if (time === "Custom range") {
-      // An inverted range is rejected by the backend (400), so send nothing
-      // until the user fixes it — the hint below the header explains why.
-      if (!customRangeInvalid) {
-        if (customFrom) q.from = new Date(`${customFrom}T00:00:00`).toISOString()
-        if (customTo) q.to = new Date(`${customTo}T23:59:59.999`).toISOString()
-      }
-    } else {
-      q.from = new Date(timeCutoff(time)).toISOString()
-    }
-    return q
-  }, [statusTab, trigger, flowId, test, time, customFrom, customTo, customRangeInvalid])
+  const query = useMemo<ClientRunsQuery>(
+    () =>
+      buildClientRunsQuery({
+        status: statusTab !== "All" ? STATUS_QUERY[statusTab] : undefined,
+        trigger,
+        flowId,
+        test,
+        time,
+        customFrom,
+        customTo,
+        customRangeInvalid,
+      }),
+    [statusTab, trigger, flowId, test, time, customFrom, customTo, customRangeInvalid],
+  )
 
   /* ---- Load ------------------------------------------------------ */
   const reload = useCallback(
@@ -486,10 +477,10 @@ export function RunHistory({
   // "No runs yet" is only honest with default filters; otherwise the server
   // simply returned no rows for the query and we say so.
   const filtersActive =
-    statusTab !== "All" || trigger !== "all" || flowId !== "all" || test !== "all" || time !== "Last 7 days"
+    statusTab !== "All" || trigger !== "all" || flowId !== "all" || test !== "all" || time !== "All time"
 
   /* Localized filter option lists (tokens stay English; labels translate). */
-  const timeOptionItems: FilterOption[] = TIME_OPTIONS.map((o) => ({ label: t(TIME_LABEL_KEY[o]), value: o }))
+  const timeOptionItems: FilterOption[] = HISTORY_TIME_OPTIONS.map((o) => ({ label: t(TIME_LABEL_KEY[o]), value: o }))
   const triggerOptions: FilterOption[] = TRIGGER_FILTERS.map((f) => ({ label: t(f.labelKey), value: f.value }))
 
   if (openEntry && openRun) {
@@ -541,7 +532,7 @@ export function RunHistory({
             label={t("table.time")}
             options={timeOptionItems}
             value={time}
-            onChange={(v) => setTime(v as TimeOption)}
+            onChange={(v) => setTime(v as HistoryTimeOption)}
           />
           {time === "Custom range" && (
             <>

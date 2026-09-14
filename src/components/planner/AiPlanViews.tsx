@@ -4,7 +4,9 @@ import { useLang } from "../../lib/i18n"
 import {
   type ComposerTestType,
   type PlanCredentialReference,
+  type PlanOutcome,
   type PlanStep,
+  outcomesOfSteps,
 } from "../../lib/planner"
 
 function categoryLabel(t: (key: string) => string, category: string | null): string {
@@ -36,7 +38,12 @@ import { IconCheck, IconChevronDown, IconLock } from "./AiIcons"
 /* read-only target-application badge, Open-Test-Definition action.     */
 /* ------------------------------------------------------------------ */
 
-export type EditableStep = PlanStep & { key: string }
+/**
+ * An editable plan step. `outcome` is the step's own expected result
+ * (index-aligned planner output, attached at plan load): it moves and is
+ * deleted together with the step, so structural edits can never orphan it.
+ */
+export type EditableStep = PlanStep & { key: string; outcome?: PlanOutcome }
 
 export function CapBadge({ cap }: { cap: "UI" | "API" }) {
   return (
@@ -262,7 +269,6 @@ export function ProposedView({
   intent,
   credentialName,
   steps,
-  outcomes,
   warnings,
   onStepsChange,
   onAddStep,
@@ -277,7 +283,6 @@ export function ProposedView({
   intent: string
   credentialName: string | null
   steps: EditableStep[]
-  outcomes: { type: "UI" | "API"; intent: string }[]
   warnings: string[]
   onStepsChange: (steps: EditableStep[]) => void
   onAddStep: () => void
@@ -289,6 +294,9 @@ export function ProposedView({
   const { t } = useLang()
   const [expanded, setExpanded] = useState<string | null>(null)
   const [revision, setRevision] = useState("")
+  // Outcomes are attached to their steps: deleting or reordering a step
+  // automatically prunes/carries its expected result (F-7).
+  const outcomes = outcomesOfSteps(steps)
 
   function moveStep(key: string, direction: -1 | 1) {
     const index = steps.findIndex((s) => s.key === key)
@@ -473,7 +481,6 @@ export function ReviewView({
   origin,
   credentialName,
   steps,
-  outcomes,
   onCreate,
   onBack,
   confirmError,
@@ -486,7 +493,6 @@ export function ReviewView({
   origin: string | null
   credentialName: string | null
   steps: EditableStep[]
-  outcomes: { type: "UI" | "API"; intent: string }[]
   onCreate: () => void
   onBack: () => void
   confirmError?: string | null
@@ -496,6 +502,7 @@ export function ReviewView({
   const { t } = useLang()
   const uiCount = steps.filter((s) => s.type === "UI").length
   const apiCount = steps.filter((s) => s.type === "API").length
+  const outcomes = outcomesOfSteps(steps)
 
   return (
     <div className="space-y-5">

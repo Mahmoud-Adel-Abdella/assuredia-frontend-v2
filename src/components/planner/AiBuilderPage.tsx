@@ -27,12 +27,14 @@ import {
   COMPOSER_TO_WIRE,
   CONFIRM_ERROR_MESSAGES,
   PLAN_ERROR_MESSAGES,
+  attachOutcomesToSteps,
   isPlanClarification,
   isPlanReady,
   newConfirmKey,
   type ComposerTestType,
   type PlanClarificationQuestion,
   type PlanFailureCategory,
+  type PlanOutcome,
   type TestPlan,
 } from "../../lib/planner"
 import {
@@ -72,13 +74,20 @@ type Failure = { title: string; description?: string }
 let stepKeySeq = 0
 function toEditable(
   steps: { type: "UI" | "API"; intent: string; requiresDiscovery: boolean }[],
+  outcomes: PlanOutcome[] | null | undefined,
 ): EditableStep[] {
-  return steps.map((s) => ({
-    type: s.type,
-    intent: s.intent,
-    requiresDiscovery: s.requiresDiscovery,
-    key: `s${++stepKeySeq}`,
-  }))
+  // Attach each expected result to its step (index-aligned planner output):
+  // later edits that move/delete steps then carry or prune the outcome with
+  // them, so no orphaned expected result can remain (F-7).
+  return attachOutcomesToSteps(
+    steps.map((s) => ({
+      type: s.type,
+      intent: s.intent,
+      requiresDiscovery: s.requiresDiscovery,
+      key: `s${++stepKeySeq}`,
+    })),
+    outcomes,
+  )
 }
 
 export function AiBuilderPage({
@@ -252,7 +261,7 @@ export function AiBuilderPage({
             return
           }
           setPlan(ready)
-          setSteps(toEditable(ready.steps))
+          setSteps(toEditable(ready.steps, ready.expectedOutcomes))
           setPlanTitle(ready.title)
           setClarification(null)
           setPhase("proposed")
@@ -662,7 +671,6 @@ export function AiBuilderPage({
               plan.credentialReference ? plan.credentialReference.name : null
             }
             steps={steps}
-            outcomes={plan.expectedOutcomes}
             warnings={plan.warnings}
             onStepsChange={setSteps}
             onAddStep={() =>
@@ -698,7 +706,6 @@ export function AiBuilderPage({
               plan.credentialReference ? plan.credentialReference.name : null
             }
             steps={steps}
-            outcomes={plan.expectedOutcomes}
             onCreate={confirmDraft}
             onBack={backToProposed}
             confirmError={confirmError}

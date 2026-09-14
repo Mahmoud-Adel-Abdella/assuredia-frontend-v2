@@ -3231,6 +3231,7 @@ const dict: Record<string, Entry> = {
   /* ---------- Run History screen ---------- */
   "history.viewLive": { en: "View Live", ar: "عرض مباشر" },
   "history.packageBadge": { en: "Package", ar: "حزمة" },
+  "history.time.allTime": { en: "All time", ar: "كل الوقت" },
   "history.time.last7": { en: "Last 7 days", ar: "آخر 7 أيام" },
   "history.time.last30": { en: "Last 30 days", ar: "آخر 30 يوماً" },
   "history.time.custom": { en: "Custom range", ar: "نطاق مخصص" },
@@ -3321,6 +3322,11 @@ const dict: Record<string, Entry> = {
   "alerts.critical": { en: "Critical", ar: "حرجة" },
   "alerts.range.last24": { en: "Last 24 hours", ar: "آخر 24 ساعة" },
   "alerts.range.allTime": { en: "All time", ar: "كل الوقت" },
+  "alerts.hiddenUnread": {
+    en: "{count} unread alerts are outside the current time filter.",
+    ar: "{count} تنبيهًا غير مقروء خارج نطاق الوقت الحالي.",
+  },
+  "alerts.showAllTime": { en: "Show all alerts", ar: "عرض كل التنبيهات" },
   "alerts.clientFallback": { en: "Client {id}", ar: "العميل {id}" },
   "alerts.allClients": { en: "All clients", ar: "كل العملاء" },
   "alerts.goneTitle": {
@@ -5335,6 +5341,10 @@ const dict: Record<string, Entry> = {
     ar: "وصف الغرض من الاختبار",
   },
   "pr10c.composer.build": { en: "Build Test", ar: "بناء الاختبار" },
+  "pr10c.composer.minLengthHint": {
+    en: "Describe your test in at least 11 characters.",
+    ar: "اوصف اختبارك بما لا يقل عن 11 حرفًا.",
+  },
   "pr10c.composer.addCredential": { en: "Add credential", ar: "إضافة بيانات اعتماد" },
   "pr10c.composer.typeLabel": { en: "Test type", ar: "نوع الاختبار" },
   "pr10c.composer.tryExample": { en: "Try an example", ar: "جرّب مثالًا" },

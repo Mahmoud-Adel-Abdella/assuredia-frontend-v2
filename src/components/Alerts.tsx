@@ -14,6 +14,7 @@ import { translate, useLang } from "../lib/i18n"
 import { automationErrorMessage } from "../lib/automations"
 import { parseBackendTimestamp } from "../lib/dashboardData"
 import { formatFull, formatShort } from "../lib/runData"
+import { unreadOutsideFilter } from "../lib/alerts"
 
 /* ------------------------------------------------------------------ */
 /* Contract (frozen backend — DashboardController)                     */
@@ -472,7 +473,10 @@ export function Alerts({
   const [tab, setTab] = useState<Tab>("All")
   const [client, setClient] = useState("all")
   const [flow, setFlow] = useState("all")
-  const [range, setRange] = useState("Last 24 hours")
+  // Default "All time": the old "Last 24 hours" default hid older unread
+  // alerts behind an empty-looking list (live-test F-9). The banner below
+  // still points out unread alerts whenever a narrower filter hides them.
+  const [range, setRange] = useState("All time")
   const [openId, setOpenId] = useState<string | null>(null)
   const [resolveConfirmId, setResolveConfirmId] = useState<string | null>(null)
   const [resolving, setResolving] = useState(false)
@@ -569,6 +573,14 @@ export function Alerts({
       return true
     })
   }, [alerts, tab, client, flow, range])
+
+  // Unread alerts the current filter hides — surfaced by the banner below so
+  // a narrower time range can never make the page look empty of attention
+  // items while unread work remains (live-test F-9).
+  const hiddenUnread = useMemo(
+    () => unreadOutsideFilter(alerts, filtered),
+    [alerts, filtered],
+  )
 
   /* ---- Mutations (all persisted by the frozen backend) ------------- */
 
@@ -765,6 +777,21 @@ export function Alerts({
         </Card>
       ) : hasAny ? (
         <>
+          {/* Unread hidden by the current filter (live-test F-9): never let a
+              narrower time range look like "no alerts need attention". */}
+          {hiddenUnread > 0 && (
+            <div
+              role="status"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-200/50 bg-brand-50/30 px-4 py-3 dark:border-brand-400/20 dark:bg-brand-500/[0.04]"
+            >
+              <p className="text-[13px] text-slate-600 dark:text-slate-300">
+                {t("alerts.hiddenUnread", { count: hiddenUnread })}
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => setRange("All time")}>
+                {t("alerts.showAllTime")}
+              </Button>
+            </div>
+          )}
           {/* Filter bar */}
           <div className="space-y-3">
             <div className="inline-flex items-center gap-1 rounded-lg bg-slate-100 p-1">

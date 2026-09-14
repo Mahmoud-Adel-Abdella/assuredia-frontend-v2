@@ -6,6 +6,7 @@ import { IconChevronDown, IconLock } from "../planner/AiIcons"
 import {
   groupByType,
   isCredentialConfigured,
+  selectorShowsLoading,
 } from "../../lib/credentials"
 import type { CredentialView } from "../../lib/api"
 
@@ -123,7 +124,7 @@ export function CredentialSelector({
         <IconLock className="h-3 w-3 flex-shrink-0" />
         {selected
           ? `${selected.name} · ${credentialStatusShort(t, selected.status)}`
-          : loading
+          : selectorShowsLoading(loading, credentials.length)
             ? t("common.loading")
             : t("pr10c.composer.addCredential")}
         <IconChevronDown
