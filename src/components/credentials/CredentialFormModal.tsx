@@ -142,9 +142,8 @@ export function CredentialFormModal({
             maxLength={121}
             autoFocus
             className={cx(
-              "w-full rounded-lg border bg-white px-3 py-2 text-[13px] text-slate-800 outline-none transition-colors placeholder:text-slate-400",
+              "w-full rounded-lg border bg-elevated px-3 py-2 text-[13px] text-slate-800 outline-none transition-colors placeholder:text-slate-400",
               "focus:border-brand-400 focus:ring-2 focus:ring-brand-400/20",
-              "dark:bg-slate-900 dark:text-white dark:placeholder:text-white/25",
               fieldErrors.name != null || error?.field === "name"
                 ? "border-red-300 dark:border-red-500/40"
                 : "border-slate-200 dark:border-white/10",
@@ -191,9 +190,8 @@ export function CredentialFormModal({
                 : undefined
             }
             className={cx(
-              "w-full rounded-lg border bg-white px-3 py-2 text-[13px] text-slate-800 outline-none transition-colors",
+              "w-full rounded-lg border bg-elevated px-3 py-2 text-[13px] text-slate-800 outline-none transition-colors",
               "focus:border-brand-400 focus:ring-2 focus:ring-brand-400/20",
-              "dark:bg-slate-900 dark:text-white",
               fieldErrors.username != null || error?.field === "username"
                 ? "border-red-300 dark:border-red-500/40"
                 : "border-slate-200 dark:border-white/10",

@@ -509,3 +509,40 @@ test("manual editor review shows credential suffix with empty description", asyn
     `Authentication (references only): Secure Credential — Default`,
   )
 })
+
+/* ------------------------------------------------------------------ */
+/* Workstream A visual evidence: light/dark credentials surfaces        */
+/* ------------------------------------------------------------------ */
+
+test("credentials page surfaces render in both light and dark themes", async ({
+  page,
+}, testInfo) => {
+  await openSecureCredentials(page)
+
+  await page.screenshot({
+    path: testInfo.outputPath("credentials-light.png"),
+    fullPage: true,
+  })
+
+  await page.evaluate(() => {
+    document.documentElement.classList.add("dark")
+    window.localStorage.setItem("theme", "dark")
+  })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.screenshot({
+    path: testInfo.outputPath("credentials-dark.png"),
+    fullPage: true,
+  })
+
+  // Exercise the two formerly-broken dark surfaces as part of the visual
+  // evidence: the Add Credential form and the selector portal.
+  await page.getByRole("button", { name: "Add credential" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Add Secure Credential" }),
+  ).toBeVisible()
+  await page.screenshot({
+    path: testInfo.outputPath("credentials-form-dark.png"),
+    fullPage: true,
+  })
+  await page.getByRole("button", { name: "Cancel" }).click()
+})
