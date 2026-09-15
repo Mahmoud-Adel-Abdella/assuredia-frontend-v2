@@ -184,8 +184,20 @@ export function StepRow({
           {String(index + 1).padStart(2, "0")}
         </span>
         <CapBadge cap={step.type} />
-        <span className="flex-1 text-[14px] font-medium text-slate-800 dark:text-white/85">
-          {step.intent}
+        <span className="flex-1 text-[14px] font-medium text-slate-800 dark:text-white/85 flex flex-wrap items-center gap-2">
+          <span>{step.intent}</span>
+          {step.type === "API" && step.endpoint && (
+            <span className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-mono text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+              <span className={cx(
+                "font-bold mr-1.5",
+                step.endpoint.method === "GET" && "text-emerald-600 dark:text-emerald-400",
+                step.endpoint.method === "POST" && "text-blue-600 dark:text-blue-400",
+                step.endpoint.method === "PUT" && "text-orange-600 dark:text-orange-400",
+                step.endpoint.method === "DELETE" && "text-red-600 dark:text-red-400"
+              )}>{step.endpoint.method}</span>
+              {step.endpoint.path}
+            </span>
+          )}
         </span>
         {step.requiresDiscovery && (
           <span className="hidden rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 sm:inline dark:bg-amber-900/30 dark:text-amber-400">

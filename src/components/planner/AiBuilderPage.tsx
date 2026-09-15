@@ -441,6 +441,14 @@ export function AiBuilderPage({
       {
         name: planTitle.trim().slice(0, 120) || plan.title,
         description: plan.description ?? null,
+        modifiedSteps: steps.map((s) => ({
+          type: s.type,
+          intent: s.intent,
+          endpoint: s.endpoint,
+        })),
+        modifiedOutcomes: steps
+          .map((s) => s.outcome)
+          .filter((o): o is NonNullable<typeof o> => o != null),
       },
       controller.signal,
     ).then(

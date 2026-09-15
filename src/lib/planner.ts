@@ -22,6 +22,10 @@ export type PlanStep = {
   type: "UI" | "API"
   intent: string
   requiresDiscovery: boolean
+  endpoint?: {
+    method: string
+    path: string
+  }
 }
 
 export type PlanOutcome = {
