@@ -355,6 +355,39 @@ test("missing origin shows the preflight state", async ({ page }) => {
   ).toBeVisible()
 })
 
+/* PR10D.5 D-7: Backend Check also needs the base_url — backend discovery
+ * probes the API spec on the client's configured origin, so the API chip must
+ * hit the same preflight gate instead of an opaque backend rejection. */
+test("missing origin shows the preflight state for Backend Check (PR10D.5 D-7)", async ({
+  page,
+}) => {
+  await openAsClient(page)
+  await page.route("**/dashboard-api/clients/7", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        client: {
+          id: CLIENT_ID,
+          client_name: "northwind sandbox",
+          base_url: null,
+          site_username: null,
+          site_password_set: false,
+        },
+        flows: [],
+      }),
+    }),
+  )
+  await openAiBuilder(page)
+  await page.getByRole("radio", { name: "Backend Check" }).click()
+  await fillAndBuild(page, "Verify the orders API is healthy")
+  await expect(
+    page.getByRole("heading", {
+      name: "Target application not configured",
+    }),
+  ).toBeVisible()
+})
+
 test("Arabic renders the builder mirrored", async ({ page }) => {
   await openAsClient(page, "ar")
   await page.getByRole("button", { name: "إنشاء اختبار" }).first().click()
