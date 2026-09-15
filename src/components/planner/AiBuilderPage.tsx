@@ -207,9 +207,10 @@ export function AiBuilderPage({
     if (busy) return
     abortRef.current?.abort()
     clearTimers()
-    // FIX 1: no target origin configured → preflight state (UI/MIXED only;
-    // backend checks do not need an origin).
-    if (origin === null && composerType !== "API") {
+    // No target origin configured → preflight state for every test type.
+    // Backend Check and End-to-End need the client's base_url too: it is
+    // where backend discovery probes the API spec (PR10D.5 D-7).
+    if (origin === null) {
       setPhase("preflight-url")
       return
     }
