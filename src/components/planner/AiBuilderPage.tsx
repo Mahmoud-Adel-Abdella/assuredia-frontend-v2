@@ -73,8 +73,13 @@ type Phase =
 type Failure = { title: string; description?: string }
 
 let stepKeySeq = 0
-function toEditable(
-  steps: { type: "UI" | "API"; intent: string; requiresDiscovery: boolean }[],
+export function toEditable(
+  steps: {
+    type: "UI" | "API"
+    intent: string
+    requiresDiscovery: boolean
+    endpoint?: { method: string; path: string }
+  }[],
   outcomes: PlanOutcome[] | null | undefined,
 ): EditableStep[] {
   // Attach each expected result to its step (index-aligned planner output):
@@ -85,6 +90,7 @@ function toEditable(
       type: s.type,
       intent: s.intent,
       requiresDiscovery: s.requiresDiscovery,
+      endpoint: s.endpoint,
       key: `s${++stepKeySeq}`,
     })),
     outcomes,
@@ -476,6 +482,15 @@ export function AiBuilderPage({
         if (error instanceof ApiError && error.status === 409) {
           confirmKeyRef.current = null
           setPhase("duplicate")
+          return
+        }
+        if (
+          error instanceof ApiError &&
+          error.status === 400 &&
+          typeof error.message === "string" &&
+          error.message.includes("Deleting the UI steps changed this End-to-End plan")
+        ) {
+          fail(CONFIRM_ERROR_MESSAGES.COMPOSITION_CHANGED)
           return
         }
         if (

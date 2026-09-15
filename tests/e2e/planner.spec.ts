@@ -117,6 +117,7 @@ test("AI Builder full flow: build, review, confirm, open", async ({
 }) => {
   await openAsClient(page)
   await openAiBuilder(page)
+  await page.getByRole("radio", { name: "End-to-End" }).click()
   await fillAndBuild(page, "Verify that a customer can complete checkout")
   await expect(
     page.getByRole("heading", { name: "Here's what Assuredia proposes" }),
@@ -127,6 +128,8 @@ test("AI Builder full flow: build, review, confirm, open", async ({
     page.getByRole("heading", { name: "Review your test" }),
   ).toBeVisible()
   await expect(page.getByText("https://shop.example.test")).toBeVisible()
+  await expect(page.getByText("GET").first()).toBeVisible()
+  await expect(page.getByText("/api/products").first()).toBeVisible()
   await page.getByRole("button", { name: "Create Test Draft" }).click()
   await expect(
     page.getByRole("heading", { name: "Test Draft Created" }),

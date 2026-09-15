@@ -620,8 +620,25 @@ export function ReviewView({
               </span>
               <CapBadge cap={step.type} />
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium text-slate-700 dark:text-white/70">
-                  {step.intent}
+                <p className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-slate-700 dark:text-white/70">
+                  <span>{step.intent}</span>
+                  {step.type === "API" && step.endpoint && (
+                    <span
+                      dir="ltr"
+                      className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-mono text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60"
+                    >
+                      <span className={cx(
+                        "mr-1.5 font-bold",
+                        step.endpoint.method === "GET" && "text-emerald-600 dark:text-emerald-400",
+                        step.endpoint.method === "POST" && "text-blue-600 dark:text-blue-400",
+                        step.endpoint.method === "PUT" && "text-orange-600 dark:text-orange-400",
+                        step.endpoint.method === "DELETE" && "text-red-600 dark:text-red-400",
+                      )}>
+                        {step.endpoint.method}
+                      </span>
+                      {step.endpoint.path}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
