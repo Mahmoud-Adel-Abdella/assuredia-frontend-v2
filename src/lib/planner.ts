@@ -129,6 +129,8 @@ export const CONFIRM_ERROR_MESSAGES = {
   MISSING_IDEMPOTENCY_KEY: "Something went wrong. Please try again.",
   COMPOSITION_CHANGED:
     "Deleting the UI steps turned this into an API-only plan. Create a Backend Check test instead.",
+  COMPOSITION_UI_ONLY:
+    "Deleting the API steps turned this into a UI-only plan. Create a User Journey test instead.",
   PLAN_NOT_FOUND: "This plan has expired. Please create a new one.",
   PLAN_EXPIRED: "This plan has expired. Please create a new one.",
   DUPLICATE_CONFIRM: "This plan was already confirmed. Opening the draft...",

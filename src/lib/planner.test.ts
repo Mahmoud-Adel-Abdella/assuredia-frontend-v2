@@ -167,6 +167,10 @@ test("Planner domain vocabulary", async (t) => {
       CONFIRM_ERROR_MESSAGES.COMPOSITION_CHANGED,
       "Deleting the UI steps turned this into an API-only plan. Create a Backend Check test instead.",
     )
+    assert.equal(
+      CONFIRM_ERROR_MESSAGES.COMPOSITION_UI_ONLY,
+      "Deleting the API steps turned this into a UI-only plan. Create a User Journey test instead.",
+    )
   })
 
   await t.test("confirm surfaces 404 and 409 with backend messages", async () => {

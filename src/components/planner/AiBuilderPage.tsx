@@ -488,9 +488,13 @@ export function AiBuilderPage({
           error instanceof ApiError &&
           error.status === 400 &&
           typeof error.message === "string" &&
-          error.message.includes("Deleting the UI steps changed this End-to-End plan")
+          error.message.includes("changed this End-to-End plan into a")
         ) {
-          fail(CONFIRM_ERROR_MESSAGES.COMPOSITION_CHANGED)
+          fail(
+            error.message.includes("Deleting the API steps")
+              ? CONFIRM_ERROR_MESSAGES.COMPOSITION_UI_ONLY
+              : CONFIRM_ERROR_MESSAGES.COMPOSITION_CHANGED,
+          )
           return
         }
         if (
