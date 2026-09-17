@@ -943,6 +943,7 @@ const server = createServer(async (req, res) => {
           type: "API",
           intent: "Verify product availability",
           requiresDiscovery: false,
+          endpoint: { method: "GET", path: "/api/products" },
         },
       ]
     }

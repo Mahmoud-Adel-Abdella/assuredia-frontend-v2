@@ -117,6 +117,7 @@ test("AI Builder full flow: build, review, confirm, open", async ({
 }) => {
   await openAsClient(page)
   await openAiBuilder(page)
+  await page.getByRole("radio", { name: "End-to-End" }).click()
   await fillAndBuild(page, "Verify that a customer can complete checkout")
   await expect(
     page.getByRole("heading", { name: "Here's what Assuredia proposes" }),
@@ -127,12 +128,40 @@ test("AI Builder full flow: build, review, confirm, open", async ({
     page.getByRole("heading", { name: "Review your test" }),
   ).toBeVisible()
   await expect(page.getByText("https://shop.example.test")).toBeVisible()
+  await expect(page.getByText("GET").first()).toBeVisible()
+  await expect(page.getByText("/api/products").first()).toBeVisible()
   await page.getByRole("button", { name: "Create Test Draft" }).click()
   await expect(
     page.getByRole("heading", { name: "Test Draft Created" }),
   ).toBeVisible()
   await page.getByRole("button", { name: /Open Test/ }).click()
   await expect(page.getByText("Mock planned test").first()).toBeVisible()
+})
+
+test("UI-only composition deletion shows the specific confirm message", async ({
+  page,
+}) => {
+  await openAsClient(page)
+  await openAiBuilder(page)
+  await page.getByRole("radio", { name: "End-to-End" }).click()
+  await fillAndBuild(page, "Verify that a customer can complete checkout")
+  await expect(page.getByText("Verify product availability").first()).toBeVisible()
+  await page.getByText("Verify product availability").first().click()
+  await page.getByRole("button", { name: /delete/i }).click()
+  await page.getByRole("button", { name: /Review Test/ }).click()
+  await page.route("**/test-plans/*/confirm", (route) =>
+    route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: "Deleting the API steps changed this End-to-End plan into a UI-only plan. Create a new User Journey test, or add API steps back.",
+      }),
+    }),
+  )
+  await page.getByRole("button", { name: "Create Test Draft" }).click()
+  await expect(
+    page.getByText("Deleting the API steps turned this into a UI-only plan. Create a User Journey test instead.", { exact: true }),
+  ).toBeVisible()
 })
 
 test("network-failed confirm retries with the same key", async ({

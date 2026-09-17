@@ -3123,6 +3123,15 @@ export type CreateTestPlanBody = {
 export type ConfirmTestPlanBody = {
   name?: string
   description?: string | null
+  modifiedSteps?: Array<{
+    type: "UI" | "API"
+    intent: string
+    endpoint?: { method: string; path: string }
+  }>
+  modifiedOutcomes?: Array<{
+    type: "UI" | "API"
+    intent: string
+  }>
 }
 
 /** DRAFT handoff returned by POST /test-plans/{planId}/confirm. */

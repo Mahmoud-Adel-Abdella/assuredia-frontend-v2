@@ -1,6 +1,8 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import { ApiError, apiConfirmTestPlan, apiCreateTestPlan } from "./api"
+import { toEditable } from "../components/planner/AiBuilderPage"
+import { StepRow } from "../components/planner/AiPlanViews"
 import {
   COMPOSER_TO_WIRE,
   CONFIRM_ERROR_MESSAGES,
@@ -41,6 +43,20 @@ function stubFetch(
   }) as typeof fetch
   return calls
 }
+
+test("toEditable preserves endpoint metadata", () => {
+  const editable = toEditable(
+    [{
+      type: "API",
+      intent: "Create an order",
+      requiresDiscovery: true,
+      endpoint: { method: "POST", path: "/api/orders" },
+    }],
+    [{ type: "API", intent: "Order is created" }],
+  )
+  assert.deepEqual(editable[0].endpoint, { method: "POST", path: "/api/orders" })
+  assert.deepEqual(editable[0].outcome, { type: "API", intent: "Order is created" })
+})
 
 test("Planner domain vocabulary", async (t) => {
   const originalFetch = globalThis.fetch
@@ -121,17 +137,40 @@ test("Planner domain vocabulary", async (t) => {
     })
   })
 
-  await t.test("confirm sends Idempotency-Key and name override", async () => {
+  await t.test("confirm sends Idempotency-Key, name, and endpoint metadata", async () => {
     const calls = stubFetch(() => ({
       json: { definitionId: 501, creationRequestId: 9, status: "DRAFT" },
     }))
     const result = await apiConfirmTestPlan(7, "plan-1", "key-1", {
       name: "Checkout",
+      modifiedSteps: [{
+        type: "API",
+        intent: "Create an order",
+        endpoint: { method: "POST", path: "/api/orders" },
+      }],
     })
     assert.equal(result.definitionId, 501)
     assert.equal(calls[0].headers["Idempotency-Key"], "key-1")
-    assert.deepEqual(calls[0].body, { name: "Checkout" })
+    assert.deepEqual(calls[0].body, {
+      name: "Checkout",
+      modifiedSteps: [{
+        type: "API",
+        intent: "Create an order",
+        endpoint: { method: "POST", path: "/api/orders" },
+      }],
+    })
     assert.ok(calls[0].url.endsWith("/test-plans/plan-1/confirm"))
+  })
+
+  await t.test("composition errors have dedicated actionable copy", () => {
+    assert.equal(
+      CONFIRM_ERROR_MESSAGES.COMPOSITION_CHANGED,
+      "Deleting the UI steps turned this into an API-only plan. Create a Backend Check test instead.",
+    )
+    assert.equal(
+      CONFIRM_ERROR_MESSAGES.COMPOSITION_UI_ONLY,
+      "Deleting the API steps turned this into a UI-only plan. Create a User Journey test instead.",
+    )
   })
 
   await t.test("confirm surfaces 404 and 409 with backend messages", async () => {
