@@ -147,6 +147,50 @@ test("AI Builder full flow: build, review, confirm, open", async ({
   await expect(page.getByText("Mock planned test").first()).toBeVisible()
 })
 
+test("degraded evidence renders localized warning without raw token", async ({
+  page,
+  request,
+}) => {
+  await setPlannerMode(request, "degraded")
+  await openAsClient(page)
+  await openAiBuilder(page)
+  await fillAndBuild(page, "Verify checkout with degraded discovery")
+  await expect(
+    page.getByRole("heading", { name: "Here's what Assuredia proposes" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "View Evidence" }).click()
+  const dialog = page.getByRole("dialog")
+  await expect(
+    dialog.getByText("No API spec found — API steps need manual endpoint binding.", { exact: true }),
+  ).toBeVisible()
+  await expect(page.locator("body")).not.toContainText("spec_not_found")
+})
+
+test("evidence dialog renders URLs as plain text", async ({ page }) => {
+  await openAsClient(page)
+  await openAiBuilder(page)
+  await fillAndBuild(page, "Verify checkout evidence links")
+  await page.getByRole("button", { name: "View Evidence" }).click()
+  const dialog = page.getByRole("dialog")
+  await dialog.getByRole("button", { name: "Network Activity" }).click()
+  await expect(dialog.locator("a")).toHaveCount(0)
+  await expect(dialog.locator("[href]")).toHaveCount(0)
+})
+
+test("Arabic evidence network URLs remain LTR-isolated", async ({ page }) => {
+  await openAsClient(page, "ar")
+  await page.getByRole("button", { name: "إنشاء اختبار" }).first().click()
+  await page.getByPlaceholder("صف ما تريد التحقق منه...").fill("تحقق من عزل الرابط")
+  await page.getByRole("button", { name: "بناء الاختبار" }).click()
+  await page.getByRole("button", { name: "عرض الدليل" }).click()
+  const dialog = page.getByRole("dialog")
+  await dialog.getByRole("button", { name: "نشاط الشبكة" }).click()
+  const url = dialog.getByText("https://shop.example.test/api/products/{id}?token=***", { exact: true })
+  await expect(url).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.dir)).toBe("rtl")
+  expect(await url.getAttribute("dir")).toBe("ltr")
+})
+
 test("UI-only composition deletion shows the specific confirm message", async ({
   page,
 }) => {

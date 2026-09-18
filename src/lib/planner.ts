@@ -213,82 +213,95 @@ export function isPlanReady(value: unknown): value is TestPlan {
   )
 }
 
-function stringOrNull(value: unknown): string | null {
-  return typeof value === "string" ? value : null
+function stringOrNull(value: unknown, max: number): string | null {
+  return typeof value === "string" ? value.slice(0, max) : null
 }
 
-function boundedList<T>(value: unknown, map: (item: unknown) => T): T[] {
-  return Array.isArray(value) ? value.map(map) : []
+function boundedList<T>(value: unknown, map: (item: unknown) => T, max: number): T[] {
+  return Array.isArray(value) ? value.slice(0, max).map(map) : []
 }
 
 export function normalizePlanEvidence(value: unknown): PlanEvidence | undefined {
-  if (typeof value !== "object" || value === null) return undefined
-  const raw = value as Record<string, unknown>
-  const token = raw.degradeWarningToken
-  const degradeWarningToken: DegradeWarningToken | null =
-    token === "spec_not_found" ||
-    token === "spec_invalid" ||
-    token === "target_unreachable" ||
-    token === "discovery_timeout" ||
-    token === "discovery_failed"
-      ? token
-      : null
+  try {
+    if (typeof value !== "object" || value === null) return undefined
+    const raw = value as Record<string, unknown>
+    const token = raw.degradeWarningToken
+    const degradeWarningToken: DegradeWarningToken | null =
+      token === "spec_not_found" ||
+      token === "spec_invalid" ||
+      token === "target_unreachable" ||
+      token === "discovery_timeout" ||
+      token === "discovery_failed"
+        ? token
+        : null
 
-  return {
-    origin: stringOrNull(raw.origin),
-    pageTitle: stringOrNull(raw.pageTitle),
-    pageUrl: stringOrNull(raw.pageUrl),
-    truncated: raw.truncated === true,
-    elementsFound:
-      typeof raw.elementsFound === "number" && Number.isFinite(raw.elementsFound)
-        ? Math.max(0, Math.trunc(raw.elementsFound))
-        : 0,
-    backendOperations: boundedList(raw.backendOperations, (item) => {
-      const operation = (item ?? {}) as Record<string, unknown>
-      return {
-        method: typeof operation.method === "string" ? operation.method : "UNKNOWN",
-        path: typeof operation.path === "string" ? operation.path : "",
-        summary: typeof operation.summary === "string" ? operation.summary : "",
-        tags: Array.isArray(operation.tags)
-          ? operation.tags.filter((tag): tag is string => typeof tag === "string")
-          : [],
-        expectedStatuses: Array.isArray(operation.expectedStatuses)
-          ? operation.expectedStatuses.filter(
-              (status): status is number => typeof status === "number" && Number.isFinite(status),
-            )
-          : [],
-      }
-    }),
-    discoveredElements: boundedList(raw.discoveredElements, (item) => {
-      const element = (item ?? {}) as Record<string, unknown>
-      return {
-        elementId: typeof element.elementId === "string" ? element.elementId : "",
-        role: typeof element.role === "string" ? element.role : "",
-        name: typeof element.name === "string" ? element.name : "",
-        strategy: stringOrNull(element.strategy),
-        value: stringOrNull(element.value),
-        strength: stringOrNull(element.strength),
-        state: "UNVERIFIED" as const,
-      }
-    }),
-    networkRequests: boundedList(raw.networkRequests, (item) => {
-      const request = (item ?? {}) as Record<string, unknown>
-      return {
-        method: typeof request.method === "string" ? request.method : "UNKNOWN",
-        url: typeof request.url === "string" ? request.url : "",
-        status:
-          typeof request.status === "number" && Number.isFinite(request.status)
-            ? Math.max(0, Math.min(599, Math.trunc(request.status)))
-            : 0,
-        durationMs: 0,
-      }
-    }),
-    discoveryDurationMs:
-      typeof raw.discoveryDurationMs === "number" && Number.isFinite(raw.discoveryDurationMs)
-        ? Math.max(0, Math.trunc(raw.discoveryDurationMs))
-        : 0,
-    degradeWarningToken,
+    return {
+      origin: stringOrNull(raw.origin, 2048),
+      pageTitle: stringOrNull(raw.pageTitle, 500),
+      pageUrl: stringOrNull(raw.pageUrl, 2048),
+      truncated: raw.truncated === true,
+      elementsFound:
+        typeof raw.elementsFound === "number" && Number.isFinite(raw.elementsFound)
+          ? Math.min(1_000_000, Math.max(0, Math.trunc(raw.elementsFound)))
+          : 0,
+      backendOperations: boundedList(raw.backendOperations, (item) => {
+        const operation = (item ?? {}) as Record<string, unknown>
+        return {
+          method: typeof operation.method === "string" ? operation.method : "UNKNOWN",
+          path: typeof operation.path === "string" ? operation.path.slice(0, 2048) : "",
+          summary: typeof operation.summary === "string" ? operation.summary.slice(0, 200) : "",
+          tags: Array.isArray(operation.tags)
+            ? operation.tags
+                .filter((tag): tag is string => typeof tag === "string")
+                .map((tag) => tag.slice(0, 100))
+            : [],
+          expectedStatuses: Array.isArray(operation.expectedStatuses)
+            ? operation.expectedStatuses.filter(
+                (status): status is number => typeof status === "number" && Number.isFinite(status),
+              )
+            : [],
+        }
+      }, 50),
+      discoveredElements: boundedList(raw.discoveredElements, (item) => {
+        const element = (item ?? {}) as Record<string, unknown>
+        return {
+          elementId: typeof element.elementId === "string" ? element.elementId : "",
+          role: typeof element.role === "string" ? element.role : "",
+          name: typeof element.name === "string" ? element.name.slice(0, 500) : "",
+          strategy: stringOrNull(element.strategy, 100),
+          value: stringOrNull(element.value, 2048),
+          strength: stringOrNull(element.strength, 100),
+          state: "UNVERIFIED" as const,
+        }
+      }, 50),
+      networkRequests: boundedList(raw.networkRequests, (item) => {
+        const request = (item ?? {}) as Record<string, unknown>
+        return {
+          method: typeof request.method === "string" ? request.method : "UNKNOWN",
+          url: typeof request.url === "string" ? request.url.slice(0, 2048) : "",
+          status:
+            typeof request.status === "number" && Number.isFinite(request.status)
+              ? Math.max(0, Math.min(599, Math.trunc(request.status)))
+              : 0,
+          durationMs: 0,
+        }
+      }, 100),
+      discoveryDurationMs:
+        typeof raw.discoveryDurationMs === "number" && Number.isFinite(raw.discoveryDurationMs)
+          ? Math.max(0, Math.trunc(raw.discoveryDurationMs))
+          : 0,
+      degradeWarningToken,
+    }
+  } catch {
+    return undefined
   }
+}
+
+/** @internal Replaces producer evidence with its normalized optional shape. */
+export function normalizePlanEvidenceOnPlan(
+  plan: Omit<TestPlan, "evidence"> & { evidence?: unknown },
+): TestPlan {
+  return { ...plan, evidence: normalizePlanEvidence(plan.evidence) }
 }
 
 export function formatEvidenceDuration(durationMs: number): string {

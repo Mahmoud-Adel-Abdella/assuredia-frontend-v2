@@ -25,8 +25,8 @@ export function EvidenceSummaryStrip({
             {t("evidence.title")}
           </span>
           <span dir="ltr">{t("evidence.elements.count", { count: evidence.elementsFound })}</span>
-          <span dir="ltr">{evidence.backendOperations.length} {t("evidence.backend")}</span>
-          <span dir="ltr">{evidence.networkRequests.length} {t("evidence.network")}</span>
+          <span dir="ltr">{t("evidence.summary.backendOperations", { count: evidence.backendOperations.length })}</span>
+          <span dir="ltr">{t("evidence.summary.networkRequests", { count: evidence.networkRequests.length })}</span>
           <span dir="ltr">{formatEvidenceDuration(evidence.discoveryDurationMs)}</span>
           {counts.isPartial && (
             <span className="font-medium text-amber-700 dark:text-amber-300">

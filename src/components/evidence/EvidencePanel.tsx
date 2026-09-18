@@ -35,12 +35,20 @@ function statusClass(status: number): string {
   }
 }
 
-function IdentityRow({ label, value }: { label: string; value: string | null }) {
+function IdentityRow({
+  label,
+  value,
+  direction = "ltr",
+}: {
+  label: string
+  value: string | null
+  direction?: "ltr" | "auto"
+}) {
   if (!value) return null
   return (
     <div className="flex min-w-0 items-start gap-3 text-[13px]">
       <span className="w-28 flex-shrink-0 text-slate-500 dark:text-white/35">{label}</span>
-      <span dir="ltr" className="min-w-0 break-all font-mono text-slate-700 dark:text-white/70">{value}</span>
+      <span dir={direction} className="min-w-0 break-all font-mono text-slate-700 dark:text-white/70">{value}</span>
     </div>
   )
 }
@@ -57,10 +65,10 @@ function ElementCard({ element }: { element: DiscoveredElementView }) {
         onClick={() => setOpen((value) => !value)}
       >
         <span className="min-w-0">
-          <span className="block truncate text-[13px] font-medium text-slate-800 dark:text-white/80">
+          <span dir="ltr" className="block truncate text-[13px] font-medium text-slate-800 dark:text-white/80">
             {element.name || t("evidence.elements.noCandidate")}
           </span>
-          <span className="mt-1 block text-[11px] text-slate-500 dark:text-white/35">{element.role}</span>
+          <span dir="ltr" className="mt-1 block text-[11px] text-slate-500 dark:text-white/35">{element.role}</span>
         </span>
         <span className="flex flex-shrink-0 items-center gap-2">
           <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-400/10 dark:text-brand-300">
@@ -72,8 +80,8 @@ function ElementCard({ element }: { element: DiscoveredElementView }) {
       {open && (
         <div className="space-y-3 border-t border-slate-100 px-3 pb-3 pt-3 dark:border-white/[0.06]">
           <div className="flex flex-wrap gap-2 text-[11px]">
-            <span className="rounded bg-slate-100 px-2 py-1 text-slate-600 dark:bg-white/10 dark:text-white/60">{element.role}</span>
-            {element.strength && <span className="rounded bg-emerald-50 px-2 py-1 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{element.strength}</span>}
+            <span dir="ltr" className="rounded bg-slate-100 px-2 py-1 text-slate-600 dark:bg-white/10 dark:text-white/60">{element.role}</span>
+            {element.strength && <span dir="ltr" className="rounded bg-emerald-50 px-2 py-1 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{element.strength}</span>}
           </div>
           {element.strategy && element.value ? (
             <div>
@@ -117,7 +125,7 @@ function Overview({ evidence }: { evidence: PlanEvidence }) {
       )}
       <div className="space-y-2">
         <IdentityRow label={t("evidence.header.origin")} value={evidence.origin} />
-        <IdentityRow label={t("evidence.header.pageTitle")} value={evidence.pageTitle} />
+        <IdentityRow label={t("evidence.header.pageTitle")} value={evidence.pageTitle} direction="auto" />
         <IdentityRow label={t("evidence.header.pageUrl")} value={evidence.pageUrl} />
       </div>
       {!evidence.origin && !evidence.pageTitle && !evidence.pageUrl && evidence.backendOperations.length === 0 && evidence.discoveredElements.length === 0 && evidence.networkRequests.length === 0 && (
@@ -136,7 +144,7 @@ function AppDiscovery({ evidence }: { evidence: PlanEvidence }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-slate-500 dark:text-white/45">
-        <IdentityRow label={t("evidence.header.pageTitle")} value={evidence.pageTitle} />
+        <IdentityRow label={t("evidence.header.pageTitle")} value={evidence.pageTitle} direction="auto" />
         <IdentityRow label={t("evidence.header.pageUrl")} value={evidence.pageUrl} />
       </div>
       {counts.isPartial && <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">{t("evidence.elements.truncated", { shown: counts.shown, total: counts.total })}</p>}
@@ -159,7 +167,7 @@ function BackendDiscovery({ operations }: { operations: CatalogOperationView[] }
           <tr><th className="px-3 py-2 font-medium">{t("evidence.backend.method")}</th><th className="px-3 py-2 font-medium">{t("evidence.backend.path")}</th><th className="px-3 py-2 font-medium">{t("evidence.backend.summary")}</th><th className="px-3 py-2 font-medium">{t("evidence.backend.tags")}</th><th className="px-3 py-2 font-medium">{t("evidence.backend.statuses")}</th></tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-white/[0.06]">
-          {operations.map((operation, index) => <tr key={`${operation.method}-${operation.path}-${index}`}><td dir="ltr" className={cx("px-3 py-2 font-semibold", methodClass(operation.method))}>{operation.method}</td><td dir="ltr" className="whitespace-nowrap px-3 py-2 font-mono text-slate-700 dark:text-white/70">{operation.path}</td><td className="px-3 py-2 text-slate-600 dark:text-white/55">{operation.summary}</td><td className="px-3 py-2"><span className="flex flex-wrap gap-1">{operation.tags.map((tag) => <span key={tag} className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-white/10 dark:text-white/60">{tag}</span>)}</span></td><td dir="ltr" className="px-3 py-2"><span className="flex flex-wrap gap-1">{operation.expectedStatuses.map((status) => <span key={status} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-white/10 dark:text-white/60">{status}</span>)}</span></td></tr>)}
+          {operations.map((operation, index) => <tr key={`${operation.method}-${operation.path}-${index}`}><td dir="ltr" className={cx("px-3 py-2 font-semibold", methodClass(operation.method))}>{operation.method}</td><td dir="ltr" className="whitespace-nowrap px-3 py-2 font-mono text-slate-700 dark:text-white/70">{operation.path}</td><td dir="ltr" className="px-3 py-2 text-slate-600 dark:text-white/55">{operation.summary}</td><td className="px-3 py-2"><span className="flex flex-wrap gap-1">{operation.tags.map((tag) => <span dir="ltr" key={tag} className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-white/10 dark:text-white/60">{tag}</span>)}</span></td><td dir="ltr" className="px-3 py-2"><span className="flex flex-wrap gap-1">{operation.expectedStatuses.map((status) => <span key={status} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-white/10 dark:text-white/60">{status}</span>)}</span></td></tr>)}
         </tbody>
       </table>
     </div>

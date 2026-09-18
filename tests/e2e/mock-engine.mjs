@@ -540,6 +540,7 @@ const server = createServer(async (req, res) => {
       "failed:CREDENTIAL_UNAVAILABLE",
       "failed:UNSUPPORTED_SCENARIO",
       "failed:INTENT_AMBIGUOUS",
+      "degraded",
     ]
     state.plannerMode =
       typeof body?.mode === "string" && allowed.includes(body.mode)
@@ -1229,7 +1230,11 @@ const server = createServer(async (req, res) => {
       // Records the REAL credential id the composer sent (spec assertion);
       // undefined when none was referenced.
       state.lastPlannerCredentialId = body?.credentialId ?? null
-      return json(res, 200, plannerPlan(requestedType, body?.credentialId ?? null))
+      const plan = plannerPlan(requestedType, body?.credentialId ?? null)
+      if (mode === "degraded" && plan.evidence) {
+        plan.evidence.degradeWarningToken = "spec_not_found"
+      }
+      return json(res, 200, plan)
     }
     if (segments.length === 2 && segments[1] === "confirm" && method === "POST") {
       const planId = segments[0]

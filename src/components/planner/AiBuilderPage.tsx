@@ -31,7 +31,7 @@ import {
   attachOutcomesToSteps,
   isPlanClarification,
   isPlanReady,
-  normalizePlanEvidence,
+  normalizePlanEvidenceOnPlan,
   newConfirmKey,
   type ComposerTestType,
   type PlanClarificationQuestion,
@@ -277,12 +277,7 @@ export function AiBuilderPage({
             fail(PLAN_ERROR_MESSAGES.AI_INVALID_OUTPUT)
             return
           }
-          const normalizedEvidence = normalizePlanEvidence(
-            (raw as { evidence?: unknown }).evidence,
-          )
-          const normalizedPlan = normalizedEvidence
-            ? { ...ready, evidence: normalizedEvidence }
-            : ready
+          const normalizedPlan = normalizePlanEvidenceOnPlan(ready)
           setPlan(normalizedPlan)
           setEvidenceOpen(false)
           setSteps(toEditable(normalizedPlan.steps, normalizedPlan.expectedOutcomes))
