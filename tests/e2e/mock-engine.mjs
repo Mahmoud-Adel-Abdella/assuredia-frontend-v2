@@ -541,6 +541,7 @@ const server = createServer(async (req, res) => {
       "failed:UNSUPPORTED_SCENARIO",
       "failed:INTENT_AMBIGUOUS",
       "degraded",
+      "scalar-evidence",
     ]
     state.plannerMode =
       typeof body?.mode === "string" && allowed.includes(body.mode)
@@ -1234,6 +1235,7 @@ const server = createServer(async (req, res) => {
       if (mode === "degraded" && plan.evidence) {
         plan.evidence.degradeWarningToken = "spec_not_found"
       }
+      if (mode === "scalar-evidence") plan.evidence = "x"
       return json(res, 200, plan)
     }
     if (segments.length === 2 && segments[1] === "confirm" && method === "POST") {

@@ -191,6 +191,23 @@ test("Arabic evidence network URLs remain LTR-isolated", async ({ page }) => {
   expect(await url.getAttribute("dir")).toBe("ltr")
 })
 
+test("scalar evidence fails closed through the PLAN_READY caller", async ({
+  page,
+  request,
+}) => {
+  await setPlannerMode(request, "scalar-evidence")
+  const pageErrors: Error[] = []
+  page.on("pageerror", (error) => pageErrors.push(error))
+  await openAsClient(page)
+  await openAiBuilder(page)
+  await fillAndBuild(page, "Verify scalar evidence handling")
+  await expect(
+    page.getByRole("heading", { name: "Here's what Assuredia proposes" }),
+  ).toBeVisible()
+  await expect(page.getByText("Something went wrong", { exact: true })).toHaveCount(0)
+  expect(pageErrors).toHaveLength(0)
+})
+
 test("UI-only composition deletion shows the specific confirm message", async ({
   page,
 }) => {
