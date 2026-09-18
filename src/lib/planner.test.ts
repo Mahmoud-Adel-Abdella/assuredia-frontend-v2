@@ -9,9 +9,13 @@ import {
   PLAN_ERROR_MESSAGES,
   attachOutcomesToSteps,
   clarificationCategoryLabel,
+  evidenceStatusKind,
+  evidenceTruncationCounts,
+  formatEvidenceDuration,
   isPlanClarification,
   isPlanReady,
   newConfirmKey,
+  normalizePlanEvidence,
   outcomesOfSteps,
   type WithOutcome,
 } from "./planner"
@@ -43,6 +47,44 @@ function stubFetch(
   }) as typeof fetch
   return calls
 }
+
+test("normalizes optional evidence without exposing producer-only values", () => {
+  const evidence = normalizePlanEvidence({
+    origin: null,
+    pageTitle: "Shop",
+    pageUrl: "https://shop.test/orders/{id}?token=***",
+    truncated: true,
+    elementsFound: 60,
+    discoveredElements: [{
+      elementId: "e1",
+      role: "button",
+      name: "Load",
+      strategy: "role",
+      value: "button[name=Load]",
+      strength: "STRONG",
+      state: "VERIFIED",
+    }],
+    backendOperations: [],
+    networkRequests: [{ method: "GET", url: "/orders/{id}", status: 0, durationMs: 500 }],
+    discoveryDurationMs: 1800,
+    degradeWarningToken: "attacker-token",
+  })
+  assert.equal(evidence?.origin, null)
+  assert.equal(evidence?.discoveredElements[0].state, "UNVERIFIED")
+  assert.equal(evidence?.networkRequests[0].status, 0)
+  assert.equal(evidence?.networkRequests[0].durationMs, 0)
+  assert.equal(evidence?.degradeWarningToken, null)
+  assert.deepEqual(evidence && evidenceTruncationCounts(evidence), { shown: 1, total: 60, isPartial: true })
+})
+
+test("evidence helpers classify statuses and durations", () => {
+  assert.equal(formatEvidenceDuration(0), "—")
+  assert.equal(formatEvidenceDuration(1842), "1.8s")
+  assert.equal(evidenceStatusKind(0), "failed")
+  assert.equal(evidenceStatusKind(204), "success")
+  assert.equal(evidenceStatusKind(302), "warning")
+  assert.equal(evidenceStatusKind(500), "error")
+})
 
 test("toEditable preserves endpoint metadata", () => {
   const editable = toEditable(

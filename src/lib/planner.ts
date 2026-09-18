@@ -33,6 +33,51 @@ export type PlanOutcome = {
   intent: string
 }
 
+export type DegradeWarningToken =
+  | "spec_not_found"
+  | "spec_invalid"
+  | "target_unreachable"
+  | "discovery_timeout"
+  | "discovery_failed"
+
+export type CatalogOperationView = {
+  method: string
+  path: string
+  summary: string
+  tags: string[]
+  expectedStatuses: number[]
+}
+
+export type DiscoveredElementView = {
+  elementId: string
+  role: string
+  name: string
+  strategy: string | null
+  value: string | null
+  strength: string | null
+  state: "UNVERIFIED"
+}
+
+export type NetworkRequestView = {
+  method: string
+  url: string
+  status: number
+  durationMs: number
+}
+
+export type PlanEvidence = {
+  origin: string | null
+  pageTitle: string | null
+  pageUrl: string | null
+  truncated: boolean
+  elementsFound: number
+  backendOperations: CatalogOperationView[]
+  discoveredElements: DiscoveredElementView[]
+  networkRequests: NetworkRequestView[]
+  discoveryDurationMs: number
+  degradeWarningToken: DegradeWarningToken | null
+}
+
 /**
  * The planner returns steps and expectedOutcomes as index-aligned parallel
  * lists. Attaching each outcome to its step makes structural edits safe:
@@ -73,6 +118,7 @@ export type TestPlan = {
   requiredCapabilities: string[]
   warnings: string[]
   definitionSourceJson: string
+  evidence?: PlanEvidence
 }
 
 export type PlanClarificationQuestion = {
@@ -165,6 +211,108 @@ export function isPlanReady(value: unknown): value is TestPlan {
     value !== null &&
     (value as { status?: unknown }).status === "PLAN_READY"
   )
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" ? value : null
+}
+
+function boundedList<T>(value: unknown, map: (item: unknown) => T): T[] {
+  return Array.isArray(value) ? value.map(map) : []
+}
+
+export function normalizePlanEvidence(value: unknown): PlanEvidence | undefined {
+  if (typeof value !== "object" || value === null) return undefined
+  const raw = value as Record<string, unknown>
+  const token = raw.degradeWarningToken
+  const degradeWarningToken: DegradeWarningToken | null =
+    token === "spec_not_found" ||
+    token === "spec_invalid" ||
+    token === "target_unreachable" ||
+    token === "discovery_timeout" ||
+    token === "discovery_failed"
+      ? token
+      : null
+
+  return {
+    origin: stringOrNull(raw.origin),
+    pageTitle: stringOrNull(raw.pageTitle),
+    pageUrl: stringOrNull(raw.pageUrl),
+    truncated: raw.truncated === true,
+    elementsFound:
+      typeof raw.elementsFound === "number" && Number.isFinite(raw.elementsFound)
+        ? Math.max(0, Math.trunc(raw.elementsFound))
+        : 0,
+    backendOperations: boundedList(raw.backendOperations, (item) => {
+      const operation = (item ?? {}) as Record<string, unknown>
+      return {
+        method: typeof operation.method === "string" ? operation.method : "UNKNOWN",
+        path: typeof operation.path === "string" ? operation.path : "",
+        summary: typeof operation.summary === "string" ? operation.summary : "",
+        tags: Array.isArray(operation.tags)
+          ? operation.tags.filter((tag): tag is string => typeof tag === "string")
+          : [],
+        expectedStatuses: Array.isArray(operation.expectedStatuses)
+          ? operation.expectedStatuses.filter(
+              (status): status is number => typeof status === "number" && Number.isFinite(status),
+            )
+          : [],
+      }
+    }),
+    discoveredElements: boundedList(raw.discoveredElements, (item) => {
+      const element = (item ?? {}) as Record<string, unknown>
+      return {
+        elementId: typeof element.elementId === "string" ? element.elementId : "",
+        role: typeof element.role === "string" ? element.role : "",
+        name: typeof element.name === "string" ? element.name : "",
+        strategy: stringOrNull(element.strategy),
+        value: stringOrNull(element.value),
+        strength: stringOrNull(element.strength),
+        state: "UNVERIFIED" as const,
+      }
+    }),
+    networkRequests: boundedList(raw.networkRequests, (item) => {
+      const request = (item ?? {}) as Record<string, unknown>
+      return {
+        method: typeof request.method === "string" ? request.method : "UNKNOWN",
+        url: typeof request.url === "string" ? request.url : "",
+        status:
+          typeof request.status === "number" && Number.isFinite(request.status)
+            ? Math.max(0, Math.min(599, Math.trunc(request.status)))
+            : 0,
+        durationMs: 0,
+      }
+    }),
+    discoveryDurationMs:
+      typeof raw.discoveryDurationMs === "number" && Number.isFinite(raw.discoveryDurationMs)
+        ? Math.max(0, Math.trunc(raw.discoveryDurationMs))
+        : 0,
+    degradeWarningToken,
+  }
+}
+
+export function formatEvidenceDuration(durationMs: number): string {
+  if (durationMs <= 0) return "—"
+  return `${(durationMs / 1000).toFixed(1)}s`
+}
+
+export function evidenceStatusKind(status: number): "success" | "warning" | "error" | "failed" {
+  if (status === 0) return "failed"
+  if (status >= 200 && status < 300) return "success"
+  if (status >= 300 && status < 400) return "warning"
+  return "error"
+}
+
+export function evidenceTruncationCounts(evidence: PlanEvidence): {
+  shown: number
+  total: number
+  isPartial: boolean
+} {
+  return {
+    shown: evidence.discoveredElements.length,
+    total: evidence.elementsFound,
+    isPartial: evidence.truncated || evidence.elementsFound > evidence.discoveredElements.length,
+  }
 }
 
 export function isPlanClarification(

@@ -5,9 +5,11 @@ import {
   type ComposerTestType,
   type PlanCredentialReference,
   type PlanOutcome,
+  type PlanEvidence,
   type PlanStep,
   outcomesOfSteps,
 } from "../../lib/planner"
+import { EvidencePanel } from "../evidence/EvidencePanel"
 
 function categoryLabel(t: (key: string) => string, category: string | null): string {
   switch (category) {
@@ -282,6 +284,10 @@ export function ProposedView({
   credentialName,
   steps,
   warnings,
+  evidence,
+  evidenceOpen,
+  onOpenEvidence,
+  onCloseEvidence,
   onStepsChange,
   onAddStep,
   onReview,
@@ -296,6 +302,10 @@ export function ProposedView({
   credentialName: string | null
   steps: EditableStep[]
   warnings: string[]
+  evidence?: PlanEvidence
+  evidenceOpen?: boolean
+  onOpenEvidence?: () => void
+  onCloseEvidence?: () => void
   onStepsChange: (steps: EditableStep[]) => void
   onAddStep: () => void
   onReview: () => void
@@ -377,6 +387,15 @@ export function ProposedView({
           />
         </label>
       </div>
+
+      {evidence && onOpenEvidence && onCloseEvidence && (
+        <EvidencePanel
+          evidence={evidence}
+          open={Boolean(evidenceOpen)}
+          onOpen={onOpenEvidence}
+          onClose={onCloseEvidence}
+        />
+      )}
 
       <div className="space-y-2">
         {steps.map((step, index) => (
@@ -493,6 +512,10 @@ export function ReviewView({
   origin,
   credentialName,
   steps,
+  evidence,
+  evidenceOpen,
+  onOpenEvidence,
+  onCloseEvidence,
   onCreate,
   onBack,
   confirmError,
@@ -505,6 +528,10 @@ export function ReviewView({
   origin: string | null
   credentialName: string | null
   steps: EditableStep[]
+  evidence?: PlanEvidence
+  evidenceOpen?: boolean
+  onOpenEvidence?: () => void
+  onCloseEvidence?: () => void
   onCreate: () => void
   onBack: () => void
   confirmError?: string | null
@@ -590,6 +617,15 @@ export function ReviewView({
           </div>
         </div>
       </div>
+
+      {evidence && onOpenEvidence && onCloseEvidence && (
+        <EvidencePanel
+          evidence={evidence}
+          open={Boolean(evidenceOpen)}
+          onOpen={onOpenEvidence}
+          onClose={onCloseEvidence}
+        />
+      )}
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-white/[0.07] dark:bg-white/[0.04]">
         <div className="mb-3 flex items-center justify-between">

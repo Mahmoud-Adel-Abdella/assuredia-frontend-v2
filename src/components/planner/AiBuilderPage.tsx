@@ -31,6 +31,7 @@ import {
   attachOutcomesToSteps,
   isPlanClarification,
   isPlanReady,
+  normalizePlanEvidence,
   newConfirmKey,
   type ComposerTestType,
   type PlanClarificationQuestion,
@@ -144,6 +145,7 @@ export function AiBuilderPage({
   } | null>(null)
   const [busy, setBusy] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [evidenceOpen, setEvidenceOpen] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const timersRef = useRef<number[]>([])
@@ -275,8 +277,15 @@ export function AiBuilderPage({
             fail(PLAN_ERROR_MESSAGES.AI_INVALID_OUTPUT)
             return
           }
-          setPlan(ready)
-          setSteps(toEditable(ready.steps, ready.expectedOutcomes))
+          const normalizedEvidence = normalizePlanEvidence(
+            (raw as { evidence?: unknown }).evidence,
+          )
+          const normalizedPlan = normalizedEvidence
+            ? { ...ready, evidence: normalizedEvidence }
+            : ready
+          setPlan(normalizedPlan)
+          setEvidenceOpen(false)
+          setSteps(toEditable(normalizedPlan.steps, normalizedPlan.expectedOutcomes))
           setPlanTitle(ready.title)
           setClarification(null)
           setPhase("proposed")
@@ -745,6 +754,10 @@ export function AiBuilderPage({
             }
             steps={steps}
             warnings={plan.warnings}
+            evidence={plan.evidence}
+            evidenceOpen={evidenceOpen}
+            onOpenEvidence={() => setEvidenceOpen(true)}
+            onCloseEvidence={() => setEvidenceOpen(false)}
             onStepsChange={setSteps}
             onAddStep={() =>
               setSteps((prev) => [
@@ -779,6 +792,10 @@ export function AiBuilderPage({
               plan.credentialReference ? plan.credentialReference.name : null
             }
             steps={steps}
+            evidence={plan.evidence}
+            evidenceOpen={evidenceOpen}
+            onOpenEvidence={() => setEvidenceOpen(true)}
+            onCloseEvidence={() => setEvidenceOpen(false)}
             onCreate={confirmDraft}
             onBack={backToProposed}
             confirmError={confirmError}
