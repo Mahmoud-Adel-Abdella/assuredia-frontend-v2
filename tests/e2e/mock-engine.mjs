@@ -540,6 +540,8 @@ const server = createServer(async (req, res) => {
       "failed:CREDENTIAL_UNAVAILABLE",
       "failed:UNSUPPORTED_SCENARIO",
       "failed:INTENT_AMBIGUOUS",
+      "degraded",
+      "scalar-evidence",
     ]
     state.plannerMode =
       typeof body?.mode === "string" && allowed.includes(body.mode)
@@ -985,6 +987,37 @@ const server = createServer(async (req, res) => {
             : ["APP_DISCOVERY"],
       warnings: [],
       definitionSourceJson: "{}",
+      evidence: {
+        origin: "https://shop.example.test:443",
+        pageTitle: "Shop",
+        pageUrl: "https://shop.example.test:443",
+        truncated: true,
+        elementsFound: 60,
+        backendOperations: [{
+          method: "GET",
+          path: "/api/products/{id}",
+          summary: "Read product details",
+          tags: ["products"],
+          expectedStatuses: [200],
+        }],
+        discoveredElements: [{
+          elementId: "e1",
+          role: "button",
+          name: "Search",
+          strategy: "role",
+          value: "button[name=Search]",
+          strength: "STRONG",
+          state: "UNVERIFIED",
+        }],
+        networkRequests: [{
+          method: "GET",
+          url: "https://shop.example.test/api/products/{id}?token=***",
+          status: 0,
+          durationMs: 0,
+        }],
+        discoveryDurationMs: 1842,
+        degradeWarningToken: null,
+      },
       consumed: false,
     }
     state.plans.set(plan.planId, plan)
@@ -1198,7 +1231,12 @@ const server = createServer(async (req, res) => {
       // Records the REAL credential id the composer sent (spec assertion);
       // undefined when none was referenced.
       state.lastPlannerCredentialId = body?.credentialId ?? null
-      return json(res, 200, plannerPlan(requestedType, body?.credentialId ?? null))
+      const plan = plannerPlan(requestedType, body?.credentialId ?? null)
+      if (mode === "degraded" && plan.evidence) {
+        plan.evidence.degradeWarningToken = "spec_not_found"
+      }
+      if (mode === "scalar-evidence") plan.evidence = "x"
+      return json(res, 200, plan)
     }
     if (segments.length === 2 && segments[1] === "confirm" && method === "POST") {
       const planId = segments[0]

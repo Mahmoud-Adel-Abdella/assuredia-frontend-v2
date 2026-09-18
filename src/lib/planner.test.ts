@@ -9,9 +9,14 @@ import {
   PLAN_ERROR_MESSAGES,
   attachOutcomesToSteps,
   clarificationCategoryLabel,
+  evidenceStatusKind,
+  evidenceTruncationCounts,
+  formatEvidenceDuration,
   isPlanClarification,
   isPlanReady,
   newConfirmKey,
+  normalizePlanEvidence,
+  normalizePlanEvidenceOnPlan,
   outcomesOfSteps,
   type WithOutcome,
 } from "./planner"
@@ -43,6 +48,118 @@ function stubFetch(
   }) as typeof fetch
   return calls
 }
+
+test("normalizes optional evidence without exposing producer-only values", () => {
+  const evidence = normalizePlanEvidence({
+    origin: null,
+    pageTitle: "Shop",
+    pageUrl: "https://shop.test/orders/{id}?token=***",
+    truncated: true,
+    elementsFound: 60,
+    discoveredElements: [{
+      elementId: "e1",
+      role: "button",
+      name: "Load",
+      strategy: "role",
+      value: "button[name=Load]",
+      strength: "STRONG",
+      state: "VERIFIED",
+    }],
+    backendOperations: [],
+    networkRequests: [{ method: "GET", url: "/orders/{id}", status: 0, durationMs: 500 }],
+    discoveryDurationMs: 1800,
+    degradeWarningToken: "attacker-token",
+  })
+  assert.equal(evidence?.origin, null)
+  assert.equal(evidence?.discoveredElements[0].state, "UNVERIFIED")
+  assert.equal(evidence?.networkRequests[0].status, 0)
+  assert.equal(evidence?.networkRequests[0].durationMs, 0)
+  assert.equal(evidence?.degradeWarningToken, null)
+  assert.deepEqual(evidence && evidenceTruncationCounts(evidence), { shown: 1, total: 60, isPartial: true })
+})
+
+test("evidence helpers classify statuses and durations", () => {
+  assert.equal(formatEvidenceDuration(0), "—")
+  assert.equal(formatEvidenceDuration(1842), "1.8s")
+  assert.equal(evidenceStatusKind(0), "failed")
+  assert.equal(evidenceStatusKind(204), "success")
+  assert.equal(evidenceStatusKind(302), "warning")
+  assert.equal(evidenceStatusKind(500), "error")
+})
+
+test("invalid evidence fails closed at the plan normalization boundary", () => {
+  const plan = {
+    status: "PLAN_READY" as const,
+    planId: "plan-invalid-evidence",
+    testType: "USER_JOURNEY" as const,
+    title: "Invalid evidence",
+    description: null,
+    authenticationRequired: false,
+    credentialReference: null,
+    steps: [],
+    expectedOutcomes: [],
+    requiredCapabilities: [],
+    warnings: [],
+    definitionSourceJson: "{}",
+    evidence: "x",
+  }
+  for (const value of ["x", 42, true, null, undefined]) {
+    assert.equal(normalizePlanEvidence(value), undefined)
+    assert.equal(normalizePlanEvidenceOnPlan({ ...plan, evidence: value }).evidence, undefined)
+  }
+  for (const value of [[], {}]) {
+    assert.equal(typeof normalizePlanEvidenceOnPlan({ ...plan, evidence: value }).evidence, "object")
+  }
+})
+
+test("normalizes network status clamp boundaries", () => {
+  const statuses = [-1, 0, 599, 600, 9999]
+  const evidence = normalizePlanEvidence({
+    networkRequests: statuses.map((status) => ({ status })),
+  })
+  assert.deepEqual(
+    evidence?.networkRequests.map((request) => request.status),
+    [0, 0, 599, 599, 599],
+  )
+})
+
+test("caps evidence arrays before mapping", () => {
+  const repeated = (count: number, item: unknown) => Array.from({ length: count }, () => item)
+  const evidence = normalizePlanEvidence({
+    backendOperations: repeated(200, {}),
+    discoveredElements: repeated(200, {}),
+    networkRequests: repeated(200, {}),
+  })
+  assert.equal(evidence?.backendOperations.length, 50)
+  assert.equal(evidence?.discoveredElements.length, 50)
+  assert.equal(evidence?.networkRequests.length, 100)
+})
+
+test("caps evidence string fields to their contract lengths", () => {
+  const evidence = normalizePlanEvidence({
+    origin: "o".repeat(5000),
+    pageTitle: "t".repeat(5000),
+    pageUrl: "u".repeat(5000),
+    backendOperations: [{ path: "p".repeat(5000), summary: "s".repeat(5000), tags: ["g".repeat(5000)] }],
+    discoveredElements: [{ name: "n".repeat(5000) }],
+    networkRequests: [{ url: "r".repeat(5000) }],
+  })
+  assert.equal(evidence?.origin?.length, 2048)
+  assert.equal(evidence?.pageTitle?.length, 500)
+  assert.equal(evidence?.pageUrl?.length, 2048)
+  assert.equal(evidence?.backendOperations[0].path.length, 2048)
+  assert.equal(evidence?.backendOperations[0].summary.length, 200)
+  assert.equal(evidence?.backendOperations[0].tags[0].length, 100)
+  assert.equal(evidence?.discoveredElements[0].name.length, 500)
+  assert.equal(evidence?.networkRequests[0].url.length, 2048)
+})
+
+test("caps elementsFound at one million", () => {
+  assert.equal(
+    normalizePlanEvidence({ elementsFound: 2_147_483_647 })?.elementsFound,
+    1_000_000,
+  )
+})
 
 test("toEditable preserves endpoint metadata", () => {
   const editable = toEditable(
