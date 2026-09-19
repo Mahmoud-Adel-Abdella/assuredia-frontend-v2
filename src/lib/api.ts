@@ -3147,6 +3147,20 @@ export type ConfirmTestPlanResult = {
 export const PLANNER_CLIENT_TIMEOUT_MS = 60_000
 
 export type CreateTestPlanResponse = TestPlan | PlanClarification | PlanFailure
+export type AsyncPlanStart = { planId: string; status: "STARTED" }
+
+export async function apiStartTestPlan(
+  clientId: number,
+  body: CreateTestPlanBody,
+  signal?: AbortSignal,
+): Promise<AsyncPlanStart> {
+  return request<AsyncPlanStart>(`/dashboard-api/clients/${clientId}/test-plans`, {
+    method: "POST",
+    headers: { "X-Plan-Async": "true", Accept: "application/json" },
+    body,
+    signal,
+  })
+}
 
 export async function apiCreateTestPlan(
   clientId: number,
