@@ -46,6 +46,7 @@ const state = {
   plans: new Map(),
   confirmKeys: new Map(),
   nextPlanId: 1,
+  asyncPlans: new Map(),
   nextConfirmDefinitionId: 501,
   /** Set by the spec to make the next proving run fail instead of pass. */
   nextExecutionStatus: "PASSED",
@@ -567,6 +568,7 @@ const server = createServer(async (req, res) => {
     state.plannerMode = "plan"
     state.plannerRequests = 0
     state.plans.clear()
+  state.asyncPlans.clear()
     state.confirmKeys.clear()
     state.nextPlanId = 1
     state.nextConfirmDefinitionId = 501
@@ -1186,6 +1188,29 @@ const server = createServer(async (req, res) => {
     const segments = rest === "" ? [] : rest.split("/")
     if (segments.length === 0 && method === "POST") {
       const body = await readBody(req)
+      if (String(req.headers["x-plan-async"] ?? "").toLowerCase() === "true") {
+        const mode = state.plannerMode
+        const planId = `async-plan-${state.nextPlanId++}`
+        if (mode === "clarification") {
+          state.asyncPlans.set(planId, { events: [], clarification: { status: "NEEDS_CLARIFICATION", planId, requestedType: body?.requestedType ?? "USER_JOURNEY", questions: [{ question: "Which checkout flow should be verified?", category: "MISSING_BUSINESS_OBJECTIVE" }] }, status: "RUNNING" })
+        } else if (mode.startsWith("failed:")) {
+          const category = mode.slice("failed:".length)
+          state.asyncPlans.set(planId, { events: [], failure: { status: "FAILED", planId, errorCategory: category, message: category === "AI_TIMEOUT" ? "The plan took too long to generate. Try again." : `Mock ${category}` }, status: "RUNNING" })
+        } else {
+          const plan = plannerPlan(body?.requestedType ?? "USER_JOURNEY", body?.credentialId ?? null)
+          plan.planId = planId
+          if (mode === "degraded" && plan.evidence) plan.evidence.degradeWarningToken = "spec_not_found"
+          if (mode === "scalar-evidence") plan.evidence = "x"
+          state.asyncPlans.set(planId, { events: [], plan, status: "RUNNING" })
+        }
+        const job = state.asyncPlans.get(planId)
+        const push = (event, delay) => setTimeout(() => job.events.push(event), delay)
+        push({ id: `${planId}-1`, stage: "start", message: "Reading your request", details: body?.intent ?? null, status: "COMPLETE", timestamp: Date.now(), metadata: {} }, 100)
+        push({ id: `${planId}-2`, stage: "mcp_warmup", message: "Warming up the sandbox", details: "Preparing secure browser", status: "ACTIVE", timestamp: Date.now(), metadata: {} }, 900)
+        push({ id: `${planId}-3`, stage: "navigate_done", message: "Application loaded", details: "Response: 42ms", status: "COMPLETE", timestamp: Date.now(), metadata: { elapsedMs: 42 } }, 1700)
+        setTimeout(() => { job.status = "DONE"; if (job.plan) state.plans.set(planId, { ...job.plan, consumed: false }) }, 2600)
+        return json(res, 202, { planId, status: "STARTED" })
+      }
       const intent = typeof body?.intent === "string" ? body.intent : ""
       if (!intent.trim()) return error(res, 400, "intent is required")
       if (intent.length > 4000)
@@ -1237,6 +1262,31 @@ const server = createServer(async (req, res) => {
       }
       if (mode === "scalar-evidence") plan.evidence = "x"
       return json(res, 200, plan)
+    }
+    if (segments.length === 2 && segments[1] === "events" && method === "GET") {
+      const job = state.asyncPlans.get(segments[0])
+      if (!job) return error(res, 404, "Test plan not found")
+      res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Access-Control-Allow-Origin": ORIGIN, "Access-Control-Allow-Credentials": "true" })
+      let sent = 0
+      const timer = setInterval(() => {
+        while (sent < job.events.length) {
+          const event = job.events[sent++]
+          res.write(`event: progress\nid: ${event.id}\ndata: ${JSON.stringify(event)}\n\n`)
+        }
+        if (job.status === "DONE" && sent >= job.events.length) {
+          if (job.failure) res.write(`event: failed\ndata: ${JSON.stringify(job.failure)}\n\n`)
+          else if (job.clarification) res.write(`event: clarification\ndata: ${JSON.stringify(job.clarification)}\n\n`)
+          else res.write(`event: complete\ndata: ${JSON.stringify(job.plan)}\n\n`)
+          clearInterval(timer); res.end()
+        }
+      }, 20)
+      req.on("close", () => clearInterval(timer))
+      return
+    }
+    if (segments.length === 1 && method === "GET") {
+      const job = state.asyncPlans.get(segments[0])
+      if (!job || job.status !== "DONE") return error(res, 404, "Test plan not found")
+      return json(res, 200, job.plan)
     }
     if (segments.length === 2 && segments[1] === "confirm" && method === "POST") {
       const planId = segments[0]

@@ -506,7 +506,7 @@ export function Modal({ isOpen, onClose, title, description, size = "md", varian
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#020a16]/70 backdrop-blur-sm" onClick={onClose} />
-      <div className={cx("relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-elevated shadow-2xl", widths[size])}>
+      <div role="dialog" aria-modal="true" className={cx("relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-elevated shadow-2xl", widths[size])}>
         {title && (
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
             <div>

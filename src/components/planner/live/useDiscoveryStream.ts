@@ -47,7 +47,8 @@ export function useDiscoveryStream(clientId: number, planId: string | null): Dis
       if (abort.signal.aborted) return
       if (name === "complete") setResult((r) => ({ ...r, status: "done", plan: body as TestPlan }))
       else if (name === "clarification") setResult((r) => ({ ...r, status: "clarification", clarification: body as PlanClarification }))
-      else setResult((r) => ({ ...r, status: "failed", failure: body as PlanFailure }))
+      else if (name === "failed") setResult((r) => ({ ...r, status: "failed", failure: body as PlanFailure }))
+      else return
       abort.abort()
     }
     const poll = async () => {
