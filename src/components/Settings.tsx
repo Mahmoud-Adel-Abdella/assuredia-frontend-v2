@@ -317,6 +317,7 @@ function ClientEnvironmentSection({
 }) {
   const { t } = useLang()
   const [website, setWebsite] = useState(client.base_url ?? "")
+  const [specUrl, setSpecUrl] = useState(client.spec_url ?? "")
   const [siteActive, setSiteActive] = useState(client.is_active !== false)
   const [siteUsername, setSiteUsername] = useState(client.site_username ?? "")
   const [sitePassword, setSitePassword] = useState("")
@@ -327,6 +328,9 @@ function ClientEnvironmentSection({
     if (!trimmedSite) return
     await onSave({
       baseUrl: trimmedSite,
+      // Always sent (even when blank) so clearing the field clears the stored value;
+      // the backend treats an empty string as "no explicit spec URL".
+      specUrl: specUrl.trim(),
       isActive: siteActive,
       siteUsername: siteUsername.trim(),
       // Blank password = keep the stored one (the frozen backend does the same).
@@ -347,6 +351,14 @@ function ClientEnvironmentSection({
 
       <Field label={t("settings.env.website")}>
         <TextInput value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
+      </Field>
+
+      <Field label={t("settings.env.specUrlLabel")} hint={t("settings.env.specUrlHint")}>
+        <TextInput
+          value={specUrl}
+          onChange={(e) => setSpecUrl(e.target.value)}
+          placeholder="https://api.example.com/docs"
+        />
       </Field>
 
       <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">

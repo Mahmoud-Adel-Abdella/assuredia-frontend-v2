@@ -742,6 +742,12 @@ export type BackendClientInfo = {
   timezone: string | null
   /* Settings-facing fields returned by the frozen backend (secrets stripped server-side) */
   base_url?: string | null
+  /**
+   * Optional explicit OpenAPI/Swagger location (migration-019). Set it when the
+   * spec is not discoverable from base_url — e.g. a different host, or a
+   * non-standard path such as Toolshop's api.practicesoftwaretesting.com/docs.
+   */
+  spec_url?: string | null
   headless?: boolean | null
   is_active?: boolean | null
   ai_active?: boolean | null
@@ -776,6 +782,8 @@ export type BackendClientDetails = {
  */
 export type ClientUpdateBody = {
   baseUrl?: string
+  /** Empty string clears the stored spec_url (discovery falls back to base_url). */
+  specUrl?: string
   browser?: string
   headless?: boolean
   isActive?: boolean

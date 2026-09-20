@@ -1241,6 +1241,14 @@ const dict: Record<string, Entry> = {
     ar: "يُعيَّن من Assuredia ولا يمكن تغييره.",
   },
   "settings.env.website": { en: "Website", ar: "الموقع الإلكتروني" },
+  "settings.env.specUrlLabel": {
+    en: "API specification URL",
+    ar: "رابط مواصفات الـ API",
+  },
+  "settings.env.specUrlHint": {
+    en: "Optional. Leave empty to discover the specification automatically on the application URL. Example: https://api.example.com/docs",
+    ar: "اختياري. اتركه فارغًا لاكتشاف المواصفات تلقائيًا من رابط التطبيق. مثال: https://api.example.com/docs",
+  },
   "settings.env.clientStatus": { en: "Client status", ar: "حالة العميل" },
   "settings.env.clientStatusDesc": {
     en: "Inactive clients are excluded from scheduled runs.",
