@@ -1190,6 +1190,7 @@ const server = createServer(async (req, res) => {
       const body = await readBody(req)
       if (String(req.headers["x-plan-async"] ?? "").toLowerCase() === "true") {
         const mode = state.plannerMode
+        state.lastPlannerCredentialId = body?.credentialId ?? null
         const planId = `async-plan-${state.nextPlanId++}`
         if (mode === "clarification") {
           state.asyncPlans.set(planId, { events: [], clarification: { status: "NEEDS_CLARIFICATION", planId, requestedType: body?.requestedType ?? "USER_JOURNEY", questions: [{ question: "Which checkout flow should be verified?", category: "MISSING_BUSINESS_OBJECTIVE" }] }, status: "RUNNING" })
