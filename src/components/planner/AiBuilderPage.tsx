@@ -4,7 +4,6 @@ import { useLang } from "../../lib/i18n"
 import {
   Composer,
   Suggestions,
-  buildingStages,
 } from "./AiComposer"
 import {
   IconEngineer,
@@ -20,7 +19,7 @@ import {
   PLANNER_CLIENT_TIMEOUT_MS,
   apiClientDetails,
   apiConfirmTestPlan,
-  apiCreateTestPlan,
+  apiStartTestPlan,
   apiListCredentials,
   type CredentialView,
 } from "../../lib/api"
@@ -29,18 +28,16 @@ import {
   CONFIRM_ERROR_MESSAGES,
   PLAN_ERROR_MESSAGES,
   attachOutcomesToSteps,
-  isPlanClarification,
-  isPlanReady,
   normalizePlanEvidenceOnPlan,
   newConfirmKey,
   type ComposerTestType,
   type PlanClarificationQuestion,
-  type PlanFailureCategory,
   type PlanOutcome,
   type TestPlan,
 } from "../../lib/planner"
+import { LiveDiscoveryFeed } from "./live/LiveDiscoveryFeed"
+import { useDiscoveryStream } from "./live/useDiscoveryStream"
 import {
-  BuildingView,
   ClarificationView,
   PlannerErrorView,
   PreflightUrlView,
@@ -130,8 +127,9 @@ export function AiBuilderPage({
   const [credentials, setCredentials] = useState<CredentialView[]>([])
   const [credentialsLoaded, setCredentialsLoaded] = useState(false)
   const [origin, setOrigin] = useState<string | null | undefined>(undefined)
-  const [stage, setStage] = useState(0)
+  const [livePlanId, setLivePlanId] = useState<string | null>(null)
   const [plan, setPlan] = useState<TestPlan | null>(null)
+  const stream = useDiscoveryStream(clientId, phase === "building" ? livePlanId : null)
   const [steps, setSteps] = useState<EditableStep[]>([])
   const [planTitle, setPlanTitle] = useState("")
   const [clarification, setClarification] = useState<{
@@ -238,23 +236,19 @@ export function AiBuilderPage({
     abortRef.current = controller
     cancelReasonRef.current = null
     setPhase("building")
-    setStage(0)
+    setLivePlanId(null)
+    setFailure(null)
     setBusy(true)
-
-    const stages = buildingStages(t)
-    const stepper = window.setInterval(() => {
-      setStage((s) => Math.min(s + 1, stages.length - 1))
-    }, 1200)
     const timeoutId = window.setTimeout(() => {
       cancelReasonRef.current = "timeout"
       controller.abort()
     }, PLANNER_CLIENT_TIMEOUT_MS)
-    timersRef.current.push(stepper, timeoutId)
+    timersRef.current.push(timeoutId)
 
     // PR10C.5 Phase 2: send the REAL credential id (client_credentials.id);
     // the backend's dual-id transition accepts it natively.
     const credentialId = selectedCredentialId
-    apiCreateTestPlan(
+    apiStartTestPlan(
       clientId,
       {
         intent: nextIntent.trim(),
@@ -263,132 +257,46 @@ export function AiBuilderPage({
       },
       controller.signal,
     ).then(
-      (raw) => {
-        window.clearInterval(stepper)
-        window.clearTimeout(timeoutId)
-        setBusy(false)
-        if (isPlanReady(raw)) {
-          const ready = raw as TestPlan
-          if (
-            !Array.isArray(ready.steps) ||
-            typeof ready.planId !== "string" ||
-            typeof ready.title !== "string"
-          ) {
-            fail(PLAN_ERROR_MESSAGES.AI_INVALID_OUTPUT)
-            return
-          }
-          const normalizedPlan = normalizePlanEvidenceOnPlan(ready)
-          setPlan(normalizedPlan)
-          setEvidenceOpen(false)
-          setSteps(toEditable(normalizedPlan.steps, normalizedPlan.expectedOutcomes))
-          setPlanTitle(ready.title)
-          setClarification(null)
-          setPhase("proposed")
-        } else if (isPlanClarification(raw)) {
-          const body = raw as {
-            questions?: unknown
-            requestedType?: unknown
-          }
-          const list = Array.isArray(body.questions) ? body.questions : []
-          setClarification({
-            questions: list.map((q) =>
-              typeof q === "string"
-                ? { question: q, category: null, answer: "" }
-                : {
-                    question: String(
-                      (q as { question?: unknown }).question ?? "",
-                    ),
-                    category:
-                      typeof (q as { category?: unknown }).category ===
-                      "string"
-                        ? ((q as { category?: string }).category as string)
-                        : null,
-                    answer: "",
-                  },
-            ),
-          })
-          setPhase("clarification")
-        } else {
-          const failed = raw as {
-            errorCategory?: unknown
-            message?: unknown
-          }
-          const category = (
-            typeof failed.errorCategory === "string"
-              ? failed.errorCategory
-              : "AI_UNAVAILABLE"
-          ) as PlanFailureCategory
-          fail(
-            PLAN_ERROR_MESSAGES[category] ??
-              PLAN_ERROR_MESSAGES.AI_UNAVAILABLE,
-            typeof failed.message === "string" && failed.message
-              ? failed.message
-              : undefined,
-          )
-        }
-      },
-      (error: unknown) => {
-        window.clearInterval(stepper)
-        window.clearTimeout(timeoutId)
-        setBusy(false)
-        if (error instanceof ApiError && error.status === 401) {
-          onUnauthorized()
-          return
-        }
-        // F-01: the backend delivers plan FAILED over HTTP error statuses
-        // (503 for every category except the clarification-shaped
-        // INTENT_AMBIGUOUS and CREDENTIAL_REQUIRED, which answer 200 and
-        // are handled in the success path above). Map those bodies exactly
-        // like the HTTP-200 FAILED shape instead of collapsing to
-        // AI_UNAVAILABLE.
-        if (error instanceof ApiError && error.body != null) {
-          const body = error.body as {
-            status?: unknown
-            errorCategory?: unknown
-            message?: unknown
-          }
-          if (
-            body.status === "FAILED" &&
-            typeof body.errorCategory === "string" &&
-            Object.prototype.hasOwnProperty.call(
-              PLAN_ERROR_MESSAGES,
-              body.errorCategory,
-            )
-          ) {
-            fail(
-              PLAN_ERROR_MESSAGES[
-                body.errorCategory as PlanFailureCategory
-              ],
-              typeof body.message === "string" && body.message
-                ? body.message
-                : undefined,
-            )
-            return
-          }
-        }
-        if (
-          controller.signal.aborted ||
-          (error instanceof ApiError && error.status === 0)
-        ) {
-          fail(
-            cancelReasonRef.current === "user"
-              ? PLAN_ERROR_MESSAGES.AI_UNAVAILABLE
-              : PLAN_ERROR_MESSAGES.AI_TIMEOUT,
-          )
-          if (cancelReasonRef.current === "user") setPhase("idle")
-          return
-        }
-        fail(PLAN_ERROR_MESSAGES.AI_UNAVAILABLE)
-      },
+      (started) => { setLivePlanId(started.planId) },
+      (error: unknown) => { setBusy(false); fail(PLAN_ERROR_MESSAGES.AI_UNAVAILABLE, error instanceof Error ? error.message : undefined) },
     )
+    // Terminal transitions are driven by the live stream below.
+    return
+  }
+
+  useEffect(() => {
+    if (stream.status === "done" && stream.plan) {
+      const normalized = normalizePlanEvidenceOnPlan(stream.plan)
+      setPlan(normalized); setSteps(toEditable(normalized.steps, normalized.expectedOutcomes)); setPlanTitle(normalized.title); setBusy(false); setPhase("proposed")
+    } else if (stream.status === "clarification" && stream.clarification) {
+      setClarification({ questions: stream.clarification.questions.map((q) => ({ ...q, answer: "" })) }); setBusy(false); setPhase("clarification")
+    } else if (stream.status === "failed" && stream.failure) {
+      fail(PLAN_ERROR_MESSAGES[stream.failure.errorCategory] ?? PLAN_ERROR_MESSAGES.AI_UNAVAILABLE, stream.failure.message)
+    }
+  }, [stream.status, stream.plan, stream.clarification, stream.failure])
+
+  /** Returns focus to the composer's intent textarea (Edit Intent flow). */
+  function focusIntentComposer() {
+    window.setTimeout(() => {
+      const textarea = document.getElementById("ai-intent-textarea") as HTMLTextAreaElement | null
+      ;(textarea ?? document.querySelector<HTMLTextAreaElement>("textarea[aria-label]"))?.focus()
+    }, 0)
+  }
+
+  function returnToComposer(focusIntent = false) {
+    stream.cancel()
+    abortRef.current?.abort()
+    clearTimers()
+    setLivePlanId(null)
+    setBusy(false)
+    setFailure(null)
+    setPhase("idle")
+    if (focusIntent) focusIntentComposer()
   }
 
   function cancelBuild() {
     cancelReasonRef.current = "user"
-    abortRef.current?.abort()
-    clearTimers()
-    setBusy(false)
-    setPhase("idle")
+    returnToComposer()
   }
 
   function resetAll() {
@@ -535,7 +443,6 @@ export function AiBuilderPage({
     setPhase("proposed")
   }
 
-  const stages = buildingStages(t)
   const subtitle =
     phase === "building"
       ? t("pr10c.page.subtitleBuilding")
@@ -725,12 +632,16 @@ export function AiBuilderPage({
           >
             <div className="pointer-events-none absolute -left-16 -top-8 hidden h-64 w-64 rounded-full bg-brand-700/10 blur-3xl dark:block" />
             <div className="pointer-events-none absolute -right-8 top-4 hidden h-48 w-48 rounded-full bg-brand-600/8 blur-3xl dark:block" />
-            <div className="relative">
-              <BuildingView
-                testType={composerType}
-                stages={stages}
-                currentStage={stage}
-                onCancel={cancelBuild}
+            <div className="relative p-6 sm:p-8">
+              <LiveDiscoveryFeed 
+                events={stream.events} 
+                targetOrigin={origin ?? null} 
+                stalled={stream.stalled} 
+                onCancel={cancelBuild} 
+                onRetry={() => runPlan(intent)}
+                onEditIntent={() => { setPhase("idle"); focusIntentComposer() }}
+                errorTitle={failure?.title}
+                errorDescription={failure?.description}
               />
             </div>
           </div>
@@ -854,7 +765,7 @@ export function AiBuilderPage({
               title={failure.title}
               description={failure.description}
               onRetry={() => runPlan(intent)}
-              onEdit={() => setPhase("idle")}
+              onEdit={() => { setPhase("idle"); focusIntentComposer() }}
             />
           </div>
         </div>

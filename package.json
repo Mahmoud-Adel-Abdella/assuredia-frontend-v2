@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx --test src/lib/*.test.ts src/components/admin/__tests__/*.test.ts src/components/testdefinitions/__tests__/*.test.ts",
+    "test": "npx tsx --test src/lib/*.test.ts src/components/admin/__tests__/*.test.ts src/components/testdefinitions/__tests__/*.test.ts src/components/planner/live/*.test.ts",
     "test:e2e": "playwright test",
     "format": "oxfmt",
     "test:live": "node e2e/live/real-stack.mjs"

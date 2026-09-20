@@ -1,5 +1,29 @@
 @import 'tailwindcss';
 
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fade-in-up 400ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* PR10C.6 live discovery feed — glass card surfaces.
+   Ported from the locked reference design (docs/designs/live-discovery-feed:
+   .glass-card / .glass-card-light). Light values are the default; the dark
+   theme overrides through the app's .dark root class so the feed card adapts
+   without a separate class name at the call site. */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.dark .glass-card {
+  background: rgba(15, 20, 32, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 /* Fonts are intentionally local: no third-party font CDN is imported, so the UI
    makes zero cross-origin asset requests. The named families below resolve only
    when installed on the user's machine; otherwise the system stacks render. */

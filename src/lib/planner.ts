@@ -119,6 +119,7 @@ export type TestPlan = {
   warnings: string[]
   definitionSourceJson: string
   evidence?: PlanEvidence
+  metadata?: Record<string, unknown>
 }
 
 export type PlanClarificationQuestion = {

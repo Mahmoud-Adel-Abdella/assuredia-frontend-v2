@@ -487,11 +487,31 @@ type ModalProps = {
 }
 
 export function Modal({ isOpen, onClose, title, description, size = "md", variant = "default", children, footer }: ModalProps) {
+  const containerRef = React.useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (!isOpen) return
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose() }
+    // A11y: remember what had focus so it can be restored on close, move
+    // focus into the dialog, trap Tab inside it, and close on Escape.
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const container = containerRef.current
+    container?.focus()
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { onClose(); return }
+      if (e.key !== "Tab" || !container) return
+      const focusables = Array.from(
+        container.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+      )
+      if (focusables.length === 0) return
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && (document.activeElement === last || document.activeElement === container)) { e.preventDefault(); first.focus() }
+    }
     document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      previouslyFocused?.focus()
+    }
   }, [isOpen, onClose])
 
   if (!isOpen || typeof document === "undefined") return null
@@ -506,7 +526,7 @@ export function Modal({ isOpen, onClose, title, description, size = "md", varian
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#020a16]/70 backdrop-blur-sm" onClick={onClose} />
-      <div className={cx("relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-elevated shadow-2xl", widths[size])}>
+      <div ref={containerRef} tabIndex={-1} role="dialog" aria-modal="true" className={cx("relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-elevated shadow-2xl focus:outline-none", widths[size])}>
         {title && (
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
             <div>
