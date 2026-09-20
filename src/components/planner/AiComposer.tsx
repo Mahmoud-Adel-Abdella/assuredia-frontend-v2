@@ -130,6 +130,7 @@ export function Composer({
         <div className="flex items-start gap-2.5">
           <IconSparkle className="mt-[3px] h-3.5 w-3.5 shrink-0 text-teal-400 opacity-90" />
           <textarea
+            id="ai-intent-textarea"
             value={intent}
             onChange={(e) => setIntent(e.target.value)}
             placeholder={t("pr10c.composer.placeholder")}

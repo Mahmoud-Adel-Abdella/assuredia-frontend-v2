@@ -1287,6 +1287,16 @@ const server = createServer(async (req, res) => {
     if (segments.length === 1 && method === "GET") {
       const job = state.asyncPlans.get(segments[0])
       if (!job || job.status !== "DONE") return error(res, 404, "Test plan not found")
+      // Mirror the real backend's polling contract (PR10C.6): failures carry
+      // the FAILED body with the same status mapping the sync endpoint uses
+      // (503, except the clarification-shaped 200 categories), and
+      // clarification jobs return their NEEDS_CLARIFICATION body.
+      if (job.failure) {
+        const category = job.failure.errorCategory
+        const status = category === "INTENT_AMBIGUOUS" || category === "CREDENTIAL_REQUIRED" ? 200 : 503
+        return json(res, status, job.failure)
+      }
+      if (job.clarification) return json(res, 200, job.clarification)
       return json(res, 200, job.plan)
     }
     if (segments.length === 2 && segments[1] === "confirm" && method === "POST") {

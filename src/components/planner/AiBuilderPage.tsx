@@ -38,7 +38,6 @@ import {
 import { LiveDiscoveryFeed } from "./live/LiveDiscoveryFeed"
 import { useDiscoveryStream } from "./live/useDiscoveryStream"
 import {
-  BuildingView,
   ClarificationView,
   PlannerErrorView,
   PreflightUrlView,
@@ -238,6 +237,7 @@ export function AiBuilderPage({
     cancelReasonRef.current = null
     setPhase("building")
     setLivePlanId(null)
+    setFailure(null)
     setBusy(true)
     const timeoutId = window.setTimeout(() => {
       cancelReasonRef.current = "timeout"
@@ -271,9 +271,17 @@ export function AiBuilderPage({
     } else if (stream.status === "clarification" && stream.clarification) {
       setClarification({ questions: stream.clarification.questions.map((q) => ({ ...q, answer: "" })) }); setBusy(false); setPhase("clarification")
     } else if (stream.status === "failed" && stream.failure) {
-      fail(PLAN_ERROR_MESSAGES[stream.failure.errorCategory] ?? PLAN_ERROR_MESSAGES.AI_UNAVAILABLE, stream.failure.message); setBusy(false)
+      fail(PLAN_ERROR_MESSAGES[stream.failure.errorCategory] ?? PLAN_ERROR_MESSAGES.AI_UNAVAILABLE, stream.failure.message)
     }
   }, [stream.status, stream.plan, stream.clarification, stream.failure])
+
+  /** Returns focus to the composer's intent textarea (Edit Intent flow). */
+  function focusIntentComposer() {
+    window.setTimeout(() => {
+      const textarea = document.getElementById("ai-intent-textarea") as HTMLTextAreaElement | null
+      ;(textarea ?? document.querySelector<HTMLTextAreaElement>("textarea[aria-label]"))?.focus()
+    }, 0)
+  }
 
   function returnToComposer(focusIntent = false) {
     stream.cancel()
@@ -283,7 +291,7 @@ export function AiBuilderPage({
     setBusy(false)
     setFailure(null)
     setPhase("idle")
-    if (focusIntent) window.setTimeout(() => document.querySelector<HTMLTextAreaElement>('textarea[aria-label]')?.focus(), 0)
+    if (focusIntent) focusIntentComposer()
   }
 
   function cancelBuild() {
@@ -625,7 +633,16 @@ export function AiBuilderPage({
             <div className="pointer-events-none absolute -left-16 -top-8 hidden h-64 w-64 rounded-full bg-brand-700/10 blur-3xl dark:block" />
             <div className="pointer-events-none absolute -right-8 top-4 hidden h-48 w-48 rounded-full bg-brand-600/8 blur-3xl dark:block" />
             <div className="relative p-6 sm:p-8">
-              <LiveDiscoveryFeed events={stream.events} targetOrigin={origin ?? null} stalled={stream.stalled} onCancel={cancelBuild} onRetry={stream.status === "failed" ? () => returnToComposer() : undefined} onEdit={stream.status === "failed" ? () => returnToComposer(true) : undefined} />
+              <LiveDiscoveryFeed 
+                events={stream.events} 
+                targetOrigin={origin ?? null} 
+                stalled={stream.stalled} 
+                onCancel={cancelBuild} 
+                onRetry={() => runPlan(intent)}
+                onEditIntent={() => { setPhase("idle"); focusIntentComposer() }}
+                errorTitle={failure?.title}
+                errorDescription={failure?.description}
+              />
             </div>
           </div>
         </div>
@@ -748,7 +765,7 @@ export function AiBuilderPage({
               title={failure.title}
               description={failure.description}
               onRetry={() => runPlan(intent)}
-              onEdit={() => setPhase("idle")}
+              onEdit={() => { setPhase("idle"); focusIntentComposer() }}
             />
           </div>
         </div>

@@ -44,6 +44,19 @@ test("cancel opens confirmation and returns to composer", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Create a Test" })).toBeVisible()
 })
 
+test("cancel decline closes the dialog and planning continues", async ({ page }) => {
+  await openBuilder(page)
+  await page.getByPlaceholder("Describe what you want to verify...").fill("Verify a user can view products")
+  await page.getByRole("button", { name: "Build Test" }).click()
+  await expect(page.getByTestId("live-discovery-feed")).toBeVisible()
+  await page.getByRole("button", { name: "Cancel Discovery" }).click()
+  await expect(page.getByRole("heading", { name: "Cancel planning?" })).toBeVisible()
+  await page.getByRole("button", { name: "Continue" }).click()
+  await expect(page.getByRole("heading", { name: "Cancel planning?" })).toBeHidden()
+  await expect(page.getByTestId("live-discovery-feed")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Here's what Assuredia proposes" })).toBeVisible({ timeout: 15000 })
+})
+
 test("failure shows recovery and Try Again returns to composer", async ({ page, request }) => {
   await mode(request, "failed:AI_TIMEOUT")
   await openBuilder(page)
@@ -52,6 +65,19 @@ test("failure shows recovery and Try Again returns to composer", async ({ page, 
   await expect(page.getByRole("heading", { name: "The plan took too long to generate. Try again." })).toBeVisible({ timeout: 15000 })
   await page.getByRole("button", { name: "Retry" }).click()
   await expect(page.getByRole("heading", { name: "Create a Test" })).toBeVisible()
+})
+
+test("failure Edit intent returns to the composer with the textarea focused", async ({ page, request }) => {
+  await mode(request, "failed:AI_TIMEOUT")
+  await openBuilder(page)
+  await page.getByPlaceholder("Describe what you want to verify...").fill("Verify a user can view products")
+  await page.getByRole("button", { name: "Build Test" }).click()
+  await expect(page.getByRole("heading", { name: "The plan took too long to generate. Try again." })).toBeVisible({ timeout: 15000 })
+  await page.getByRole("button", { name: "Edit intent" }).click()
+  await expect(page.getByRole("heading", { name: "Create a Test" })).toBeVisible()
+  await expect(page.getByPlaceholder("Describe what you want to verify...")).toBeFocused()
+  // The original intent is preserved for editing.
+  await expect(page.getByPlaceholder("Describe what you want to verify...")).toHaveValue("Verify a user can view products")
 })
 
 test("light mode renders the feed surface", async ({ page }) => {
@@ -75,6 +101,6 @@ test("Arabic feed mirrors direction and keeps connector on the right", async ({ 
   await page.getByRole("button", { name: /بناء الاختبار/ }).click()
   const feed = page.getByTestId("live-discovery-feed")
   await expect(feed).toHaveAttribute("dir", "rtl")
-  await expect(feed.locator("[class*='rtl:right-3']")).toBeVisible()
+  await expect(feed.locator("[class*='rtl:right-\\[19px\\]']")).toBeVisible()
   await page.screenshot({ path: "test-results/live-discovery-rtl.png", fullPage: true })
 })
