@@ -4105,6 +4105,53 @@ const dict: Record<string, Entry> = {
     ar: "جارٍ إنشاء الإصدار…",
   },
   "testdef.action.adminBadge": { en: "Admin", ar: "مسؤول" },
+  "testdef.action.schedule": { en: "Schedule", ar: "جدولة" },
+
+  "testdef.schedule.title": { en: "Schedule this test", ar: "جدولة هذا الاختبار" },
+  "testdef.schedule.subtitle": {
+    en: "Run “{name}” automatically. The version is resolved each time it fires, so the schedule follows the test as it evolves.",
+    ar: "شغّل «{name}» تلقائيًا. يُحدَّد الإصدار في كل تشغيل، فتتبع الجدولة الاختبار مع تطوره.",
+  },
+  "testdef.schedule.create": { en: "Create schedule", ar: "إنشاء الجدولة" },
+  "testdef.schedule.frequency": { en: "Frequency", ar: "التكرار" },
+  "testdef.schedule.time": { en: "Time", ar: "الوقت" },
+  "testdef.schedule.timezone": { en: "Timezone", ar: "المنطقة الزمنية" },
+  "testdef.schedule.timezoneHint": {
+    en: "The timezone the times above are read in.",
+    ar: "المنطقة الزمنية التي تُقرأ بها الأوقات أعلاه.",
+  },
+  "testdef.schedule.notify": { en: "Notifications", ar: "الإشعارات" },
+  "testdef.schedule.notifyHint": {
+    en: "Only gates the outbound webhook. Results and alerts are always recorded.",
+    ar: "يقتصر تأثيره على النداء الخارجي. تُسجَّل النتائج والتنبيهات دائمًا.",
+  },
+  "testdef.schedule.notifyInherit": { en: "Inherit the client's setting", ar: "وراثة إعداد العميل" },
+  "testdef.schedule.name": { en: "Schedule name", ar: "اسم الجدولة" },
+  "testdef.schedule.nameHint": {
+    en: "Optional — “{name} schedule” is used if left blank.",
+    ar: "اختياري — يُستخدم «{name} schedule» إذا تُرك فارغًا.",
+  },
+  "testdef.schedule.namePlaceholder": { en: "{name} schedule", ar: "{name} schedule" },
+  "testdef.schedule.existing": { en: "Existing schedules", ar: "الجدولات الحالية" },
+  "testdef.schedule.liveCount": { en: "{live} of {total} active", ar: "{live} من {total} نشطة" },
+  "testdef.schedule.none": {
+    en: "This test has no schedule yet.",
+    ar: "لا يوجد جدول لهذا الاختبار بعد.",
+  },
+  "testdef.schedule.live": { en: "Active", ar: "نشط" },
+  "testdef.schedule.paused": { en: "Paused", ar: "متوقف" },
+  "testdef.schedule.remove": { en: "Remove", ar: "إزالة" },
+  "testdef.schedule.createFailed": { en: "The schedule was not created", ar: "لم تُنشأ الجدولة" },
+  "testdef.schedule.errorCron": {
+    en: "That is not a valid schedule time.",
+    ar: "هذا ليس وقت جدولة صالحًا.",
+  },
+  "testdef.schedule.errorTime": { en: "Choose a time of day.", ar: "اختر وقتًا من اليوم." },
+  "testdef.schedule.errorTimezone": { en: "Choose a timezone.", ar: "اختر منطقة زمنية." },
+  "testdef.schedule.versionNote": {
+    en: "Each time it fires, the engine runs the definition's latest version and records the run in History with the SCHEDULED trigger.",
+    ar: "في كل تشغيل، ينفّذ المحرك أحدث إصدار للتعريف ويسجّل التشغيل في السجل بمُشغِّل SCHEDULED.",
+  },
 
   "testdef.reason.adminOnly": {
     en: "Only an administrator can perform this step",
@@ -4243,6 +4290,10 @@ const dict: Record<string, Entry> = {
     en: "Could not load the run",
     ar: "تعذّر تحميل التشغيل",
   },
+  "runPanel.analysis.title": { en: "AI Failure Analysis", ar: "تحليل فشل الذكاء الاصطناعي" },
+  "runPanel.analysis.loading": { en: "Loading analysis...", ar: "جارٍ تحميل التحليل..." },
+  "runPanel.analysis.unavailable": { en: "Analysis is unavailable for this run.", ar: "التحليل غير متاح لهذا التشغيل." },
+  "runPanel.analysis.error": { en: "Could not load AI failure analysis.", ar: "تعذّر تحميل تحليل فشل الذكاء الاصطناعي." },
 
   "testdef.artifacts.title": { en: "Evidence", ar: "الأدلة" },
   "testdef.artifacts.none": {
@@ -5198,6 +5249,32 @@ const dict: Record<string, Entry> = {
   "pr10c.plan.needsDiscovery": {
     en: "Application exploration needed",
     ar: "يلزم استكشاف التطبيق",
+  },
+  "pr10c.plan.bound": { en: "Bound", ar: "مرتبط" },
+  "pr10c.plan.boundHint": {
+    en: "Auto-bound to an element found during exploration",
+    ar: "تم ربطه تلقائيًا بعنصر تم العثور عليه أثناء الاستكشاف",
+  },
+  "pr10c.plan.needsBinding": { en: "Needs binding", ar: "يحتاج ربطًا" },
+  "pr10c.plan.needsBindingHint": {
+    en: "No matching element was found, so this action has no target yet. Edit the definition source to bind it.",
+    ar: "لم يتم العثور على عنصر مطابق، لذا لا يوجد هدف لهذا الإجراء بعد. حرّر مصدر التعريف لربطه.",
+  },
+  "pr10c.review.bindingSummary": {
+    en: "{bound} of {total} actions bound automatically",
+    ar: "تم ربط {bound} من {total} إجراءً تلقائيًا",
+  },
+  "pr10c.review.bindingAllBound": {
+    en: "Every action is bound and ready to run.",
+    ar: "كل الإجراءات مرتبطة وجاهزة للتشغيل.",
+  },
+  "pr10c.review.bindingUnbound": {
+    en: "Still needs a target:",
+    ar: "لا يزال يحتاج هدفًا:",
+  },
+  "pr10c.review.bindingStillUsable": {
+    en: "You can create the draft now — an unbound action fails its run visibly rather than passing silently, and can be bound in the definition source.",
+    ar: "يمكنك إنشاء المسودة الآن — الإجراء غير المرتبط يفشل في تشغيله بشكل ظاهر بدلًا من النجاح الصامت، ويمكن ربطه في مصدر التعريف.",
   },
   "pr10c.advanced.title": {
     en: "Advanced Options",

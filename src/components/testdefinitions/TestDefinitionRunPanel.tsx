@@ -1,7 +1,9 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { Button, Card, cx, useToast } from "../primitives"
 import { useLang, langLocale } from "../../lib/i18n"
-import { apiDownloadTestDefinitionArtifact } from "../../lib/api"
+import { AiAnalysisCard } from "../AiCard"
+import { apiDownloadTestDefinitionArtifact, apiRunAnalysis, apiTriggerAnalysis } from "../../lib/api"
+import { parseAiReport } from "../../lib/aiAnalysis"
 import { mapTestDefinitionFailure } from "../../lib/testDefinitionLifecycle"
 import {
   formatArtifactSize,
@@ -231,6 +233,59 @@ export function TestDefinitionRunPanel({
   const locale = langLocale()
   const toast = useToast()
   const [problem, setProblem] = useState<ArtifactProblem | null>(null)
+  const [analysisOpen, setAnalysisOpen] = useState(false)
+  const [analysisStatus, setAnalysisStatus] = useState("NOT_STARTED")
+  const [analysisReport, setAnalysisReport] = useState<ReturnType<typeof parseAiReport>>(null)
+  const [analysisLoading, setAnalysisLoading] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [analysisRetrying, setAnalysisRetrying] = useState(false)
+
+  const terminalFailure = run != null && ["FAILED", "FAIL", "ERROR"].includes(String(run.status).toUpperCase())
+  const analysisRunId = run?.externalRunId ?? null
+
+  async function loadAnalysis() {
+    if (!analysisRunId || analysisLoading) return
+    setAnalysisLoading(true)
+    setAnalysisError(null)
+    try {
+      const result = await apiRunAnalysis(analysisRunId)
+      if (result.analysisStatus === "NOT_STARTED") {
+        const accepted = await apiTriggerAnalysis(analysisRunId)
+        setAnalysisStatus(accepted.analysisStatus)
+        setAnalysisReport(null)
+      } else {
+        setAnalysisStatus(result.analysisStatus)
+        setAnalysisReport(parseAiReport(result.analysis))
+      }
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : t("runPanel.analysis.error"))
+    } finally {
+      setAnalysisLoading(false)
+    }
+  }
+
+  async function retryAnalysis() {
+    if (!analysisRunId || analysisRetrying) return
+    setAnalysisRetrying(true)
+    setAnalysisError(null)
+    try {
+      const result = await apiTriggerAnalysis(analysisRunId)
+      setAnalysisStatus(result.analysisStatus)
+      setAnalysisReport(null)
+      await loadAnalysis()
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : t("runPanel.analysis.error"))
+    } finally {
+      setAnalysisRetrying(false)
+    }
+  }
+
+  useEffect(() => {
+    setAnalysisOpen(false)
+    setAnalysisStatus("NOT_STARTED")
+    setAnalysisReport(null)
+    setAnalysisError(null)
+  }, [run?.externalRunId])
 
   function reportProblem(next: ArtifactProblem) {
     setProblem(next)
@@ -332,6 +387,44 @@ export function TestDefinitionRunPanel({
           <p className="mt-3 text-[12px] text-slate-500">{run.idempotencyNote}</p>
         )}
       </Card>
+
+      {terminalFailure && (
+        <Card className="overflow-hidden">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 px-5 py-4 text-start"
+            aria-expanded={analysisOpen}
+            aria-controls="testdef-inline-ai-analysis"
+            onClick={() => {
+              const next = !analysisOpen
+              setAnalysisOpen(next)
+              if (next && analysisStatus === "NOT_STARTED") void loadAnalysis()
+            }}
+          >
+            <span className="text-[13px] font-semibold text-navy">{t("runPanel.analysis.title")}</span>
+            <span aria-hidden="true" className="text-slate-400">{analysisOpen ? "−" : "+"}</span>
+          </button>
+          {analysisOpen && (
+            <div id="testdef-inline-ai-analysis" className="border-t border-slate-200 p-4">
+              {!analysisRunId ? (
+                <p role="alert" className="text-[13px] text-red-700">{t("runPanel.analysis.unavailable")}</p>
+              ) : analysisLoading ? (
+                <p role="status" className="text-[13px] text-slate-500">{t("runPanel.analysis.loading")}</p>
+              ) : analysisError ? (
+                <p role="alert" className="text-[13px] text-red-700">{analysisError}</p>
+              ) : (
+                <AiAnalysisCard
+                  status={analysisStatus}
+                  report={analysisReport}
+                  retryable={analysisStatus === "FAILED" || analysisStatus === "RATE_LIMITED" || analysisStatus === "NOT_STARTED"}
+                  retrying={analysisRetrying}
+                  onRetry={() => void retryAnalysis()}
+                />
+              )}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Steps */}
       <Card className="overflow-hidden">

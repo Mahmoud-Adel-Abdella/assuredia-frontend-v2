@@ -154,6 +154,44 @@ test("Run results and evidence", async (t) => {
     }
   })
 
+  await t.test("FAILED run exposes inline AI analysis and loads the external run id", async () => {
+    const stub = stubFetch([
+      {
+        match: "/dashboard-api/runs/run-def-abc123/analysis",
+        status: 200,
+        json: {
+          runId: "run-def-abc123",
+          analysisStatus: "COMPLETED",
+          analysis: { status: "Critical", severity: "High", riskScore: { score: 82 }, assessment: "Search step failed" },
+        },
+      },
+    ])
+    restore = stub.restore
+    const view = await renderPanel(runViewFromDetails(runDetails({ status: "FAILED" })))
+    assert.match(textOf(view.container), /AI Failure Analysis/)
+    assert.equal(textOf(view.container).includes("Search step failed"), false)
+    await click(button(view.container, "AI Failure Analysis"))
+    await flush(4)
+    assert.equal(stub.requests[0].url, "/dashboard-api/runs/run-def-abc123/analysis")
+    assert.match(textOf(view.container), /Search step failed/)
+  })
+
+  await t.test("PASSED runs do not show inline AI failure analysis", async () => {
+    const view = await renderPanel(runViewFromDetails(runDetails({ status: "PASSED" })))
+    assert.equal(textOf(view.container).includes("AI Failure Analysis"), false)
+  })
+
+  await t.test("analysis 404 is visible in the run panel", async () => {
+    const stub = stubFetch([
+      { match: "/dashboard-api/runs/run-def-abc123/analysis", status: 404, json: { error: "not found" } },
+    ])
+    restore = stub.restore
+    const view = await renderPanel(runViewFromDetails(runDetails({ status: "ERROR" })))
+    await click(button(view.container, "AI Failure Analysis"))
+    await flush(4)
+    assert.match(textOf(view.container), /not found|Could not load AI failure analysis/i)
+  })
+
   await t.test("A step message is rendered as text, never as markup", async () => {
     const injected = '<img src=x onerror="alert(1)">'
     const view = await renderPanel(
