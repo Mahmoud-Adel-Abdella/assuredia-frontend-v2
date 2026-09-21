@@ -37,6 +37,7 @@ import {
   validateDefinitionSource,
 } from "../../lib/testDefinitionSchema"
 import { ConfirmDialog } from "./ConfirmDialog"
+import { ScheduleDefinitionModal } from "./ScheduleDefinitionModal"
 import { TestDefinitionRunPanel } from "./TestDefinitionRunPanel"
 import {
   BackButton,
@@ -112,6 +113,9 @@ export function TestDefinitionDetail({
   const [draftError, setDraftError] = useState<string | null>(null)
   const [pending, setPending] = useState<PendingAction>(null)
   const [confirm, setConfirm] = useState<ConfirmTarget | null>(null)
+  /* Scheduling is not a lifecycle step: it opens its own dialog and changes
+     nothing about the version on screen. */
+  const [scheduleOpen, setScheduleOpen] = useState(false)
 
   const [engineReport, setEngineReport] =
     useState<TestDefinitionValidationReport | null>(null)
@@ -656,6 +660,13 @@ export function TestDefinitionDetail({
             "outline",
             () => void runSimpleAction("newVersion"),
           )}
+          {actionButton(
+            "schedule",
+            t("testdef.action.schedule"),
+            t("testdef.action.schedule"),
+            "outline",
+            () => setScheduleOpen(true),
+          )}
         </div>
         {availability
           .filter(
@@ -960,6 +971,17 @@ export function TestDefinitionDetail({
           onBack()
         }}
         onCancel={() => setConfirm(null)}
+      />
+
+      {/* Scheduling is independent of the version on screen: the engine resolves
+          the version when the trigger fires, so opening this does not touch the
+          draft and does not need the unsaved-changes guard. */}
+      <ScheduleDefinitionModal
+        open={scheduleOpen}
+        clientId={clientId}
+        definitionId={definitionId}
+        definitionName={definition.name}
+        onClose={() => setScheduleOpen(false)}
       />
     </div>
   )

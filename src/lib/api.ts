@@ -2895,6 +2895,94 @@ export async function apiDownloadTestDefinitionArtifact(
 }
 
 /* ------------------------------------------------------------------ */
+/* Definition schedules (Phase 4)                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One schedule attached to a Test Definition.
+ *
+ * A definition schedule is stored by the engine as an ordinary execution plan
+ * whose single item targets the definition, so `id` is a plan id — the same
+ * handle the flow-schedule routes use. The definition does not pin a version:
+ * the version is resolved when the trigger fires, which is what lets a schedule
+ * keep running the test as the test evolves.
+ */
+export type DefinitionSchedule = {
+  id: number
+  definitionId: number
+  clientId?: number
+  name: string
+  cronExpression: string
+  timezone: string | null
+  isActive: boolean
+  notifyPolicy: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type DefinitionScheduleInput = {
+  name?: string | null
+  cronExpression: string
+  timezone?: string | null
+  isActive?: boolean
+  notifyPolicy?: string | null
+}
+
+function definitionSchedulesPath(clientId: number, definitionId: number): string {
+  return `${testDefinitionsPath(clientId)}/${definitionId}/schedules`
+}
+
+/** GET …/{definitionId}/schedules — this definition's schedules, oldest first. */
+export async function apiListDefinitionSchedules(
+  clientId: number,
+  definitionId: number,
+): Promise<DefinitionSchedule[]> {
+  return request<DefinitionSchedule[]>(
+    definitionSchedulesPath(clientId, definitionId),
+  )
+}
+
+/**
+ * POST …/{definitionId}/schedules — schedule a Test Definition.
+ *
+ * 409 means the definition is ARCHIVED: a trigger on an archived test could only
+ * ever skip, so the engine refuses at schedule time rather than silently at
+ * 03:00 every morning. 503 names the migration to apply when the engine build
+ * is newer than the database.
+ */
+export async function apiCreateDefinitionSchedule(
+  clientId: number,
+  definitionId: number,
+  body: DefinitionScheduleInput,
+): Promise<DefinitionSchedule> {
+  return request<DefinitionSchedule>(
+    definitionSchedulesPath(clientId, definitionId),
+    {
+      method: "POST",
+      body: {
+        name: body.name?.trim() ? body.name.trim() : null,
+        cronExpression: body.cronExpression.trim(),
+        timezone: body.timezone?.trim() ? body.timezone.trim() : null,
+        isActive: body.isActive ?? true,
+        notifyPolicy: body.notifyPolicy ?? null,
+      },
+    },
+  )
+}
+
+/** DELETE …/{definitionId}/schedules/{planId} — cancels the trigger and removes it. */
+export async function apiDeleteDefinitionSchedule(
+  clientId: number,
+  definitionId: number,
+  planId: number,
+): Promise<{ deleted: boolean; id: number; definitionId: number }> {
+  return request<{ deleted: boolean; id: number; definitionId: number }>(
+    `${definitionSchedulesPath(clientId, definitionId)}/${planId}`,
+    { method: "DELETE" },
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /* Test Creation Requests (PR10A unified manual creation foundation)   */
 /* Backend: engine.testdefinition.creation.TestCreationRequestController */
 /* ------------------------------------------------------------------ */

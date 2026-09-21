@@ -698,6 +698,7 @@ export function AiBuilderPage({
               plan.credentialReference ? plan.credentialReference.name : null
             }
             steps={steps}
+            definitionSourceJson={plan.definitionSourceJson}
             evidence={plan.evidence}
             evidenceOpen={evidenceOpen}
             onOpenEvidence={() => setEvidenceOpen(true)}

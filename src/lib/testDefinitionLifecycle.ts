@@ -13,7 +13,14 @@ import { ApiError, type TestDefinitionStatus } from "./api"
 import { translate } from "./i18n"
 
 /** The lifecycle operations the dashboard can invoke. */
-export type LifecycleAction = "validate" | "trial" | "approve" | "proving" | "archive" | "newVersion"
+export type LifecycleAction =
+  | "validate"
+  | "trial"
+  | "approve"
+  | "proving"
+  | "archive"
+  | "newVersion"
+  | "schedule"
 
 /** Whether an action is offered, and if it is disabled, the reason to show. */
 export type ActionAvailability = {
@@ -93,6 +100,12 @@ export function lifecycleAvailability(subject: LifecycleSubject): ActionAvailabi
     entry("proving", ["APPROVED"], true),
     entry("archive", ["READY"], false),
     entry("newVersion", ["DRAFT", "VALIDATED", "APPROVED", "READY"], false),
+    // Scheduling names a DEFINITION, not a version, so it is offered for any
+    // non-archived status — a DRAFT test can be put on a schedule and the version
+    // is resolved each time the trigger fires. The engine mirrors this: the
+    // endpoint refuses only an ARCHIVED definition (409), and a fire on one that
+    // has since been archived is recorded as a visible skip.
+    entry("schedule", NON_ARCHIVED_STATUSES, false),
   ]
 }
 

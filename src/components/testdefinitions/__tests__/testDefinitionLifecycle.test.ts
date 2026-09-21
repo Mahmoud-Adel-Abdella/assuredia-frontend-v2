@@ -28,10 +28,10 @@ function visibleActions(s: LifecycleSubject): LifecycleAction[] {
 
 test("Test Definition lifecycle gating, idempotency and error mapping", async (t) => {
   await t.test("18. An admin sees every lifecycle control, gated by state", () => {
-    assert.deepEqual(enabledActions(subject({ status: "DRAFT" })), ["validate", "trial", "newVersion"])
-    assert.deepEqual(enabledActions(subject({ status: "VALIDATED" })), ["trial", "approve", "newVersion"])
-    assert.deepEqual(enabledActions(subject({ status: "APPROVED" })), ["trial", "proving", "newVersion"])
-    assert.deepEqual(enabledActions(subject({ status: "READY" })), ["trial", "archive", "newVersion"])
+    assert.deepEqual(enabledActions(subject({ status: "DRAFT" })), ["validate", "trial", "newVersion", "schedule"])
+    assert.deepEqual(enabledActions(subject({ status: "VALIDATED" })), ["trial", "approve", "newVersion", "schedule"])
+    assert.deepEqual(enabledActions(subject({ status: "APPROVED" })), ["trial", "proving", "newVersion", "schedule"])
+    assert.deepEqual(enabledActions(subject({ status: "READY" })), ["trial", "archive", "newVersion", "schedule"])
 
     for (const action of ADMIN_ONLY_ACTIONS) {
       assert.ok(
@@ -49,8 +49,14 @@ test("Test Definition lifecycle gating, idempotency and error mapping", async (t
       }
     }
     // What a non-admin can still do is exactly what the engine permits them.
-    assert.deepEqual(enabledActions(subject({ status: "DRAFT", isAdmin: false })), ["validate", "trial", "newVersion"])
-    assert.deepEqual(enabledActions(subject({ status: "VALIDATED", isAdmin: false })), ["trial", "newVersion"])
+    assert.deepEqual(
+      enabledActions(subject({ status: "DRAFT", isAdmin: false })),
+      ["validate", "trial", "newVersion", "schedule"],
+    )
+    assert.deepEqual(
+      enabledActions(subject({ status: "VALIDATED", isAdmin: false })),
+      ["trial", "newVersion", "schedule"],
+    )
   })
 
   await t.test("READY is never offered as a manual transition", () => {
@@ -63,8 +69,28 @@ test("Test Definition lifecycle gating, idempotency and error mapping", async (t
     assert.ok(!everyAction.has("ready" as LifecycleAction))
     assert.deepEqual(
       [...everyAction].sort(),
-      ["approve", "archive", "newVersion", "proving", "trial", "validate"],
+      ["approve", "archive", "newVersion", "proving", "schedule", "trial", "validate"],
     )
+  })
+
+  await t.test("Scheduling needs no flow and is refused only once archived", () => {
+    // A schedule names a DEFINITION, not a version, and the engine resolves the
+    // version when the trigger fires — so it is offered on any non-archived
+    // status and, unlike proving, never needs a Flow binding. This mirrors the
+    // server: the endpoint refuses only an ARCHIVED definition, with 409.
+    for (const status of ["DRAFT", "VALIDATED", "APPROVED", "READY"] as const) {
+      const unbound = availabilityOf(lifecycleAvailability(subject({ status, flowId: null })), "schedule")
+      assert.equal(unbound.visible, true, `schedule must be visible in ${status}`)
+      assert.equal(unbound.enabled, true, `schedule must not need a flow in ${status}`)
+      assert.equal(unbound.reason, null)
+    }
+
+    const archived = availabilityOf(
+      lifecycleAvailability(subject({ status: "ARCHIVED", definitionArchived: true })),
+      "schedule",
+    )
+    assert.equal(archived.enabled, false, "an archived definition cannot be scheduled")
+    assert.ok(archived.reason, "the disabled schedule control must explain why")
   })
 
   await t.test("24. An archived definition disables every action and every edit", () => {

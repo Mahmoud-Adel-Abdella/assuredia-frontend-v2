@@ -10,6 +10,13 @@ import {
   outcomesOfSteps,
 } from "../../lib/planner"
 import { EvidencePanel } from "../evidence/EvidencePanel"
+import {
+  type BindingStatus,
+  type PlanBinding,
+  bindingStatusFor,
+  isFullyBound,
+  planBinding,
+} from "../../lib/planBinding"
 
 function categoryLabel(t: (key: string) => string, category: string | null): string {
   switch (category) {
@@ -151,6 +158,40 @@ export function BuildingView({
   )
 }
 
+/**
+ * The binding status of one action, as a badge.
+ *
+ * A `BOUND` action resolves to an element found during exploration and will run. A
+ * `NEEDS_BINDING` action matched nothing, so its target is still the `PENDING` placeholder: it
+ * is visible here precisely so it cannot pass silently later.
+ */
+export function BindingBadge({ status }: { status: BindingStatus }) {
+  const { t } = useLang()
+  if (status === "BOUND") {
+    return (
+      <span
+        data-testid="plan-step-binding-bound"
+        title={t("pr10c.plan.boundHint")}
+        className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+      >
+        ✓ {t("pr10c.plan.bound")}
+      </span>
+    )
+  }
+  if (status === "NEEDS_BINDING") {
+    return (
+      <span
+        data-testid="plan-step-binding-unbound"
+        title={t("pr10c.plan.needsBindingHint")}
+        className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+      >
+        ! {t("pr10c.plan.needsBinding")}
+      </span>
+    )
+  }
+  return null
+}
+
 export function StepRow({
   index,
   step,
@@ -162,6 +203,7 @@ export function StepRow({
   canMoveUp,
   canMoveDown,
   editable,
+  binding,
 }: {
   index: number
   step: EditableStep
@@ -173,6 +215,8 @@ export function StepRow({
   canMoveUp?: boolean
   canMoveDown?: boolean
   editable?: boolean
+  /** Whether this action's target was auto-bound, resolved from the definition document. */
+  binding?: BindingStatus
 }) {
   const { t } = useLang()
   return (
@@ -201,6 +245,7 @@ export function StepRow({
             </span>
           )}
         </span>
+        <BindingBadge status={binding ?? "UNKNOWN"} />
         {step.requiresDiscovery && (
           <span className="hidden rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 sm:inline dark:bg-amber-900/30 dark:text-amber-400">
             {t("pr10c.plan.needsDiscovery")}
@@ -512,6 +557,7 @@ export function ReviewView({
   origin,
   credentialName,
   steps,
+  definitionSourceJson,
   evidence,
   evidenceOpen,
   onOpenEvidence,
@@ -528,6 +574,8 @@ export function ReviewView({
   origin: string | null
   credentialName: string | null
   steps: EditableStep[]
+  /** The generated document; its [NEEDS BINDING] markers carry the binding status. */
+  definitionSourceJson?: string
   evidence?: PlanEvidence
   evidenceOpen?: boolean
   onOpenEvidence?: () => void
@@ -542,6 +590,7 @@ export function ReviewView({
   const uiCount = steps.filter((s) => s.type === "UI").length
   const apiCount = steps.filter((s) => s.type === "API").length
   const outcomes = outcomesOfSteps(steps)
+  const binding = planBinding(definitionSourceJson)
 
   return (
     <div className="space-y-5">
@@ -618,6 +667,49 @@ export function ReviewView({
         </div>
       </div>
 
+      {binding.total > 0 && (
+        <div
+          data-testid="review-binding-summary"
+          className={cx(
+            "rounded-xl border px-4 py-3",
+            isFullyBound(binding)
+              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
+              : "border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30",
+          )}
+        >
+          <p
+            className={cx(
+              "text-[13px] font-semibold",
+              isFullyBound(binding)
+                ? "text-emerald-700 dark:text-emerald-400"
+                : "text-amber-700 dark:text-amber-400",
+            )}
+          >
+            {t("pr10c.review.bindingSummary", {
+              bound: binding.bound,
+              total: binding.total,
+            })}
+          </p>
+          {isFullyBound(binding) ? (
+            <p className="mt-1 text-[12px] text-emerald-600 dark:text-emerald-400/80">
+              {t("pr10c.review.bindingAllBound")}
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-[12px] text-amber-700 dark:text-amber-400/90">
+                {t("pr10c.review.bindingUnbound")}{" "}
+                <span dir="auto" className="font-medium">
+                  {binding.unboundIntents.join(" · ")}
+                </span>
+              </p>
+              <p className="mt-1 text-[12px] text-amber-600/90 dark:text-amber-400/70">
+                {t("pr10c.review.bindingStillUsable")}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {evidence && onOpenEvidence && onCloseEvidence && (
         <EvidencePanel
           evidence={evidence}
@@ -658,6 +750,7 @@ export function ReviewView({
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-slate-700 dark:text-white/70">
                   <span>{step.intent}</span>
+                  <BindingBadge status={bindingStatusFor(binding, step.intent)} />
                   {step.type === "API" && step.endpoint && (
                     <span
                       dir="ltr"
@@ -686,8 +779,9 @@ export function ReviewView({
               </span>
               <CapBadge cap={outcome.type} />
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium text-slate-700 dark:text-white/70">
-                  {outcome.intent}
+                <p className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-slate-700 dark:text-white/70">
+                  <span>{outcome.intent}</span>
+                  <BindingBadge status={bindingStatusFor(binding, outcome.intent)} />
                 </p>
               </div>
             </div>
