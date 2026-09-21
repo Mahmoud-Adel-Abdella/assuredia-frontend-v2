@@ -11,7 +11,8 @@
     "test": "npx tsx --test src/lib/*.test.ts src/components/admin/__tests__/*.test.ts src/components/testdefinitions/__tests__/*.test.ts src/components/planner/live/*.test.ts",
     "test:e2e": "playwright test",
     "format": "oxfmt",
-    "test:live": "node e2e/live/real-stack.mjs"
+    "test:live": "node e2e/live/real-stack.mjs",
+    "test:live:ai-usability": "node e2e/live/ai-draft-trial-usability.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

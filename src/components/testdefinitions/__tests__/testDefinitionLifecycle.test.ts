@@ -28,10 +28,10 @@ function visibleActions(s: LifecycleSubject): LifecycleAction[] {
 
 test("Test Definition lifecycle gating, idempotency and error mapping", async (t) => {
   await t.test("18. An admin sees every lifecycle control, gated by state", () => {
-    assert.deepEqual(enabledActions(subject({ status: "DRAFT" })), ["validate", "newVersion"])
+    assert.deepEqual(enabledActions(subject({ status: "DRAFT" })), ["validate", "trial", "newVersion"])
     assert.deepEqual(enabledActions(subject({ status: "VALIDATED" })), ["trial", "approve", "newVersion"])
     assert.deepEqual(enabledActions(subject({ status: "APPROVED" })), ["trial", "proving", "newVersion"])
-    assert.deepEqual(enabledActions(subject({ status: "READY" })), ["archive", "newVersion"])
+    assert.deepEqual(enabledActions(subject({ status: "READY" })), ["trial", "archive", "newVersion"])
 
     for (const action of ADMIN_ONLY_ACTIONS) {
       assert.ok(
@@ -49,7 +49,7 @@ test("Test Definition lifecycle gating, idempotency and error mapping", async (t
       }
     }
     // What a non-admin can still do is exactly what the engine permits them.
-    assert.deepEqual(enabledActions(subject({ status: "DRAFT", isAdmin: false })), ["validate", "newVersion"])
+    assert.deepEqual(enabledActions(subject({ status: "DRAFT", isAdmin: false })), ["validate", "trial", "newVersion"])
     assert.deepEqual(enabledActions(subject({ status: "VALIDATED", isAdmin: false })), ["trial", "newVersion"])
   })
 
@@ -79,17 +79,45 @@ test("Test Definition lifecycle gating, idempotency and error mapping", async (t
     assert.equal(isContentEditable("VALIDATED", false), false)
   })
 
-  await t.test("Trial and proving stay disabled until a flow is bound", () => {
+  await t.test("Trial no longer needs a flow; proving still does", () => {
+    // A trial is a non-gating manual execution: enabled on any non-archived status,
+    // with or without a Flow binding (spec §2003-2008).
     const unbound = subject({ status: "VALIDATED", flowId: null })
     const trial = availabilityOf(lifecycleAvailability(unbound), "trial")
     assert.equal(trial.visible, true)
-    assert.equal(trial.enabled, false)
-    assert.ok(trial.reason)
+    assert.equal(trial.enabled, true, "a trial must not require a Flow binding")
+    assert.equal(trial.reason, null)
 
+    assert.equal(
+      availabilityOf(lifecycleAvailability(subject({ status: "DRAFT", flowId: null })), "trial").enabled,
+      true,
+      "a DRAFT must be triallable without a Flow",
+    )
+
+    // Proving is still gated: it needs APPROVED and a bound Flow.
     const proving = availabilityOf(lifecycleAvailability(subject({ status: "APPROVED", flowId: null })), "proving")
     assert.equal(proving.enabled, false)
+    assert.ok(proving.reason)
+
     // approve does not touch the flow, so it stays available
     assert.equal(availabilityOf(lifecycleAvailability(subject({ status: "VALIDATED", flowId: null })), "approve").enabled, true)
+  })
+
+  await t.test("A trial is disabled only for an ARCHIVED definition", () => {
+    const archived = availabilityOf(
+      lifecycleAvailability(subject({ status: "ARCHIVED", definitionArchived: true, flowId: 300 })),
+      "trial",
+    )
+    assert.equal(archived.enabled, false)
+    assert.ok(archived.reason)
+
+    for (const status of ["DRAFT", "VALIDATED", "APPROVED", "READY"] as const) {
+      assert.equal(
+        availabilityOf(lifecycleAvailability(subject({ status })), "trial").enabled,
+        true,
+        `trial must be enabled in ${status}`,
+      )
+    }
   })
 
   await t.test("Status label keys resolve for every lifecycle state", () => {

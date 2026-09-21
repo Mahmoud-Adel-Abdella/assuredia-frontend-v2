@@ -38,6 +38,18 @@ export type LifecycleSubject = {
 export const ADMIN_ONLY_ACTIONS: LifecycleAction[] = ["approve", "proving", "archive"]
 
 /**
+ * Every status except ARCHIVED. A trial is a non-gating manual execution and the
+ * engine permits it on any non-archived version (spec §2003-2008); the archive
+ * guard in `entry` still disables it for ARCHIVED.
+ */
+export const NON_ARCHIVED_STATUSES: TestDefinitionStatus[] = [
+  "DRAFT",
+  "VALIDATED",
+  "APPROVED",
+  "READY",
+]
+
+/**
  * Resolves every lifecycle action for one version.
  *
  * READY is deliberately absent: the engine reaches it only through a PASSED
@@ -74,7 +86,9 @@ export function lifecycleAvailability(subject: LifecycleSubject): ActionAvailabi
 
   return [
     entry("validate", ["DRAFT"], false),
-    entry("trial", ["VALIDATED", "APPROVED"], true),
+    // Trial is a non-gating manual execution: any non-archived status, and no Flow
+    // requirement. The engine mirrors this (TestDefinitionLifecycleService.executeTrial).
+    entry("trial", NON_ARCHIVED_STATUSES, false),
     entry("approve", ["VALIDATED"], false),
     entry("proving", ["APPROVED"], true),
     entry("archive", ["READY"], false),

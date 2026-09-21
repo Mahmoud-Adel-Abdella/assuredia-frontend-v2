@@ -41,7 +41,7 @@ Options:
 2. Starts a disposable PostgreSQL container and applies the repository's own
    bootstrap + `migration-*.sql` set through the engine's
    `assuredia_schema_migrations` ledger (the run aborts unless the ledger holds
-   exactly 15 entries).
+   exactly one row per migration file shipped by the backend).
 3. Seeds **synthetic fixtures only**: two clients, two flows, one ADMIN and two
    CLIENT users. Passwords are generated per run and hashed by PostgreSQL's
    pgcrypto bcrypt — no credential is hard-coded anywhere.
@@ -62,14 +62,19 @@ Options:
 ## Coverage
 
 Browser login · list/empty/create/edit/validate · trial (single dispatch,
-`Idempotency-Key` observed on the wire, double-click refusal) · approve ·
+`Idempotency-Key` observed on the wire, double-click refusal) · trial on a
+Flow-less definition from DRAFT (UI enabled, HTTP 200, `executionPurpose=TRIAL`,
+version not promoted) · proving on a Flow-less definition still 409 · approve ·
 proving → READY · step results · artifact metadata · authenticated artifact
 download (HTTP 200, non-empty PNG, `Content-Disposition`) · archive/read-only ·
 idempotent replay (trial, proving, and after archive) · fingerprint mismatch
-409 · no-flow 409 · cross-tenant flow 404 · non-admin 403 · invalid JSON blocked
+409 · cross-tenant flow 404 · non-admin 403 · invalid JSON blocked
 locally · duplicate name 409 · cross-tenant definition/artifact 404 ·
 unknown/missing artifact 404 (with recovery after restoring the file) ·
 non-local-request guard · console/network audit.
+
+For the **AI Test Builder → DRAFT → Run trial** usability path (which needs a
+live AI provider), see `e2e/live/ai-draft-trial-usability.mjs`.
 
 ## Notes
 

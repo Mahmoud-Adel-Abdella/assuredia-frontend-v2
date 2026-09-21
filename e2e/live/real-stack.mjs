@@ -71,6 +71,34 @@ if (
   )
   process.exit(2)
 }
+if (
+  !fs.existsSync(
+    path.join(
+      BACKEND_DIR,
+      "src",
+      "main",
+      "resources",
+      "migration-020-test-runs-flow-id-nullable.sql",
+    ),
+  )
+) {
+  console.error(
+    "ASSUREDIA_BACKEND_DIR does not include the Phase-2 usability change (migration 020 missing): " +
+      "a Flow-less trial cannot persist its run while test_runs.flow_id is NOT NULL.",
+  )
+  process.exit(2)
+}
+
+/**
+ * The ledger holds one row per applied `migration-*.sql`. Derived from the
+ * backend's own resource directory rather than hard-coded, so adding a
+ * migration cannot silently invalidate this assertion.
+ */
+const EXPECTED_LEDGER = String(
+  fs
+    .readdirSync(path.join(BACKEND_DIR, "src", "main", "resources"))
+    .filter((name) => /^migration-\d+.*\.sql$/.test(name)).length,
+)
 
 const HEADED = process.env.HEADED === "1"
 const PG_IMAGE = "postgres:16-alpine"
@@ -303,9 +331,9 @@ async function main() {
       "-c",
       "SELECT COUNT(*) FROM assuredia_schema_migrations",
     ]).trim()
-    if (ledger !== "16")
-      throw new Error(`Expected 16 ledger entries, found ${ledger}`)
-    console.log(`  ledger entries: ${ledger} (migration 016 applied)`)
+    if (ledger !== EXPECTED_LEDGER)
+      throw new Error(`Expected ${EXPECTED_LEDGER} ledger entries, found ${ledger}`)
+    console.log(`  ledger entries: ${ledger} (every migration applied)`)
 
     /* ---- 3. synthetic fixtures ---- */
     console.log(

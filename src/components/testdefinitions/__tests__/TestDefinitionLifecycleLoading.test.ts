@@ -127,7 +127,7 @@ test("lifecycle loading race is closed", async (t) => {
     restore = view.stub.restore
 
     assert.equal(actionButton(view.container, "validate")?.disabled, false)
-    assert.equal(actionButton(view.container, "trial")?.disabled, true)
+    assert.equal(actionButton(view.container, "trial")?.disabled, false, "a DRAFT trial is enabled")
     assert.equal(actionButton(view.container, "newVersion")?.disabled, false)
     assert.equal(
       actionButton(view.container, "validate")?.getAttribute("aria-describedby"),
@@ -207,7 +207,7 @@ test("lifecycle loading race is closed", async (t) => {
     ])
     restore = view.stub.restore
 
-    assert.equal(actionButton(view.container, "trial")?.disabled, true)
+    assert.equal(actionButton(view.container, "trial")?.disabled, false, "a DRAFT trial is enabled")
     await view.container.querySelector<HTMLElement>('button[data-action="validate"]')?.click()
     await flush(6)
 
@@ -216,7 +216,7 @@ test("lifecycle loading race is closed", async (t) => {
       "the UI must show the server's new status",
     )
     assert.equal(actionButton(view.container, "validate")?.disabled, true, "validate is spent once VALIDATED")
-    assert.equal(actionButton(view.container, "trial")?.disabled, false, "trial unlocks from the server status")
+    assert.equal(actionButton(view.container, "trial")?.disabled, false, "trial stays enabled from the server status")
   })
 
   await t.test("6. keyboard activation while loading fires no request", async () => {

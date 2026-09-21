@@ -734,7 +734,7 @@ test("duplicate definition name answers 409 on the name field", async ({
   )
 })
 
-test("trial without a flow is disabled in the UI and 409 at the backend", async ({
+test("a flow-less definition can be trialled from DRAFT in the UI and at the backend", async ({
   page,
 }) => {
   observe(page)
@@ -751,7 +751,7 @@ test("trial without a flow is disabled in the UI and 409 at the backend", async 
   ).toBeVisible({ timeout: 20000 })
   await expect(page.locator("#testdef-source-editor")).toBeVisible()
 
-  // We are already on the unbound definition's detail view; validate it through
+  // We are already on the unbound definition's detail view; read the ids through
   // the real backend, then re-read the version through the UI's own navigation.
   const noFlowList = await fetchApi(
     page,
@@ -775,15 +775,8 @@ test("trial without a flow is disabled in the UI and 409 at the backend", async 
     { backend: BACKEND, clientId: CLIENT_A_ID, defId: noFlowDefId },
   )
 
-  const validated = await fetchApi(
-    page,
-    "POST",
-    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${noFlowDefId}/versions/${noFlowVersionId}/validate`,
-  )
-  expect(validated.status).toBe(200)
-  expect(validated.body.status).toBe("VALIDATED")
-
-  // Re-open the definition so the UI reflects the validated, flow-less state.
+  // The definition is still DRAFT and has no Flow. TRIAL is a non-gating manual
+  // execution (spec §2003-2008), so the UI offers it rather than disabling it.
   await page.getByRole("button", { name: "Back to Test Definitions" }).click()
   await page
     .locator("tbody tr", { hasText: DEF_NO_FLOW_NAME })
@@ -791,19 +784,62 @@ test("trial without a flow is disabled in the UI and 409 at the backend", async 
     .click()
   await expect(page.locator("#testdef-source-editor")).toBeVisible()
 
-  // The UI disables the control with a reason instead of offering a doomed action.
   const trialButton = page.locator('button[data-action="trial"]')
-  await expect(trialButton).toBeDisabled()
-  await expect(page.locator("#testdef-reason-trial")).toContainText("flow")
+  await expect(trialButton).toBeEnabled()
+  await expect(page.locator("#testdef-reason-trial")).toHaveCount(0)
 
-  // The backend enforces the same rule for a direct request.
+  // The backend enforces the same rule for a direct request: 200, not 409.
   const direct = await fetchApi(
     page,
     "POST",
     `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${noFlowDefId}/versions/${noFlowVersionId}/trial`,
   )
-  expect(direct.status).toBe(409)
-  expect(direct.body.error).toMatch(/flow/i)
+  expect(direct.status).toBe(200)
+  expect(direct.body.executionPurpose).toBe("TRIAL")
+  // A trial never promotes the version: DRAFT stays DRAFT.
+  expect(["PASSED", "FAILED", "ERROR"]).toContain(direct.body.status)
+
+  // Validation coverage is preserved: a DRAFT may still be validated.
+  const validated = await fetchApi(
+    page,
+    "POST",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${noFlowDefId}/versions/${noFlowVersionId}/validate`,
+  )
+  expect(validated.status).toBe(200)
+  expect(validated.body.status).toBe("VALIDATED")
+})
+
+test("proving a flow-less definition is still refused", async ({ page }) => {
+  observe(page)
+  await login(page, ADMIN_EMAIL)
+  const list = await fetchApi(
+    page,
+    "GET",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions?search=${encodeURIComponent(DEF_NO_FLOW_NAME)}`,
+  )
+  const defId = list.body.items[0].id
+  const versionId = await page.evaluate(
+    ({ backend, clientId, id }) => {
+      return (async () => {
+        const token = localStorage.getItem("assuredia.token")
+        const details = await fetch(
+          `${backend}/dashboard-api/clients/${clientId}/test-definitions/${id}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        ).then((r) => r.json())
+        return details.versions[0].id
+      })()
+    },
+    { backend: BACKEND, clientId: CLIENT_A_ID, id: defId },
+  )
+
+  // PROVING is the gating transition and keeps its Flow requirement.
+  const proving = await fetchApi(
+    page,
+    "POST",
+    `/dashboard-api/clients/${CLIENT_A_ID}/test-definitions/${defId}/versions/${versionId}/proving`,
+  )
+  expect(proving.status).toBe(409)
+  expect(proving.body.error).toMatch(/flow/i)
 })
 
 test("a flow from another tenant answers 404", async ({ page }) => {
