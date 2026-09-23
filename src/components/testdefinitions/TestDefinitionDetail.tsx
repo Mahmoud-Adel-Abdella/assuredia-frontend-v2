@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button, Card, ErrorState, cx, useToast } from "../primitives"
 import { useLang, langLocale } from "../../lib/i18n"
 import {
+  apiActivateTestDefinitionVersion,
   apiApproveTestDefinitionVersion,
   apiArchiveTestDefinitionVersion,
   apiCreateTestDefinitionVersion,
@@ -37,9 +38,11 @@ import {
   validateDefinitionSource,
 } from "../../lib/testDefinitionSchema"
 import { ConfirmDialog } from "./ConfirmDialog"
+import { AddToFlowModal } from "./AddToFlowModal"
 import { ScheduleDefinitionModal } from "./ScheduleDefinitionModal"
 import { TestDefinitionRunPanel } from "./TestDefinitionRunPanel"
 import {
+  ActiveBadge,
   BackButton,
   FieldError,
   JsonEditor,
@@ -116,6 +119,9 @@ export function TestDefinitionDetail({
   /* Scheduling is not a lifecycle step: it opens its own dialog and changes
      nothing about the version on screen. */
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  /* Add-to-Flow is likewise independent of the version: it binds/creates a flow
+     for the definition aggregate. */
+  const [addToFlowOpen, setAddToFlowOpen] = useState(false)
 
   const [engineReport, setEngineReport] =
     useState<TestDefinitionValidationReport | null>(null)
@@ -235,8 +241,9 @@ export function TestDefinitionDetail({
         definitionArchived: definition?.isArchived ?? false,
         flowId: definition?.flowId ?? null,
         isAdmin,
+        active: definition?.activatedAt != null,
       }),
-    [version?.status, definition?.isArchived, definition?.flowId, isAdmin],
+    [version?.status, definition?.isArchived, definition?.flowId, definition?.activatedAt, isAdmin],
   )
 
   const editable =
@@ -432,6 +439,48 @@ export function TestDefinitionDetail({
   }
 
   /**
+   * Operational activation (Draft-Activation phase): moves the reviewed test out of
+   * Drafts & Reviews into Active Tests against the version on screen.
+   *
+   * Not admin-only, no Flow and no proving required. The engine is authoritative and idempotent:
+   * a repeat returns `alreadyActive` and never creates a duplicate. On success we re-read from the
+   * server so the ACTIVE marker and the Active/Drafts lists reflect the new state.
+   */
+  async function handleActivate() {
+    if (pending) return
+    if (!version) {
+      toast({
+        title: t("testdef.action.unavailable"),
+        description: t("testdef.reason.loading"),
+        variant: "warning",
+      })
+      return
+    }
+    setPending("activate")
+    try {
+      const result = await apiActivateTestDefinitionVersion(
+        clientId,
+        definitionId,
+        version.id,
+      )
+      toast({
+        title: result.alreadyActive
+          ? t("testdef.activated.alreadyTitle")
+          : t("testdef.activated.title"),
+        description: result.alreadyActive ? undefined : t("testdef.activated.desc"),
+        variant: "success",
+      })
+      await refreshFromServer()
+    } catch (err) {
+      handleFailure(err, t("testdef.activated.failedTitle"))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  /* ---- Trial / Proving (idempotent executions) ---------------------- */
+
+  /**
    * Trial and Proving are the two idempotent operations.
    *
    * One gesture owns one key for its whole life: the registry refuses a second
@@ -594,6 +643,7 @@ export function TestDefinitionDetail({
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {version && <LifecycleBadge status={version.status} />}
+              {definition.activatedAt != null && <ActiveBadge />}
               <span className="text-[12px] text-slate-400">{versionLabel}</span>
               {dirty && (
                 <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
@@ -618,6 +668,13 @@ export function TestDefinitionDetail({
           only through a passing proving run. */}
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-2">
+          {actionButton(
+            "activate",
+            t("testdef.action.activate"),
+            t("testdef.action.activating"),
+            "primary",
+            () => void handleActivate(),
+          )}
           {actionButton(
             "validate",
             t("testdef.action.validate"),
@@ -667,6 +724,19 @@ export function TestDefinitionDetail({
             "outline",
             () => setScheduleOpen(true),
           )}
+          {/* Add to Flow is a definition-level association, not a version lifecycle
+              step: offered whenever the definition is not archived. */}
+          {!definition.isArchived && (
+            <Button
+              variant="outline"
+              size="sm"
+              data-action="addToFlow"
+              disabled={busy}
+              onClick={() => setAddToFlowOpen(true)}
+            >
+              {t("testdef.action.addToFlow")}
+            </Button>
+          )}
         </div>
         {availability
           .filter(
@@ -704,6 +774,18 @@ export function TestDefinitionDetail({
                   ? t("testdef.noFlow")
                   : t("testdef.flowNumber", { id: definition.flowId })}
               </span>
+            </MetaRow>
+            <MetaRow label={t("testdef.detail.activation")}>
+              {definition.activatedAt == null ? (
+                <span className="text-slate-400">{t("testdef.detail.notActivated")}</span>
+              ) : (
+                <span className="inline-flex items-center gap-2">
+                  <ActiveBadge />
+                  <span className="text-[12px] text-slate-500">
+                    {formatTimestamp(definition.activatedAt, locale)}
+                  </span>
+                </span>
+              )}
             </MetaRow>
             <MetaRow label={t("testdef.th.implementation")}>
               {t("testdef.implementation.testDefinition")}
@@ -982,6 +1064,24 @@ export function TestDefinitionDetail({
         definitionId={definitionId}
         definitionName={definition.name}
         onClose={() => setScheduleOpen(false)}
+      />
+
+      {/* Add to Flow binds the definition to an existing flow or creates a new one and binds it,
+          reusing the existing flow endpoints. It changes the aggregate's flowId, so on success the
+          detail view reloads to show the new membership. */}
+      <AddToFlowModal
+        open={addToFlowOpen}
+        clientId={clientId}
+        definitionId={definitionId}
+        definitionName={definition.name}
+        definitionDescription={definition.description}
+        currentFlowId={definition.flowId}
+        onClose={() => setAddToFlowOpen(false)}
+        onUnauthorized={onUnauthorized}
+        onAdded={() => {
+          setAddToFlowOpen(false)
+          void refreshFromServer()
+        }}
       />
     </div>
   )

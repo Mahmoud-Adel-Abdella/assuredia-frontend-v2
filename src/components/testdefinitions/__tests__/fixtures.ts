@@ -54,6 +54,9 @@ export function listItem(overrides: Partial<TestDefinitionListItem> = {}): TestD
     isArchived: false,
     createdAt: "2026-08-01T09:00:00Z",
     updatedAt: "2026-08-30T11:15:00Z",
+    activatedAt: null,
+    activatedBy: null,
+    activeVersionId: null,
     ...overrides,
   }
 }
@@ -99,6 +102,9 @@ export function details(
     isArchived: status === "ARCHIVED",
     createdAt: "2026-08-01T09:00:00Z",
     updatedAt: "2026-08-30T11:15:00Z",
+    activatedAt: null,
+    activatedBy: null,
+    activeVersionId: null,
     versions: [versionSummary(status)],
     ...overrides,
   }

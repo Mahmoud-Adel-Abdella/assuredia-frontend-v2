@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react"
 import { Button, Card, cx } from "./primitives"
 import { AiAnalysisCard } from "./AiCard"
+import { RunEvidencePanel } from "./RunEvidencePanel"
 import {
   Run,
   Step,
@@ -348,6 +349,9 @@ export function RunDetail({
   aiRetrying = false,
   onViewAiAnalysis,
   backLabel,
+  clientId,
+  evidenceDefinitionId,
+  evidenceRunId,
 }: {
   run: Run
   onBack: () => void
@@ -360,6 +364,11 @@ export function RunDetail({
   /** Deep-link into the AI Analysis page for this run's report. */
   onViewAiAnalysis?: () => void
   backLabel?: string
+  /** Authenticated client scope; required to load execution evidence. */
+  clientId?: number | null
+  /** Definition-linked run: the owning test_definition_id + numeric run row id. */
+  evidenceDefinitionId?: number | null
+  evidenceRunId?: number | null
 }) {
   const { t } = useLang()
   const [openTest, setOpenTest] = useState<string | null>(null)
@@ -547,6 +556,18 @@ export function RunDetail({
               })}
             </div>
           </Card>
+
+          {/* Execution Evidence — real per-step + artifact evidence for a
+              terminal run. The panel renders a truthful "unavailable" state for
+              a run with no Test Definition linkage (package or legacy flow run),
+              so every terminal run gets an honest evidence section. */}
+          {!running && clientId != null && (
+            <RunEvidencePanel
+              clientId={clientId}
+              definitionId={evidenceDefinitionId ?? null}
+              runId={evidenceRunId ?? null}
+            />
+          )}
 
           {/* Step / action timeline */}
           {run.stepList && run.stepList.length > 0 && (

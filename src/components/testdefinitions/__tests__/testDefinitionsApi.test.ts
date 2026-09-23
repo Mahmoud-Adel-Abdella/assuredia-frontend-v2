@@ -2,7 +2,9 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import {
   ApiError,
+  apiActivateTestDefinitionVersion,
   apiArchiveTestDefinitionVersion,
+  apiCreateFlow,
   apiCreateTestDefinition,
   apiDownloadTestDefinitionArtifact,
   apiEditTestDefinitionDraft,
@@ -11,6 +13,7 @@ import {
   apiGetTestDefinition,
   apiGetTestDefinitionRun,
   apiListTestDefinitions,
+  apiUpdateTestDefinition,
 } from "../../../lib/api"
 import {
   isFreshExecutionResponse,
@@ -181,6 +184,96 @@ test("Test Definition API bindings and run normalization", async (t) => {
     const result = await apiArchiveTestDefinitionVersion(CLIENT_ID, DEFINITION_ID, VERSION_ID)
     assert.match(calls[0].url, /\/archive$/)
     assert.equal(result.aggregateArchived, true)
+  })
+
+  /* ---- Activation (Draft-Activation phase) --------------------------- */
+
+  await t.test("Activate posts to the version's activate route (no admin gate) and returns the marker", async () => {
+    const calls = stub(() => ({
+      json: {
+        definitionId: DEFINITION_ID,
+        activeVersionId: VERSION_ID,
+        versionNumber: 1,
+        activatedAt: "2026-08-30T12:00:00Z",
+        activatedBy: 11,
+        versionStatus: "DRAFT",
+        active: true,
+        alreadyActive: false,
+      },
+    }))
+    const result = await apiActivateTestDefinitionVersion(CLIENT_ID, DEFINITION_ID, VERSION_ID)
+    assert.equal(calls[0].method, "POST")
+    assert.match(calls[0].url, new RegExp(`${PATHS.version}/activate$`))
+    assert.equal(result.active, true)
+    assert.equal(result.activeVersionId, VERSION_ID)
+    assert.equal(result.versionStatus, "DRAFT", "activation never changes the canonical status")
+    assert.equal(result.alreadyActive, false)
+  })
+
+  await t.test("A repeated activation is idempotent and reports alreadyActive", async () => {
+    stub(() => ({
+      json: {
+        definitionId: DEFINITION_ID,
+        activeVersionId: VERSION_ID,
+        versionNumber: 1,
+        activatedAt: "2026-08-30T12:00:00Z",
+        activatedBy: 11,
+        versionStatus: "DRAFT",
+        active: true,
+        alreadyActive: true,
+      },
+    }))
+    const result = await apiActivateTestDefinitionVersion(CLIENT_ID, DEFINITION_ID, VERSION_ID)
+    assert.equal(result.alreadyActive, true)
+  })
+
+  /* ---- Add to Flow (Draft-Activation phase) -------------------------- */
+
+  await t.test("Add to an existing flow re-binds the aggregate, preserving name and description", async () => {
+    const calls = stub(() => ({ json: { updated: true } }))
+    await apiUpdateTestDefinition(CLIENT_ID, DEFINITION_ID, {
+      name: "Checkout happy path",
+      description: "Proves a card purchase completes",
+      flowId: 300,
+    })
+    assert.equal(calls[0].method, "PUT")
+    assert.equal(calls[0].url.endsWith(PATHS.definition), true)
+    assert.deepEqual(calls[0].body, {
+      name: "Checkout happy path",
+      description: "Proves a card purchase completes",
+      flowId: 300,
+    })
+  })
+
+  await t.test("Create new flow then bind: two calls, the second uses the created flow id", async () => {
+    const created = stub((c) =>
+      c.url.endsWith("/flows")
+        ? { json: { status: "ok", flowId: 777, flowName: "Login & Checkout", testsCreated: 0 } }
+        : { json: { updated: true } },
+    )
+    const flow = await apiCreateFlow(CLIENT_ID, { flowName: "Login & Checkout" })
+    await apiUpdateTestDefinition(CLIENT_ID, DEFINITION_ID, {
+      name: "Checkout happy path",
+      description: null,
+      flowId: flow.flowId,
+    })
+    assert.equal(created.length, 2)
+    assert.match(created[0].url, /\/clients\/\d+\/flows$/)
+    assert.equal(created[0].method, "POST")
+    assert.deepEqual(created[0].body, { flowName: "Login & Checkout" })
+    assert.equal((created[1].body as { flowId: number }).flowId, 777)
+  })
+
+  await t.test("A duplicate flow name surfaces as a safe 409 rather than a duplicate flow", async () => {
+    stub(() => ({ status: 409, json: { error: "A flow with this name already exists" } }))
+    await assert.rejects(
+      () => apiCreateFlow(CLIENT_ID, { flowName: "Existing Flow" }),
+      (err: unknown) => {
+        assert.ok(err instanceof ApiError)
+        assert.equal(err.status, 409)
+        return true
+      },
+    )
   })
 
   await t.test("An artifact download is an authenticated blob fetch, not a link", async () => {

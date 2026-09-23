@@ -230,8 +230,19 @@ export function StepRow({
           {String(index + 1).padStart(2, "0")}
         </span>
         <CapBadge cap={step.type} />
-        <span className="flex-1 text-[14px] font-medium text-slate-800 dark:text-white/85 flex flex-wrap items-center gap-2">
+          <span className="flex-1 text-[14px] font-medium text-slate-800 dark:text-white/85 flex flex-wrap items-center gap-2">
           <span>{step.intent}</span>
+          {step.action && (
+            <span
+              data-testid="plan-step-structured-action"
+              className="inline-flex items-center rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-400/20 dark:bg-indigo-900/20 dark:text-indigo-300"
+              title={step.action.target ? `Target: ${step.action.target}` : undefined}
+            >
+              {step.action.kind}
+              {step.action.target ? ` · ${step.action.target}` : ""}
+            </span>
+          )}
+
           {step.type === "API" && step.endpoint && (
             <span className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-mono text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
               <span className={cx(

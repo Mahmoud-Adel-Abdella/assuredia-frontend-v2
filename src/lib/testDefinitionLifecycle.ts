@@ -21,6 +21,7 @@ export type LifecycleAction =
   | "archive"
   | "newVersion"
   | "schedule"
+  | "activate"
 
 /** Whether an action is offered, and if it is disabled, the reason to show. */
 export type ActionAvailability = {
@@ -39,6 +40,12 @@ export type LifecycleSubject = {
   /** Null when the definition is not bound to a flow; trial and proving then refuse. */
   flowId: number | null
   isAdmin: boolean
+  /**
+   * True when the definition is already operationally activated (Draft-Activation phase).
+   * When set, the Activate control is offered but disabled — the existing active state is shown
+   * instead of attempting a duplicate activation.
+   */
+  active?: boolean
 }
 
 /** Actions reserved for an ADMIN identity by the engine. */
@@ -63,7 +70,7 @@ export const NON_ARCHIVED_STATUSES: TestDefinitionStatus[] = [
  * proving run (`markReadyAfterProving`), so no manual control may exist.
  */
 export function lifecycleAvailability(subject: LifecycleSubject): ActionAvailability[] {
-  const { status, definitionArchived, flowId, isAdmin } = subject
+  const { status, definitionArchived, flowId, isAdmin, active } = subject
   const archived = definitionArchived || status === "ARCHIVED"
   const noFlow = flowId == null
 
@@ -106,7 +113,31 @@ export function lifecycleAvailability(subject: LifecycleSubject): ActionAvailabi
     // endpoint refuses only an ARCHIVED definition (409), and a fire on one that
     // has since been archived is recorded as a visible skip.
     entry("schedule", NON_ARCHIVED_STATUSES, false),
+    // Activation (Draft-Activation phase) is the user-facing boundary between Drafts & Reviews
+    // and Active Tests. It is not admin-only, needs no Flow and no proving, and is offered for
+    // any non-archived version. Once active it is disabled (the existing active state is shown
+    // instead of a duplicate activation). The engine mirrors this in
+    // TestDefinitionLifecycleService.activateVersion.
+    activateEntry(),
   ]
+
+  function activateEntry(): ActionAvailability {
+    if (archived) {
+      return { action: "activate", visible: true, enabled: false, reason: translate("testdef.reason.archived") }
+    }
+    if (active) {
+      return { action: "activate", visible: true, enabled: false, reason: translate("testdef.reason.alreadyActive") }
+    }
+    if (!NON_ARCHIVED_STATUSES.includes(status)) {
+      return {
+        action: "activate",
+        visible: true,
+        enabled: false,
+        reason: translate("testdef.reason.wrongStatus", { status: translate(statusLabelKey(status)) }),
+      }
+    }
+    return { action: "activate", visible: true, enabled: true, reason: null }
+  }
 }
 
 /** Convenience lookup over {@link lifecycleAvailability}. */

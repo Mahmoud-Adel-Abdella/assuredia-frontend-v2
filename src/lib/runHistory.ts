@@ -72,6 +72,14 @@ export type HistoryMeta = {
   finishedAt: Date | null
   /** The row's canonical timestamp — used by the time filter. */
   anchor: Date | null
+  /**
+   * SINGLE definition runs only: the numeric test_runs.id and the owning
+   * test_definition_id. Both are required to reach the authenticated
+   * run-evidence endpoint (…/test-definitions/{definitionId}/runs/{runRowId}).
+   * null for package runs and legacy flow runs that have no definition.
+   */
+  definitionId: number | null
+  runRowId: number | null
 }
 
 export type HistoryEntry = { run: Run; meta: HistoryMeta }
@@ -291,7 +299,7 @@ export function toHistoryEntry(row: DashboardRun, clientName: string): HistoryEn
       }
       run.hasAi = true
     }
-    return { run, meta: { kind, flowId: null, runId: null, executionId, startedAt, finishedAt, anchor } }
+    return { run, meta: { kind, flowId: null, runId: null, executionId, startedAt, finishedAt, anchor, definitionId: null, runRowId: null } }
   }
 
   // SINGLE row.
@@ -356,6 +364,11 @@ export function toHistoryEntry(row: DashboardRun, clientName: string): HistoryEn
       startedAt,
       finishedAt,
       anchor,
+      // Definition-linked single runs expose their numeric row id and the owning
+      // definition id, which together address the authenticated evidence endpoint.
+      // Legacy flow runs have a null test_definition_id and get no evidence panel.
+      definitionId: row.test_definition_id ?? null,
+      runRowId: typeof row.id === "number" ? row.id : null,
     },
   }
 }

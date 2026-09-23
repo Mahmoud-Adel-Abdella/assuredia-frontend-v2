@@ -46,6 +46,25 @@ export function LifecycleBadge({ status }: { status: TestDefinitionStatus }) {
   )
 }
 
+/**
+ * The operational ACTIVE badge (Draft-Activation phase). Distinct from the lifecycle badge: a test
+ * carries a canonical lifecycle status AND, once activated, this operational marker. Shown wherever
+ * an activated test appears (list and detail).
+ */
+export function ActiveBadge() {
+  const { t } = useLang()
+  return (
+    <span
+      data-testid="testdef-active-badge"
+      className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10"
+    >
+      <span className="size-1.5 rounded-full bg-success" />
+      <span aria-hidden="true">●</span>
+      {t("testdef.active")}
+    </span>
+  )
+}
+
 /* ------------------------------------------------------------------ */
 /* Page chrome                                                         */
 /* ------------------------------------------------------------------ */

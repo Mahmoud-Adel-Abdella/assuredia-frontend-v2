@@ -3806,16 +3806,16 @@ const dict: Record<string, Entry> = {
   "nav.assetRequests": { en: "Asset Requests", ar: "طلبات الأصول" },
 
   "testdef.activeSubtitle": {
-    en: "Live, approved tests ready to run. Drafts live under Drafts & Reviews.",
-    ar: "اختبارات معتمدة جاهزة للتشغيل. المسودات في المسودات والمراجعات.",
+    en: "Activated tests that are operational. Tests awaiting activation live under Drafts & Reviews.",
+    ar: "الاختبارات المُفعّلة والجاهزة للتشغيل. الاختبارات بانتظار التفعيل في المسودات والمراجعات.",
   },
   "testdef.draftsSubtitle": {
-    en: "Tests in progress: drafts, validated and approved definitions awaiting readiness.",
-    ar: "اختبارات قيد العمل: مسودات وتعريفات تم التحقق منها واعتمادها بانتظار الجاهزية.",
+    en: "Tests in review: drafts and reviewed definitions awaiting activation.",
+    ar: "اختبارات قيد المراجعة: مسودات وتعريفات تمت مراجعتها بانتظار التفعيل.",
   },
   "testdef.filterNote": {
-    en: "Showing {shown} of {total} on this page matching this view. Statuses are read from each definition.",
-    ar: "عرض {shown} من {total} في هذه الصفحة ضمن هذا العرض. تُقرأ الحالات من كل تعريف.",
+    en: "Showing {shown} of {total} on this page matching this view.",
+    ar: "عرض {shown} من {total} في هذه الصفحة ضمن هذا العرض.",
   },
   "testdef.filterResolving": {
     en: "Reading definition statuses…",
@@ -3826,6 +3826,12 @@ const dict: Record<string, Entry> = {
     en: "None of the definitions on this page are active yet. Try the next page or clear the search.",
     ar: "لا توجد اختبارات نشطة في هذه الصفحة بعد. جرّب الصفحة التالية أو امسح البحث.",
   },
+  "testdef.noActiveOnPage": { en: "No Active tests on this page", ar: "لا توجد اختبارات نشطة في هذه الصفحة" },
+  "testdef.noActiveOnPageHint": {
+    en: "None of the definitions on this page are activated yet. Try the next page or clear the search.",
+    ar: "لم يتم تفعيل أي من التعريفات في هذه الصفحة بعد. جرّب الصفحة التالية أو امسح البحث.",
+  },
+  "testdef.active": { en: "Active", ar: "نشط" },
   "testdef.noDraftsOnPage": { en: "No drafts on this page", ar: "لا توجد مسودات في هذه الصفحة" },
   "testdef.noDraftsOnPageHint": {
     en: "None of the definitions on this page are drafts. Try the next page or clear the search.",
@@ -4031,6 +4037,8 @@ const dict: Record<string, Entry> = {
   },
   "testdef.detail.provingRun": { en: "Proving run", ar: "تشغيل الإثبات" },
   "testdef.detail.provingRunNone": { en: "Not proven yet", ar: "لم يُثبت بعد" },
+  "testdef.detail.activation": { en: "Activation", ar: "التفعيل" },
+  "testdef.detail.notActivated": { en: "Not activated", ar: "غير مُفعّل" },
   "testdef.detail.created": { en: "Created", ar: "أُنشئ" },
   "testdef.detail.validatedAt": { en: "Validated", ar: "تم التحقق" },
   "testdef.detail.approvedAt": { en: "Approved", ar: "تم الاعتماد" },
@@ -4106,6 +4114,45 @@ const dict: Record<string, Entry> = {
   },
   "testdef.action.adminBadge": { en: "Admin", ar: "مسؤول" },
   "testdef.action.schedule": { en: "Schedule", ar: "جدولة" },
+  "testdef.action.activate": { en: "Activate test", ar: "تفعيل الاختبار" },
+  "testdef.action.activating": { en: "Activating…", ar: "جارٍ التفعيل…" },
+  "testdef.action.addToFlow": { en: "Add to flow", ar: "إضافة إلى تدفق" },
+
+  /* Activation (Draft-Activation phase) */
+  "testdef.activated.title": { en: "Test activated", ar: "تم تفعيل الاختبار" },
+  "testdef.activated.desc": {
+    en: "It now appears under Active Tests and can be added to a flow, run, monitored and scheduled.",
+    ar: "أصبح الآن ضمن الاختبارات النشطة ويمكن إضافته إلى تدفق وتشغيله ومراقبته وجدولته.",
+  },
+  "testdef.activated.alreadyTitle": { en: "Already active", ar: "نشط بالفعل" },
+  "testdef.activated.failedTitle": { en: "Unable to activate test.", ar: "تعذّر تفعيل الاختبار." },
+
+  /* Add to Flow (Draft-Activation phase) */
+  "testdef.addToFlow.title": { en: "Add “{name}” to a flow", ar: "إضافة «{name}» إلى تدفق" },
+  "testdef.addToFlow.subtitle": {
+    en: "Add this test to an existing flow, or create a new flow and add it.",
+    ar: "أضف هذا الاختبار إلى تدفق قائم، أو أنشئ تدفقًا جديدًا وأضفه إليه.",
+  },
+  "testdef.addToFlow.mode": { en: "Choose how to add", ar: "اختر طريقة الإضافة" },
+  "testdef.addToFlow.existing": { en: "Existing flow", ar: "تدفق قائم" },
+  "testdef.addToFlow.createNew": { en: "Create new flow", ar: "إنشاء تدفق جديد" },
+  "testdef.addToFlow.existingLabel": { en: "Flow", ar: "التدفق" },
+  "testdef.addToFlow.selectPlaceholder": { en: "Select a flow…", ar: "اختر تدفقًا…" },
+  "testdef.addToFlow.currentSuffix": { en: "(current)", ar: "(الحالي)" },
+  "testdef.addToFlow.newNameLabel": { en: "Flow name", ar: "اسم التدفق" },
+  "testdef.addToFlow.newNameHint": {
+    en: "A new flow is created for this client and this test is added to it.",
+    ar: "يُنشأ تدفق جديد لهذا العميل ويُضاف هذا الاختبار إليه.",
+  },
+  "testdef.addToFlow.newNamePlaceholder": { en: "Login & Checkout Regression", ar: "اختبار تسجيل الدخول والدفع" },
+  "testdef.addToFlow.addExisting": { en: "Add to flow", ar: "إضافة إلى التدفق" },
+  "testdef.addToFlow.createAndAdd": { en: "Create flow & add test", ar: "إنشاء التدفق وإضافة الاختبار" },
+  "testdef.addToFlow.noFlows": {
+    en: "This client has no flows yet. Create a new one instead.",
+    ar: "لا توجد تدفقات لهذا العميل بعد. أنشئ تدفقًا جديدًا بدلاً من ذلك.",
+  },
+  "testdef.addToFlow.loadFailed": { en: "Unable to load flows.", ar: "تعذّر تحميل التدفقات." },
+  "testdef.addToFlow.failed": { en: "Unable to add test to flow.", ar: "تعذّر إضافة الاختبار إلى التدفق." },
 
   "testdef.schedule.title": { en: "Schedule this test", ar: "جدولة هذا الاختبار" },
   "testdef.schedule.subtitle": {
@@ -4168,6 +4215,10 @@ const dict: Record<string, Entry> = {
   "testdef.reason.noFlow": {
     en: "Link this definition to a flow first",
     ar: "اربط هذا التعريف بتدفق أولاً",
+  },
+  "testdef.reason.alreadyActive": {
+    en: "This test is already active",
+    ar: "هذا الاختبار نشط بالفعل",
   },
   "testdef.reason.loading": {
     en: "Loading the active version…",
@@ -4321,6 +4372,41 @@ const dict: Record<string, Entry> = {
     ar: "تم رفض الوصول إلى الأدلة",
   },
   "testdef.artifacts.failedTitle": { en: "Download failed", ar: "فشل التنزيل" },
+
+  /* ---------- Run History → Execution Evidence panel ---------- */
+  "runEvidence.title": { en: "Execution Evidence", ar: "أدلة التنفيذ" },
+  "runEvidence.subtitle": {
+    en: "What actually happened during this run.",
+    ar: "ما الذي حدث فعليًا أثناء هذا التشغيل.",
+  },
+  "runEvidence.loading": { en: "Loading execution evidence…", ar: "جارٍ تحميل أدلة التنفيذ…" },
+  "runEvidence.error": { en: "Unable to load execution evidence.", ar: "تعذّر تحميل أدلة التنفيذ." },
+  "runEvidence.retry": { en: "Try again", ar: "حاول مرة أخرى" },
+  "runEvidence.empty": {
+    en: "No execution evidence is available for this run.",
+    ar: "لا تتوفر أدلة تنفيذ لهذا التشغيل.",
+  },
+  "runEvidence.unavailable": {
+    en: "Structured execution evidence is not available for this run.",
+    ar: "لا تتوفر أدلة تنفيذ مُنظَّمة لهذا التشغيل.",
+  },
+  "runEvidence.unavailableHint": {
+    en: "This run is not linked to a Test Definition, so per-step evidence and artifacts were not recorded.",
+    ar: "هذا التشغيل غير مرتبط بتعريف اختبار، لذا لم تُسجَّل أدلة الخطوات أو الملفات.",
+  },
+  "runEvidence.timeline": { en: "Execution Timeline", ar: "الجدول الزمني للتنفيذ" },
+  "runEvidence.noSteps": {
+    en: "No per-step results were recorded for this run.",
+    ar: "لم تُسجَّل نتائج لكل خطوة في هذا التشغيل.",
+  },
+  "runEvidence.screenshots": { en: "Screenshots", ar: "لقطات الشاشة" },
+  "runEvidence.screenshotUnavailable": {
+    en: "Evidence artifact unavailable.",
+    ar: "ملف الدليل غير متاح.",
+  },
+  "runEvidence.viewScreenshot": { en: "View", ar: "عرض" },
+  "runEvidence.closeViewer": { en: "Close", ar: "إغلاق" },
+  "runEvidence.summary": { en: "Run Summary", ar: "ملخّص التشغيل" },
 
   /* Admin client scope */
   "testdef.admin.pickClient": { en: "Client environment", ar: "بيئة العميل" },

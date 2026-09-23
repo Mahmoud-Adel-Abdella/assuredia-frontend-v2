@@ -18,6 +18,31 @@ export const COMPOSER_TO_WIRE: Record<ComposerTestType, PlannerTestType> = {
   MIXED: "END_TO_END",
 }
 
+export type PlanUiActionKind =
+  | "navigate"
+  | "click"
+  | "fill"
+  | "select"
+  | "hover"
+  | "check"
+  | "uncheck"
+  | "wait"
+
+export type PlanUiValueSource = {
+  source: "literal" | "config"
+  reference: string
+}
+
+export type PlanUiAction = {
+  kind: PlanUiActionKind
+  target?: string
+  value?: PlanUiValueSource
+  by?: "label" | "value"
+  waitFor?: "duration" | "locatorState"
+  durationMs?: number
+  state?: "visible" | "hidden" | "attached" | "detached"
+}
+
 export type PlanStep = {
   type: "UI" | "API"
   intent: string
@@ -26,6 +51,7 @@ export type PlanStep = {
     method: string
     path: string
   }
+  action?: PlanUiAction
 }
 
 export type PlanOutcome = {
@@ -337,6 +363,74 @@ export function isPlanClarification(
     value !== null &&
     (value as { status?: unknown }).status === "NEEDS_CLARIFICATION"
   )
+}
+
+/**
+ * Normalizes questions and categories from a backend clarification payload into
+ * canonical PlanClarificationQuestion objects.
+ *
+ * Backend wire representation:
+ *   questions: string[]
+ *   categories: string[]
+ *
+ * Frontend domain representation:
+ *   questions: { question: string; category: string | null }[]
+ */
+export function normalizeClarificationQuestions(
+  rawQuestions: unknown,
+  rawCategories?: unknown,
+): PlanClarificationQuestion[] {
+  if (!Array.isArray(rawQuestions)) {
+    return []
+  }
+  const categories = Array.isArray(rawCategories) ? rawCategories : []
+  return rawQuestions
+    .map((q, i) => {
+      const rawCat = categories[i]
+      const category =
+        typeof rawCat === "string" && rawCat.trim().length > 0
+          ? rawCat.trim()
+          : null
+
+      if (typeof q === "string") {
+        return {
+          question: q,
+          category,
+        }
+      }
+      if (typeof q === "object" && q !== null) {
+        const qObj = q as Record<string, unknown>
+        if (typeof qObj.question === "string") {
+          return {
+            question: qObj.question,
+            category:
+              typeof qObj.category === "string" && qObj.category.trim().length > 0
+                ? qObj.category.trim()
+                : category,
+          }
+        }
+      }
+      return null
+    })
+    .filter((item): item is PlanClarificationQuestion => item !== null)
+}
+
+/**
+ * Normalizes a raw clarification response from the backend (SSE frame or
+ * standard REST response) into the canonical frontend PlanClarification model.
+ * Single normalization boundary across SSE and REST paths.
+ */
+export function normalizePlanClarification(raw: unknown): PlanClarification {
+  const record = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>
+  return {
+    status: "NEEDS_CLARIFICATION",
+    planId: typeof record.planId === "string" ? record.planId : "",
+    requestedType:
+      typeof record.requestedType === "string"
+        ? (record.requestedType as PlannerTestType)
+        : null,
+    questions: normalizeClarificationQuestions(record.questions, record.categories),
+  }
 }
 
 /** Client-generated idempotency key for confirm (never payload-derived). */

@@ -15,6 +15,8 @@ import {
   isPlanClarification,
   isPlanReady,
   newConfirmKey,
+  normalizeClarificationQuestions,
+  normalizePlanClarification,
   normalizePlanEvidence,
   normalizePlanEvidenceOnPlan,
   outcomesOfSteps,
@@ -175,6 +177,27 @@ test("toEditable preserves endpoint metadata", () => {
   assert.deepEqual(editable[0].outcome, { type: "API", intent: "Order is created" })
 })
 
+test("toEditable preserves structured UI action immutably", () => {
+  const action = {
+    kind: "fill" as const,
+    target: "Username",
+    value: { source: "config" as const, reference: "username" },
+  }
+  const editable = toEditable(
+    [{
+      type: "UI",
+      intent: "Enter username",
+      requiresDiscovery: true,
+      action,
+    }],
+    [{ type: "UI", intent: "Dashboard is visible" }],
+  )
+  assert.deepEqual(editable[0].action, action)
+  assert.notEqual(editable[0].action, action)
+  assert.notEqual(editable[0].action?.value, action.value)
+  assert.equal(editable[0].action?.value?.reference, "username")
+})
+
 test("Planner domain vocabulary", async (t) => {
   const originalFetch = globalThis.fetch
   t.afterEach(() => {
@@ -222,6 +245,129 @@ test("Planner domain vocabulary", async (t) => {
       true,
     )
     assert.equal(isPlanClarification(null), false)
+  })
+
+  await t.test("clarification normalizer maps backend contract to canonical questions", async (st) => {
+    // Case 1 — normal clarification
+    await st.test("Case 1: normal clarification converts string question and category", () => {
+      const input = {
+        status: "NEEDS_CLARIFICATION",
+        planId: "p1",
+        questions: ["Which account should be used?"],
+        categories: ["MISSING_BUSINESS_OBJECTIVE"],
+      }
+      const normalized = normalizePlanClarification(input)
+      assert.deepEqual(normalized.questions, [
+        {
+          question: "Which account should be used?",
+          category: "MISSING_BUSINESS_OBJECTIVE",
+        },
+      ])
+      assert.equal(normalized.status, "NEEDS_CLARIFICATION")
+      assert.equal(normalized.planId, "p1")
+    })
+
+    // Case 2 — multiple questions
+    await st.test("Case 2: multiple questions mapped by matching indexes", () => {
+      const input = {
+        questions: [
+          "Which account should be used?",
+          "What should happen after login?",
+        ],
+        categories: [
+          "MISSING_BUSINESS_OBJECTIVE",
+          "MISSING_EXPECTED_OUTCOME",
+        ],
+      }
+      const questions = normalizeClarificationQuestions(input.questions, input.categories)
+      assert.deepEqual(questions, [
+        {
+          question: "Which account should be used?",
+          category: "MISSING_BUSINESS_OBJECTIVE",
+        },
+        {
+          question: "What should happen after login?",
+          category: "MISSING_EXPECTED_OUTCOME",
+        },
+      ])
+    })
+
+    // Case 3 — missing category
+    await st.test("Case 3: missing categories array sets category to null", () => {
+      const questions = normalizeClarificationQuestions(["Question"], [])
+      assert.deepEqual(questions, [
+        {
+          question: "Question",
+          category: null,
+        },
+      ])
+    })
+
+    // Case 4 — fewer categories
+    await st.test("Case 4: fewer categories leaves remaining questions with null category", () => {
+      const questions = normalizeClarificationQuestions(
+        ["Q1", "Q2", "Q3"],
+        ["MISSING_BUSINESS_OBJECTIVE"],
+      )
+      assert.deepEqual(questions, [
+        {
+          question: "Q1",
+          category: "MISSING_BUSINESS_OBJECTIVE",
+        },
+        {
+          question: "Q2",
+          category: null,
+        },
+        {
+          question: "Q3",
+          category: null,
+        },
+      ])
+    })
+
+    // Case 5 — empty questions
+    await st.test("Case 5: empty questions or non-array returns safe empty array", () => {
+      assert.deepEqual(normalizeClarificationQuestions([], ["CAT1"]), [])
+      assert.deepEqual(normalizeClarificationQuestions(null, ["CAT1"]), [])
+      assert.deepEqual(normalizeClarificationQuestions(undefined), [])
+      assert.deepEqual(normalizePlanClarification({ status: "NEEDS_CLARIFICATION" }).questions, [])
+    })
+
+    // Categories longer than questions: extra categories ignored
+    await st.test("defensive: categories longer than questions are ignored safely", () => {
+      const questions = normalizeClarificationQuestions(
+        ["Q1"],
+        ["CAT1", "CAT2", "CAT3"],
+      )
+      assert.deepEqual(questions, [
+        {
+          question: "Q1",
+          category: "CAT1",
+        },
+      ])
+    })
+
+    // Standard API path normalizes clarification responses
+    await st.test("standard API path apiCreateTestPlan normalizes clarification", async () => {
+      stubFetch(() => ({
+        json: {
+          status: "NEEDS_CLARIFICATION",
+          planId: "p-clarify",
+          questions: ["Which account should be used?"],
+          categories: ["MISSING_BUSINESS_OBJECTIVE"],
+        },
+      }))
+      const res = await apiCreateTestPlan(7, { intent: "Test login" })
+      assert.equal(res.status, "NEEDS_CLARIFICATION")
+      if (res.status === "NEEDS_CLARIFICATION") {
+        assert.deepEqual(res.questions, [
+          {
+            question: "Which account should be used?",
+            category: "MISSING_BUSINESS_OBJECTIVE",
+          },
+        ])
+      }
+    })
   })
 
   await t.test("confirm keys are unique and non-empty", () => {
@@ -277,6 +423,33 @@ test("Planner domain vocabulary", async (t) => {
       }],
     })
     assert.ok(calls[0].url.endsWith("/test-plans/plan-1/confirm"))
+  })
+
+  await t.test("confirm preserves structured action and credential reference without plaintext", async () => {
+    const calls = stubFetch(() => ({
+      json: { definitionId: 502, creationRequestId: 10, status: "DRAFT" },
+    }))
+    await apiConfirmTestPlan(7, "plan-2", "key-2", {
+      name: "Secure login",
+      modifiedSteps: [{
+        type: "UI",
+        intent: "Enter username",
+        action: {
+          kind: "fill",
+          target: "Username",
+          value: { source: "config", reference: "username" },
+        },
+      }],
+    })
+    const body = calls[0].body as { modifiedSteps: Array<{ action?: unknown }> }
+    assert.deepEqual(body.modifiedSteps[0].action, {
+      kind: "fill",
+      target: "Username",
+      value: { source: "config", reference: "username" },
+    })
+    assert.equal((body.modifiedSteps[0].action as { value: { source: string; reference: string } }).value.source, "config")
+    assert.equal((body.modifiedSteps[0].action as { value: { source: string; reference: string } }).value.reference, "username")
+    assert.doesNotMatch(JSON.stringify(body), /test@example\\.com|password123/)
   })
 
   await t.test("composition errors have dedicated actionable copy", () => {

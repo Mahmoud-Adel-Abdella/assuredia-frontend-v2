@@ -637,7 +637,7 @@ function AppInner() {
                   ? t("testdef.activeSubtitle")
                   : t("testdef.draftsSubtitle")
               }
-              filter={active === "active-tests" ? "READY" : "DRAFTS"}
+              filter={active === "active-tests" ? "ACTIVE" : "DRAFTS"}
             />
           ) : active === "create-test" && user?.clientId != null ? (
             <CreateTestPage

@@ -36,7 +36,14 @@ import {
   type DiscoveryResult,
 } from "./discovery"
 import { translate } from "./i18n"
-import type { PlanClarification, PlanFailure, TestPlan } from "./planner"
+import {
+  isPlanClarification,
+  normalizePlanClarification,
+  type PlanClarification,
+  type PlanFailure,
+  type PlanUiAction,
+  type TestPlan,
+} from "./planner"
 
 const TOKEN_KEY = "assuredia.token"
 
@@ -547,6 +554,17 @@ export type DashboardRun = {
    * ai_report, or resolved via GET /runs/{runId}/analysis.
    */
   analysis_status?: string | null
+  /**
+   * SINGLE rows only. The Test Definition this run executed, when the run is a
+   * definition run (AI Test Builder output); null for legacy flow runs. Present
+   * so Run History can reach the authenticated run-evidence endpoint
+   * (…/test-definitions/{definitionId}/runs/{runId}); never a browsable value.
+   */
+  test_definition_id?: number | null
+  /** SINGLE rows only: TRIAL | PROVING | SCHEDULED — the run's execution purpose. */
+  execution_purpose?: string | null
+  /** SINGLE rows only: e.g. TEST_DEFINITION | FLOW — how the run was produced. */
+  implementation_type?: string | null
 }
 
 /**
@@ -2400,6 +2418,14 @@ export type TestDefinitionListItem = {
   isArchived: boolean
   createdAt: string | null
   updatedAt: string | null
+  /**
+   * Operational activation marker (Draft-Activation phase). Non-null once the reviewed test has
+   * been activated; a non-archived definition with `activatedAt` set is "Active". `activeVersionId`
+   * preserves the identity of the reviewed version that was activated.
+   */
+  activatedAt: string | null
+  activatedBy: number | null
+  activeVersionId: number | null
 }
 
 /** GET …/test-definitions — bounded page plus the unfiltered/filtered total. */
@@ -2440,6 +2466,10 @@ export type TestDefinitionDetails = {
   isArchived: boolean
   createdAt: string | null
   updatedAt: string | null
+  /** Operational activation marker; see {@link TestDefinitionListItem}. */
+  activatedAt: string | null
+  activatedBy: number | null
+  activeVersionId: number | null
   versions: TestDefinitionVersionSummary[]
 }
 
@@ -2521,6 +2551,23 @@ export type TestDefinitionArchived = {
   versionNumber: number
   status: "ARCHIVED"
   aggregateArchived: boolean
+}
+
+/**
+ * POST …/versions/{versionId}/activate — the operational activation result
+ * (Draft-Activation phase). Activation is an additive marker: `versionStatus` is the version's
+ * unchanged canonical lifecycle status, never "ACTIVE". `alreadyActive` is true when the same
+ * version was already the active one (idempotent repeat).
+ */
+export type TestDefinitionActivated = {
+  definitionId: number
+  activeVersionId: number | null
+  versionNumber: number
+  activatedAt: string | null
+  activatedBy: number | null
+  versionStatus: TestDefinitionStatus
+  active: boolean
+  alreadyActive: boolean
 }
 
 /** One in-memory step outcome on a fresh execution response (StepResult). */
@@ -2865,14 +2912,36 @@ export async function apiArchiveTestDefinitionVersion(
   )
 }
 
+/**
+ * POST …/versions/{versionId}/activate — operational activation of a reviewed test
+ * (Draft-Activation phase).
+ *
+ * Unlike approve/proving/archive this is NOT admin-only and requires neither a bound Flow nor a
+ * proving run: it is the user-facing boundary that moves a reviewed test out of Drafts & Reviews
+ * into Active Tests. It never changes the version's canonical status and never creates a duplicate
+ * definition/version. Idempotent — re-activating the same version returns `alreadyActive: true`.
+ */
+export async function apiActivateTestDefinitionVersion(
+  clientId: number,
+  definitionId: number,
+  versionId: number,
+): Promise<TestDefinitionActivated> {
+  return request<TestDefinitionActivated>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/versions/${versionId}/activate`,
+    { method: "POST" },
+  )
+}
+
 /** GET …/{definitionId}/runs/{runId} — persisted run row, steps and artifact metadata. */
 export async function apiGetTestDefinitionRun(
   clientId: number,
   definitionId: number,
   runId: number,
+  signal?: AbortSignal,
 ): Promise<TestDefinitionRunDetails> {
   return request<TestDefinitionRunDetails>(
     `${testDefinitionsPath(clientId)}/${definitionId}/runs/${runId}`,
+    { signal },
   )
 }
 
@@ -3224,6 +3293,7 @@ export type ConfirmTestPlanBody = {
     type: "UI" | "API"
     intent: string
     endpoint?: { method: string; path: string }
+    action?: PlanUiAction
   }>
   modifiedOutcomes?: Array<{
     type: "UI" | "API"
@@ -3263,7 +3333,7 @@ export async function apiCreateTestPlan(
   body: CreateTestPlanBody,
   signal?: AbortSignal,
 ): Promise<CreateTestPlanResponse> {
-  return request<CreateTestPlanResponse>(`/dashboard-api/clients/${clientId}/test-plans`, {
+  const result = await request<CreateTestPlanResponse>(`/dashboard-api/clients/${clientId}/test-plans`, {
     method: "POST",
     body: {
       intent: body.intent,
@@ -3272,6 +3342,10 @@ export async function apiCreateTestPlan(
     },
     signal,
   })
+  if (isPlanClarification(result)) {
+    return normalizePlanClarification(result)
+  }
+  return result
 }
 
 export async function apiConfirmTestPlan(

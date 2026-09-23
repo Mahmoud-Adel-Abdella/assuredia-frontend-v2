@@ -33,6 +33,7 @@ import {
   type ComposerTestType,
   type PlanClarificationQuestion,
   type PlanOutcome,
+  type PlanStep,
   type TestPlan,
 } from "../../lib/planner"
 import { LiveDiscoveryFeed } from "./live/LiveDiscoveryFeed"
@@ -72,12 +73,7 @@ type Failure = { title: string; description?: string }
 
 let stepKeySeq = 0
 export function toEditable(
-  steps: {
-    type: "UI" | "API"
-    intent: string
-    requiresDiscovery: boolean
-    endpoint?: { method: string; path: string }
-  }[],
+  steps: PlanStep[],
   outcomes: PlanOutcome[] | null | undefined,
 ): EditableStep[] {
   // Attach each expected result to its step (index-aligned planner output):
@@ -89,6 +85,12 @@ export function toEditable(
       intent: s.intent,
       requiresDiscovery: s.requiresDiscovery,
       endpoint: s.endpoint,
+      action: s.action
+        ? {
+            ...s.action,
+            value: s.action.value ? { ...s.action.value } : s.action.value,
+          }
+        : undefined,
       key: `s${++stepKeySeq}`,
     })),
     outcomes,
@@ -155,29 +157,21 @@ export function AiBuilderPage({
     timersRef.current = []
   }
 
-  useEffect(() => {
+  // PR10C.5 Phase 2A.2-D: the credential list is refetched on mount AND whenever the
+  // window regains focus, so a credential created in Settings while the builder is open
+  // becomes selectable without a full reload. A failed fetch degrades to an empty list
+  // (the "No credentials configured" state), never a blocked composer. Any previously
+  // selected id that no longer exists is cleared so a stale selection cannot be submitted.
+  const refreshCredentials = React.useCallback(() => {
     let cancelled = false
-    apiClientDetails(clientId)
-      .then((details) => {
-        if (cancelled) return
-        setOrigin(details.client.base_url ?? null)
-      })
-      .catch((error) => {
-        if (cancelled) return
-        if (error instanceof ApiError && error.status === 401) {
-          onUnauthorized()
-          return
-        }
-        setOrigin(null)
-      })
-    // PR10C.5 Phase 2: real multi-credential list feeds the composer's
-    // selector; a failed fetch degrades to an empty list (the "No
-    // credentials configured" state), never a blocked composer.
     apiListCredentials(clientId)
       .then((list) => {
         if (cancelled) return
         setCredentials(list)
         setCredentialsLoaded(true)
+        setSelectedCredentialId((current) =>
+          current != null && !list.some((c) => c.id === current) ? null : current,
+        )
       })
       .catch((error) => {
         if (cancelled) return
@@ -193,6 +187,32 @@ export function AiBuilderPage({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId])
+
+  useEffect(() => {
+    let cancelled = false
+    apiClientDetails(clientId)
+      .then((details) => {
+        if (cancelled) return
+        setOrigin(details.client.base_url ?? null)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        if (error instanceof ApiError && error.status === 401) {
+          onUnauthorized()
+          return
+        }
+        setOrigin(null)
+      })
+    const cancelCredentials = refreshCredentials()
+    const onFocus = () => refreshCredentials()
+    window.addEventListener("focus", onFocus)
+    return () => {
+      cancelled = true
+      cancelCredentials()
+      window.removeEventListener("focus", onFocus)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, refreshCredentials])
 
   useEffect(() => {
     abortRef.current?.abort()
@@ -258,7 +278,18 @@ export function AiBuilderPage({
       controller.signal,
     ).then(
       (started) => { setLivePlanId(started.planId) },
-      (error: unknown) => { setBusy(false); fail(PLAN_ERROR_MESSAGES.AI_UNAVAILABLE, error instanceof Error ? error.message : undefined) },
+      (error: unknown) => {
+        setBusy(false)
+        // Preserve a credential-specific category the backend returned on the start request
+        // instead of collapsing every failure into the generic AI-unavailable copy.
+        const category =
+          error instanceof ApiError &&
+          typeof error.body?.errorCategory === "string" &&
+          error.body.errorCategory in PLAN_ERROR_MESSAGES
+            ? (error.body.errorCategory as keyof typeof PLAN_ERROR_MESSAGES)
+            : "AI_UNAVAILABLE"
+        fail(PLAN_ERROR_MESSAGES[category], error instanceof Error ? error.message : undefined)
+      },
     )
     // Terminal transitions are driven by the live stream below.
     return
@@ -363,6 +394,12 @@ export function AiBuilderPage({
           type: s.type,
           intent: s.intent,
           endpoint: s.endpoint,
+          action: s.action
+            ? {
+                ...s.action,
+                value: s.action.value ? { ...s.action.value } : s.action.value,
+              }
+            : undefined,
         })),
         modifiedOutcomes: steps
           .map((s) => s.outcome)

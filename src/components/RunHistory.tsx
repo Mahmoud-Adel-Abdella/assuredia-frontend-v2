@@ -502,6 +502,9 @@ export function RunHistory({
           aiRetrying={aiRetrying}
           onViewAiAnalysis={onViewAi ? () => onViewAi(openRun.id) : undefined}
           backLabel={t("history.backToHistory")}
+          clientId={clientId}
+          evidenceDefinitionId={openEntry.meta.definitionId}
+          evidenceRunId={openEntry.meta.runRowId}
         />
         {pollError && (
           <Card>

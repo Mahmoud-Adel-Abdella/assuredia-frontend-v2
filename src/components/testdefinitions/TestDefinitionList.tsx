@@ -2,13 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button, Card, ErrorState, cx, useToast } from "../primitives"
 import { useLang, langLocale } from "../../lib/i18n"
 import {
-  apiGetTestDefinition,
   apiListTestDefinitions,
   type TestDefinitionListItem,
   type TestDefinitionStatus,
 } from "../../lib/api"
 import { mapTestDefinitionFailure } from "../../lib/testDefinitionLifecycle"
-import { LifecycleBadge, formatTimestamp } from "./shared"
+import { ActiveBadge, LifecycleBadge, formatTimestamp } from "./shared"
 
 /** One page of definitions. The engine bounds `limit` to 100. */
 const PAGE_SIZE = 25
@@ -20,35 +19,31 @@ const SEARCH_DEBOUNCE_MS = 300
  * The status column shows the aggregate's state as the list endpoint reports it.
  *
  * `GET …/test-definitions` returns `TestDefinitionEntity` rows, which carry
- * `isArchived` but no version status — version state lives on the versions of
- * the aggregate and is only available from the detail route. So the list is
- * honest about what it knows: ARCHIVED when the aggregate is archived, and
- * otherwise it defers to the detail view rather than inventing a status.
+ * `isArchived` and the activation marker but no version status. So the list is
+ * honest about what it knows: ARCHIVED when the aggregate is archived, ACTIVE
+ * when it has been activated, and otherwise it defers to the detail view rather
+ * than inventing a version status.
  */
 function listStatus(row: TestDefinitionListItem): TestDefinitionStatus | null {
   return row.isArchived ? "ARCHIVED" : null
 }
 
 /**
- * Lifecycle filter for the TESTS IA views. The list endpoint reports no
- * version status, so when set, each row's effective status (newest version,
- * detail route) is resolved through the existing API and rows filter
- * client-side. ARCHIVED aggregates never match a lifecycle filter.
+ * Lifecycle filter for the TESTS IA views, resolved entirely from the activation
+ * marker the list endpoint already reports (Draft-Activation phase):
  *
- * Backend follow-up: expose the latest version's status on the list
- * endpoint to eliminate the per-row status resolution below.
+ *   • ACTIVE  — non-archived AND activated (Active Tests page).
+ *   • DRAFTS  — non-archived AND not yet activated (Drafts & Reviews page).
+ *
+ * ARCHIVED aggregates never match either. Activation replaces the previous
+ * READY-as-active heuristic and needs no per-row detail lookup.
  */
-export type TestDefinitionStatusFilter = "READY" | "DRAFTS"
+export type TestDefinitionStatusFilter = "ACTIVE" | "DRAFTS"
 
-const DRAFT_STATUSES: TestDefinitionStatus[] = ["DRAFT", "VALIDATED", "APPROVED"]
-
-function matchesFilter(
-  row: TestDefinitionListItem,
-  status: TestDefinitionStatus | "UNKNOWN" | undefined,
-  filter: TestDefinitionStatusFilter,
-): boolean {
-  if (row.isArchived || status === undefined || status === "UNKNOWN") return false
-  return filter === "READY" ? status === "READY" : DRAFT_STATUSES.includes(status)
+function matchesFilter(row: TestDefinitionListItem, filter: TestDefinitionStatusFilter): boolean {
+  if (row.isArchived) return false
+  const activated = row.activatedAt != null
+  return filter === "ACTIVE" ? activated : !activated
 }
 
 export function TestDefinitionList({
@@ -82,13 +77,6 @@ export function TestDefinitionList({
 
   /* Monotonic request id: a slow earlier page can never overwrite a newer one. */
   const requestRef = useRef(0)
-
-  /* Effective lifecycle status per row (detail route), only when filtering. */
-  const [statusById, setStatusById] = useState<Record<
-    number,
-    TestDefinitionStatus | "UNKNOWN"
-  > | null>(null)
-  const [resolving, setResolving] = useState(false)
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -143,58 +131,10 @@ export function TestDefinitionList({
     }
   }, [load, reloadKey])
 
-  /* Resolve row statuses through the existing detail route when filtering. */
-  useEffect(() => {
-    if (!statusFilter || rows === null) return
-    const rid = ++requestRef.current
-    setStatusById(null)
-    setResolving(true)
-    let cancelled = false
-    void (async () => {
-      try {
-        const entries = await Promise.all(
-          rows.map(async (row) => {
-            try {
-              const details = await apiGetTestDefinition(clientId, row.id)
-              const latest = details.versions?.[0]
-              return [row.id, latest?.status ?? "UNKNOWN"] as const
-            } catch (err) {
-              if (err && typeof err === "object" && "status" in err &&
-                (err as { status?: unknown }).status === 401) {
-                onUnauthorized()
-                return null
-              }
-              return [row.id, "UNKNOWN"] as const
-            }
-          }),
-        )
-        if (cancelled || rid !== requestRef.current) return
-        const next: Record<number, TestDefinitionStatus | "UNKNOWN"> = {}
-        for (const entry of entries) {
-          if (entry) next[entry[0]] = entry[1]
-        }
-        setStatusById(next)
-      } finally {
-        if (!cancelled && rid === requestRef.current) setResolving(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [statusFilter, rows, clientId, onUnauthorized])
-
   const allItems = rows ?? []
-  const items = statusFilter
-    ? statusById == null
-      ? []
-      : allItems.filter((row) => matchesFilter(row, statusById[row.id], statusFilter))
-    : allItems
+  const items = statusFilter ? allItems.filter((row) => matchesFilter(row, statusFilter)) : allItems
   const filteredEmpty =
-    statusFilter != null &&
-    !resolving &&
-    rows !== null &&
-    rows.length > 0 &&
-    items.length === 0
+    statusFilter != null && rows !== null && rows.length > 0 && items.length === 0
   const searching = search !== ""
   const rangeFrom = total === 0 ? 0 : offset + 1
   const rangeTo = offset + items.length
@@ -242,12 +182,10 @@ export function TestDefinitionList({
 
       {statusFilter && rows !== null && !loadError && (
         <p role="status" className="text-[12px] text-slate-400">
-          {resolving
-            ? t("testdef.filterResolving")
-            : t("testdef.filterNote", {
-                shown: items.length,
-                total: allItems.length,
-              })}
+          {t("testdef.filterNote", {
+            shown: items.length,
+            total: allItems.length,
+          })}
         </p>
       )}
 
@@ -264,12 +202,6 @@ export function TestDefinitionList({
           description={loadError}
           onRetry={() => setReloadKey((k) => k + 1)}
         />
-      ) : statusFilter != null && (resolving || statusById == null) && rows !== null && rows.length > 0 ? (
-        <Card className="flex items-center justify-center px-6 py-16">
-          <p role="status" className="text-[13px] text-slate-400">
-            {t("testdef.filterResolving")}
-          </p>
-        </Card>
       ) : filteredEmpty ? (
         <Card className="flex flex-col items-center justify-center px-6 py-16 text-center">
           <div className="flex size-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
@@ -282,10 +214,10 @@ export function TestDefinitionList({
             </svg>
           </div>
           <p className="mt-4 font-display text-base font-bold text-navy">
-            {statusFilter === "READY" ? t("testdef.noReadyOnPage") : t("testdef.noDraftsOnPage")}
+            {statusFilter === "ACTIVE" ? t("testdef.noActiveOnPage") : t("testdef.noDraftsOnPage")}
           </p>
           <p className="mt-1 max-w-sm text-[13px] text-slate-500">
-            {statusFilter === "READY" ? t("testdef.noReadyOnPageHint") : t("testdef.noDraftsOnPageHint")}
+            {statusFilter === "ACTIVE" ? t("testdef.noActiveOnPageHint") : t("testdef.noDraftsOnPageHint")}
           </p>
         </Card>
       ) : items.length === 0 ? (
@@ -352,6 +284,8 @@ export function TestDefinitionList({
                       <td className="px-4 py-3.5">
                         {status ? (
                           <LifecycleBadge status={status} />
+                        ) : row.activatedAt != null ? (
+                          <ActiveBadge />
                         ) : (
                           <span className="text-[12px] text-slate-400">—</span>
                         )}

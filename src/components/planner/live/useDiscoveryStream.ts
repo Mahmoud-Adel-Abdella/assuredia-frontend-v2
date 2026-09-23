@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { getToken } from "../../../lib/api"
-import type { PlanClarification, PlanFailure, TestPlan } from "../../../lib/planner"
+import {
+  normalizePlanClarification,
+  type PlanClarification,
+  type PlanFailure,
+  type TestPlan,
+} from "../../../lib/planner"
 
 export type LivePlanEvent = {
   id: string
@@ -15,8 +20,36 @@ export type StreamStatus = "idle" | "streaming" | "done" | "failed" | "clarifica
 export type DiscoveryStreamResult = { events: LivePlanEvent[]; status: StreamStatus; plan: TestPlan | null; failure: PlanFailure | null; clarification: PlanClarification | null; stalled: boolean }
 const BASE_URL = ((typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) || "").replace(/\/+$/, "")
 export const STALL_HINT_MS = 15_000
+/**
+ * Upper bound on the SSE→polling fallback window. A missing plan (404) means the
+ * job is still running OR the stream has expired; without a bound the fallback
+ * would poll forever. The bound mirrors the planner's own client timeout so the
+ * feed can never outlive the operation it represents. When it elapses the stream
+ * ends with an honest timeout failure rather than a spinner that never resolves.
+ */
+export const POLL_MAX_WINDOW_MS = 60_000
+export const POLL_INTERVAL_MS = 500
+
+/** The honest terminal failure the bounded fallback resolves to when the window elapses. */
+export const POLL_TIMEOUT_FAILURE: PlanFailure = {
+  status: "FAILED",
+  planId: null,
+  errorCategory: "AI_TIMEOUT",
+  message: "The plan took too long to generate. Try again.",
+}
 
 export const EMPTY_STREAM: DiscoveryStreamResult = { events: [], status: "idle", plan: null, failure: null, clarification: null, stalled: false }
+
+/** True while the stream has not yet reached any terminal state. Pure. */
+export function isTerminalStatus(status: StreamStatus): boolean {
+  return status === "done" || status === "failed" || status === "clarification"
+}
+
+/** Whether the bounded fallback may still poll. Pure so the window is unit-testable. */
+export function withinPollWindow(startedAt: number, now: number, maxWindowMs: number = POLL_MAX_WINDOW_MS): boolean {
+  return now - startedAt < maxWindowMs
+}
+
 
 export function parseSse(buffer: string, onFrame: (name: string, data: string) => void) {
   const parts = buffer.split(/\r?\n\r?\n/)
@@ -43,14 +76,25 @@ export function terminalName(name: string): Exclude<StreamStatus, "idle" | "stre
 
 /** Applies one parsed frame to the stream state. Pure so SSE and polling share it. */
 export function applyFrame(result: DiscoveryStreamResult, name: string, body: unknown): DiscoveryStreamResult {
+  // Terminal guard: once the stream has reached a terminal state, no later frame —
+  // a duplicate terminal, a replayed terminal, or a straggling progress event that
+  // arrived after completion — may mutate it. The first terminal wins and the UI
+  // never transitions back into streaming.
+  if (isTerminalStatus(result.status)) return result
   if (name === "progress") {
     const event = body as LivePlanEvent
+    // Deduplicate by stable backend event id (every PlanEvent carries a UUID), so a
+    // reconnect/replay that re-delivers buffered events renders each one exactly once
+    // while preserving arrival order. A frame without a usable id is treated as new.
+    if (event && typeof event.id === "string" && result.events.some((e) => e.id === event.id)) {
+      return result
+    }
     return { ...result, events: [...result.events, event] }
   }
   const status = terminalName(name)
   if (!status) return result
   if (status === "done") return { ...result, status, plan: body as TestPlan }
-  if (status === "clarification") return { ...result, status, clarification: body as PlanClarification }
+  if (status === "clarification") return { ...result, status, clarification: normalizePlanClarification(body) }
   return { ...result, status, failure: body as PlanFailure }
 }
 
@@ -82,6 +126,7 @@ export function useDiscoveryStream(clientId: number, planId: string | null): Dis
     if (!planId) { setResult(EMPTY_STREAM); return }
     const abort = new AbortController(); abortRef.current = abort
     let pollTimer: number | undefined; let stallTimer: number | undefined
+    const pollStartedAt = Date.now()
     const headers: Record<string, string> = { Accept: "text/event-stream" }
     const token = getToken(); if (token) headers.Authorization = `Bearer ${token}`
     const base = `${BASE_URL}/dashboard-api/clients/${clientId}/test-plans/${planId}`
@@ -93,6 +138,11 @@ export function useDiscoveryStream(clientId: number, planId: string | null): Dis
       abort.abort()
     }
     const poll = async () => {
+      // Bounded fallback: a 404/missing-plan or a still-running job can never poll
+      // past the window. When it elapses, resolve to an honest timeout terminal
+      // instead of spinning forever.
+      if (abort.signal.aborted) return
+      if (!withinPollWindow(pollStartedAt, Date.now())) { finish("failed", POLL_TIMEOUT_FAILURE); return }
       try {
         const response = await fetch(base, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: abort.signal })
         let body: unknown = null
@@ -100,7 +150,11 @@ export function useDiscoveryStream(clientId: number, planId: string | null): Dis
         const outcome = pollOutcome(response.status, body)
         if (!outcome.retry) { finish(outcome.name, outcome.body); return }
       } catch { /* network error — retry below */ }
-      if (!abort.signal.aborted) pollTimer = window.setTimeout(poll, 500)
+      if (!abort.signal.aborted && withinPollWindow(pollStartedAt, Date.now())) {
+        pollTimer = window.setTimeout(poll, POLL_INTERVAL_MS)
+      } else if (!abort.signal.aborted) {
+        finish("failed", POLL_TIMEOUT_FAILURE)
+      }
     }
     const consume = async () => {
       try {

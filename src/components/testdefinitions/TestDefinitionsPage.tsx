@@ -19,7 +19,7 @@ type View = { kind: "list" } | { kind: "create" } | {
  * whether the admin-only lifecycle steps are offered, and the engine enforces the
  * same rule regardless of what the UI shows.
  */
-export type TestDefinitionsFilter = "ALL" | "READY" | "DRAFTS"
+export type TestDefinitionsFilter = "ALL" | "ACTIVE" | "DRAFTS"
 
 export function TestDefinitionsPage({
   clientId,
@@ -51,9 +51,9 @@ export function TestDefinitionsPage({
   headerSubtitle?: string
   initialDefinitionId?: number | null
   /**
-   * Lifecycle filter for IA views. The list endpoint reports no version
-   * status, so READY/DRAFTS resolve each row through the existing detail
-   * route and filter client-side (documented in the deliverable).
+   * Lifecycle filter for IA views, resolved from the activation marker the list
+   * endpoint reports: ACTIVE = activated (Active Tests), DRAFTS = not yet
+   * activated (Drafts & Reviews). ARCHIVED never matches either.
    */
   filter?: TestDefinitionsFilter
 }) {

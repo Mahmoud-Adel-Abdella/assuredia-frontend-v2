@@ -582,10 +582,104 @@ test("Test Definition detail, editor and lifecycle", async (t) => {
     assert.equal(optionalButton(view.container, "Save draft"), null)
     assert.equal(optionalButton(view.container, "Discard changes"), null)
 
-    for (const action of ["validate", "trial", "approve", "proving", "archive", "newVersion"]) {
+    for (const action of ["validate", "trial", "approve", "proving", "archive", "newVersion", "activate"]) {
       const control = actionButton(view.container, action)
       if (control) assert.equal(control.disabled, true, `${action} must be disabled once archived`)
     }
+    // Add to Flow is hidden entirely for an archived definition.
+    assert.equal(actionButton(view.container, "addToFlow"), null)
     assert.match(textOf(view.container), /archived and cannot be changed or executed/)
+  })
+
+  await t.test("Draft-Activation: a reviewed test can be activated, and the marker is shown", async () => {
+    const activatedDetails = {
+      ...details("DRAFT"),
+      activatedAt: "2026-08-30T12:00:00Z",
+      activatedBy: 11,
+      activeVersionId: VERSION_ID,
+    }
+    const view = await renderDetail([
+      {
+        match: `${PATHS.version}/activate`,
+        method: "POST",
+        json: {
+          definitionId: DEFINITION_ID,
+          activeVersionId: VERSION_ID,
+          versionNumber: 1,
+          activatedAt: "2026-08-30T12:00:00Z",
+          activatedBy: 11,
+          versionStatus: "DRAFT",
+          active: true,
+          alreadyActive: false,
+        },
+      },
+      // Version route first: PATHS.version contains PATHS.definition as a substring, so the
+      // version GET must be matched before the definition GET. The initial load is a plain DRAFT;
+      // only the post-activation reload is activated.
+      { match: PATHS.version, method: "GET", json: version("DRAFT") },
+      { match: PATHS.definition, method: "GET", json: details("DRAFT"), once: true },
+      { match: PATHS.definition, method: "GET", json: activatedDetails },
+    ])
+    restore = view.stub.restore
+
+    const activate = actionButton(view.container, "activate")
+    assert.ok(activate, "a DRAFT that is not yet active must offer Activate")
+    assert.equal(activate.disabled, false, "activation needs no admin, flow or proving")
+
+    await click(activate)
+    await flush(6)
+
+    const post = view.stub.requests.find((r) => r.method === "POST" && r.url.endsWith("/activate"))
+    assert.ok(post, "clicking Activate must POST the version's activate route")
+    assert.ok(
+      view.container.querySelector('[data-testid="testdef-active-badge"]'),
+      "the ACTIVE marker must be shown after activation",
+    )
+  })
+
+  await t.test("Draft-Activation: an already-active test disables the Activate control", async () => {
+    const activeDetails = {
+      ...details("DRAFT"),
+      activatedAt: "2026-08-30T12:00:00Z",
+      activatedBy: 11,
+      activeVersionId: VERSION_ID,
+    }
+    const view = await renderDetail([
+      { match: PATHS.version, method: "GET", json: version("DRAFT") },
+      { match: PATHS.definition, method: "GET", json: activeDetails },
+    ])
+    restore = view.stub.restore
+
+    const activate = actionButton(view.container, "activate")
+    assert.ok(activate)
+    assert.equal(activate.disabled, true, "an already-active test must not offer a duplicate activation")
+  })
+
+  await t.test("Draft-Activation: Add to Flow opens a dialog offering existing and new flow", async () => {
+    const view = await renderDetail([
+      ...baseRoutes("DRAFT"),
+      { match: `/dashboard-api/clients/${CLIENT_ID}`, method: "GET", json: {
+        client: { id: CLIENT_ID, client_name: CLIENT_NAME },
+        flows: [
+          { id: 300, flow_name: "Checkout", is_active: true, scheduler_id: null, cron_expression: null, scheduler_active: null, webhook_url: null, only_tests: null, next_run_at: null, last_run_at: null, is_running: null },
+        ],
+      } },
+    ])
+    restore = view.stub.restore
+
+    const add = actionButton(view.container, "addToFlow")
+    assert.ok(add, "a non-archived definition must offer Add to Flow")
+    await click(add)
+    await flush(5)
+
+    // The modal renders through a portal to document.body, not inside the detail container.
+    assert.ok(
+      document.querySelector('[data-testid="add-to-flow-mode-existing"]'),
+      "the dialog must offer the existing-flow choice",
+    )
+    assert.ok(
+      document.querySelector('[data-testid="add-to-flow-mode-new"]'),
+      "the dialog must offer the create-new-flow choice",
+    )
   })
 })
