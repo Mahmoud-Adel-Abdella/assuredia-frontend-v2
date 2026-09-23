@@ -37,3 +37,15 @@ logs/
 /.playwright/
 
 .zcode/
+
+# Local reports
+EVIDENCE_PANEL_FRONTEND_*.md
+
+# Local evidence
+live-test-evidence/
+test-results/
+playwright-report/
+
+# Local tooling
+.workbuddy-ai/
+.zcode/
