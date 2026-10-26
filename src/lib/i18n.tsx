@@ -4087,6 +4087,47 @@ const dict: Record<string, Entry> = {
     ar: "أصلح صيغة JSON قبل الحفظ",
   },
 
+  /* Structured draft editor: per-item delete for Actions / Expected results */
+  "testdef.detail.actionsHeading": { en: "Actions", ar: "الإجراءات" },
+  "testdef.detail.expectedResultsHeading": {
+    en: "Expected results",
+    ar: "النتائج المتوقعة",
+  },
+  "testdef.detail.structuredHint": {
+    en: "Remove an action or expected result, then save the draft to persist the change.",
+    ar: "احذف إجراءً أو نتيجة متوقعة، ثم احفظ المسودة لتثبيت التغيير.",
+  },
+  "testdef.detail.noActions": { en: "No actions.", ar: "لا توجد إجراءات." },
+  "testdef.detail.noExpectedResults": {
+    en: "No expected results.",
+    ar: "لا توجد نتائج متوقعة.",
+  },
+  "testdef.detail.deleteItem": { en: "Delete", ar: "حذف" },
+  "testdef.detail.deleteActionAria": {
+    en: "Delete action {n}",
+    ar: "حذف الإجراء {n}",
+  },
+  "testdef.detail.deleteOutcomeAria": {
+    en: "Delete expected result {n}",
+    ar: "حذف النتيجة المتوقعة {n}",
+  },
+  "testdef.confirm.deleteActionTitle": {
+    en: "Delete this action?",
+    ar: "حذف هذا الإجراء؟",
+  },
+  "testdef.confirm.deleteActionDesc": {
+    en: "The action is removed from the draft. Save the draft to persist the change.",
+    ar: "يُزال الإجراء من المسودة. احفظ المسودة لتثبيت التغيير.",
+  },
+  "testdef.confirm.deleteOutcomeTitle": {
+    en: "Delete this expected result?",
+    ar: "حذف هذه النتيجة المتوقعة؟",
+  },
+  "testdef.confirm.deleteOutcomeDesc": {
+    en: "The expected result is removed from the draft. Save the draft to persist the change.",
+    ar: "تُزال النتيجة المتوقعة من المسودة. احفظ المسودة لتثبيت التغيير.",
+  },
+
   /* Lifecycle actions */
   "testdef.action.validate": { en: "Validate", ar: "تحقّق" },
   "testdef.action.validating": { en: "Validating…", ar: "جارٍ التحقق…" },
@@ -4104,6 +4145,10 @@ const dict: Record<string, Entry> = {
   },
   "testdef.action.archive": { en: "Archive", ar: "أرشفة" },
   "testdef.action.archiving": { en: "Archiving…", ar: "جارٍ الأرشفة…" },
+  "testdef.action.deleteDraft": { en: "Delete draft", ar: "حذف المسودة" },
+  "testdef.action.deletingDraft": { en: "Deleting…", ar: "جارٍ الحذف…" },
+  "testdef.action.archiveTest": { en: "Archive test", ar: "أرشفة الاختبار" },
+  "testdef.action.archivingTest": { en: "Archiving…", ar: "جارٍ الأرشفة…" },
   "testdef.action.newVersion": {
     en: "New draft version",
     ar: "إصدار مسودة جديد",
@@ -4257,6 +4302,40 @@ const dict: Record<string, Entry> = {
   "testdef.confirm.archiveDesc": {
     en: 'Archiving "{name}" is permanent: the version and the whole definition become read-only and can no longer run.',
     ar: 'أرشفة "{name}" نهائية: يصبح الإصدار والتعريف بالكامل للقراءة فقط ولا يمكن تشغيلهما.',
+  },
+  "testdef.confirm.deleteDraftTitle": {
+    en: "Delete this draft?",
+    ar: "حذف هذه المسودة؟",
+  },
+  "testdef.confirm.deleteDraftDesc": {
+    en: 'This draft "{name}" will be permanently deleted. This cannot be undone.',
+    ar: 'سيتم حذف هذه المسودة "{name}" نهائيًا. لا يمكن التراجع عن ذلك.',
+  },
+  "testdef.deleted.title": { en: "Draft deleted", ar: "تم حذف المسودة" },
+  "testdef.deleted.desc": {
+    en: "The draft was permanently deleted.",
+    ar: "تم حذف المسودة نهائيًا.",
+  },
+  "testdef.deleted.failedTitle": {
+    en: "Couldn't delete the draft",
+    ar: "تعذّر حذف المسودة",
+  },
+  "testdef.confirm.archiveTestTitle": {
+    en: "Archive this test?",
+    ar: "أرشفة هذا الاختبار؟",
+  },
+  "testdef.confirm.archiveTestDesc": {
+    en: 'Archived tests no longer appear in Active Tests. "{name}" keeps its versions, run history and evidence, and can be found under archived tests.',
+    ar: 'لا تظهر الاختبارات المؤرشفة في الاختبارات النشطة. يحتفظ "{name}" بإصداراته وسجل التشغيل والأدلة، ويمكن العثور عليه ضمن الاختبارات المؤرشفة.',
+  },
+  "testdef.archivedTest.title": { en: "Test archived", ar: "تمت أرشفة الاختبار" },
+  "testdef.archivedTest.desc": {
+    en: "The test was removed from Active Tests. Its history is preserved.",
+    ar: "تمت إزالة الاختبار من الاختبارات النشطة. تم الحفاظ على سجله.",
+  },
+  "testdef.archivedTest.failedTitle": {
+    en: "Couldn't archive the test",
+    ar: "تعذّر أرشفة الاختبار",
   },
   "testdef.validated.title": {
     en: "Version validated",
@@ -5320,6 +5399,8 @@ const dict: Record<string, Entry> = {
   "pr10c.live.stage.elements_parsed": { en: "Identifying key actions", ar: "تحديد الإجراءات الرئيسية" },
   "pr10c.live.stage.locators_start": { en: "Computing reliable element targets", ar: "حساب أهداف العناصر الموثوقة" },
   "pr10c.live.stage.locators_done": { en: "Element targets ready", ar: "أهداف العناصر جاهزة" },
+  "pr10c.live.stage.signing_in": { en: "Signing in securely", ar: "تسجيل الدخول بأمان" },
+  "pr10c.live.stage.authenticated_page": { en: "Authenticated page discovered", ar: "تم اكتشاف الصفحة بعد تسجيل الدخول" },
   "pr10c.live.stage.ui_discovery_warning": { en: "Opening your application", ar: "فتح تطبيقك" },
   "pr10c.live.stage.api_probe_start": { en: "Checking for API documentation", ar: "التحقق من توثيق API" },
   "pr10c.live.stage.api_probe_done": { en: "API catalog discovered", ar: "تم اكتشاف كتالوج API" },
@@ -5528,12 +5609,24 @@ const dict: Record<string, Entry> = {
   "pr10c.confirm.tryAgain": { en: "Try again", ar: "حاول مجددًا" },
   "pr10c.confirm.dismiss": { en: "Dismiss", ar: "إغلاق" },
   "pr10c.duplicate.title": {
-    en: "Already confirmed",
-    ar: "تم التأكيد مسبقًا",
+    en: "A similar test already exists",
+    ar: "يوجد اختبار مشابه بالفعل",
   },
   "pr10c.duplicate.body": {
-    en: "This plan was already confirmed. You can find the draft in Drafts & Reviews.",
-    ar: "تم تأكيد هذه الخطة مسبقًا. يمكنك العثور على المسودة في المسودات والمراجعات.",
+    en: "A test with this name already exists. You can open the existing test, or continue creating a new one.",
+    ar: "يوجد اختبار بهذا الاسم بالفعل. يمكنك فتح الاختبار الحالي أو متابعة إنشاء اختبار جديد.",
+  },
+  "pr10c.duplicate.bodyNamed": {
+    en: "A test named “{name}” already exists. You can open it, or continue creating a new test.",
+    ar: "يوجد اختبار باسم ‏«{name}»‏ بالفعل. يمكنك فتحه أو متابعة إنشاء اختبار جديد.",
+  },
+  "pr10c.duplicate.continueAsNew": {
+    en: "Continue as new test",
+    ar: "المتابعة كاختبار جديد",
+  },
+  "pr10c.duplicate.openExisting": {
+    en: "Open existing test",
+    ar: "فتح الاختبار الحالي",
   },
   "pr10c.errors.network": {
     en: "Could not reach Assuredia. Check your connection and try again.",

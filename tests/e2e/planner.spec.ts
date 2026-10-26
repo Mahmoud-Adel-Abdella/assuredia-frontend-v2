@@ -384,6 +384,8 @@ test("expired plan shows the expired message", async ({ page }) => {
 
 test("duplicate confirm navigates to drafts", async ({ page }) => {
   await openAsClient(page)
+  // A legacy or degraded 409 body carries no DUPLICATE_NAME details, so the
+  // duplicate view must render without the open-existing action.
   await page.route("**/test-plans/*/confirm", (route) =>
     route.fulfill({
       status: 409,
@@ -401,12 +403,113 @@ test("duplicate confirm navigates to drafts", async ({ page }) => {
   await page.getByRole("button", { name: /Review Test/ }).click()
   await page.getByRole("button", { name: "Create Test Draft" }).click()
   await expect(
-    page.getByRole("heading", { name: "Already confirmed" }),
+    page.getByRole("heading", { name: "A similar test already exists" }),
   ).toBeVisible()
+  await expect(page.getByTestId("ai-duplicate-open-existing")).toBeHidden()
   await page.getByRole("button", { name: "View in Drafts" }).click()
   await expect(
     page.getByRole("heading", { name: "Drafts & Reviews" }),
   ).toBeVisible()
+})
+
+test("duplicate 409 identifies the existing test; continue-as-new retries under a new name", async ({ page }) => {
+  await openAsClient(page)
+  const confirmNames: string[] = []
+  let confirmCalls = 0
+  await page.route("**/test-plans/*/confirm", async (route) => {
+    confirmCalls += 1
+    const body = route.request().postDataJSON() as { name?: string }
+    if (typeof body?.name === "string") confirmNames.push(body.name)
+    if (confirmCalls === 1) {
+      return route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: "A test with this name already exists.",
+          errorCategory: "DUPLICATE_NAME",
+          existingDefinitionId: 11,
+          existingName: "Existing checkout test",
+          existingStatus: "ACTIVE",
+        }),
+      })
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        definitionId: 42,
+        creationRequestId: "cr-42",
+        status: "DRAFT",
+      }),
+    })
+  })
+  await openAiBuilder(page)
+  await fillAndBuild(page, "Verify that a customer can complete checkout")
+  await expect(
+    page.getByRole("heading", { name: "Here's what Assuredia proposes" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: /Review Test/ }).click()
+  await page.getByRole("button", { name: "Create Test Draft" }).click()
+  await expect(
+    page.getByRole("heading", { name: "A similar test already exists" }),
+  ).toBeVisible()
+  await expect(page.getByText("Existing checkout test").first()).toBeVisible()
+  await expect(page.getByTestId("ai-duplicate-open-existing")).toBeVisible()
+  await page.getByTestId("ai-duplicate-continue-new").click()
+  await expect(
+    page.getByRole("heading", { name: "Test Draft Created" }),
+  ).toBeVisible()
+  expect(confirmNames).toHaveLength(2)
+  expect(confirmNames[0]).toBe("Mock planned test")
+  expect(confirmNames[1]).not.toBe(confirmNames[0])
+  expect(confirmNames[1]).toMatch(/^Mock planned test \(/)
+})
+
+test("duplicate 409 open-existing navigates to the existing definition", async ({ page }) => {
+  await openAsClient(page)
+  // Create one real definition through the mock engine (id 501 on a fresh
+  // reset) so "open existing" has a genuine target, then hit a duplicate-name
+  // 409 on a second plan built with the same mock title.
+  await openAiBuilder(page)
+  await fillAndBuild(page, "Verify that a customer can complete checkout")
+  await expect(
+    page.getByRole("heading", { name: "Here's what Assuredia proposes" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: /Review Test/ }).click()
+  await page.getByRole("button", { name: "Create Test Draft" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Test Draft Created" }),
+  ).toBeVisible()
+  // Leaving the builder and returning remounts it in the idle phase; staying
+  // on the create-test view would keep the success screen mounted.
+  await page.getByRole("button", { name: "Overview" }).first().click()
+  await openAiBuilder(page)
+  await page.route("**/test-plans/*/confirm", (route) =>
+    route.fulfill({
+      status: 409,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: "A test with this name already exists.",
+        errorCategory: "DUPLICATE_NAME",
+        existingDefinitionId: 501,
+        existingName: "Mock planned test",
+        existingStatus: "DRAFT",
+      }),
+    }),
+  )
+  await fillAndBuild(page, "Verify that a customer can complete checkout again")
+  await expect(
+    page.getByRole("heading", { name: "Here's what Assuredia proposes" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: /Review Test/ }).click()
+  await page.getByRole("button", { name: "Create Test Draft" }).click()
+  await expect(
+    page.getByRole("heading", { name: "A similar test already exists" }),
+  ).toBeVisible()
+  await page.getByTestId("ai-duplicate-open-existing").click()
+  // Open-existing routes through the same handler as the success view's
+  // "Open Test": Drafts & Reviews opens the referenced definition directly.
+  await expect(page.getByText("Mock planned test").first()).toBeVisible()
 })
 
 test("credential pill reflects the configured credential", async ({

@@ -134,6 +134,11 @@ export function AiBuilderPage({
   const stream = useDiscoveryStream(clientId, phase === "building" ? livePlanId : null)
   const [steps, setSteps] = useState<EditableStep[]>([])
   const [planTitle, setPlanTitle] = useState("")
+  const [duplicateInfo, setDuplicateInfo] = useState<{
+    existingDefinitionId?: number
+    existingName?: string
+    existingStatus?: string
+  } | null>(null)
   const [clarification, setClarification] = useState<{
     questions: (PlanClarificationQuestion & { answer: string })[]
   } | null>(null)
@@ -371,13 +376,24 @@ export function AiBuilderPage({
     runPlan(combined)
   }
 
-  function confirmDraft() {
+  function confirmDraft(overrideName?: string) {
     if (!plan || busy) return
     setConfirmError(null)
+    // Guard: this is also used directly as a Button onClick ({onCreate}), which passes
+    // the click event as the first argument. Only a real string is a name override.
+    const override =
+      typeof overrideName === "string" && overrideName.trim() ? overrideName : undefined
+    if (override != null) {
+      // "Continue as New Test": a deliberate NEW submission with a distinct name and
+      // a fresh idempotency key, so the existing test is never touched or replayed.
+      setPlanTitle(override)
+      confirmKeyRef.current = newConfirmKey()
+    }
     setPhase("confirming")
     setBusy(true)
     if (!confirmKeyRef.current) confirmKeyRef.current = newConfirmKey()
     const key = confirmKeyRef.current
+    const nameToUse = ((override ?? planTitle.trim()) || plan.title).slice(0, 120)
     const controller = new AbortController()
     abortRef.current = controller
     const timeoutId = window.setTimeout(() => controller.abort(), 60_000)
@@ -388,7 +404,7 @@ export function AiBuilderPage({
       plan.planId,
       key,
       {
-        name: planTitle.trim().slice(0, 120) || plan.title,
+        name: nameToUse,
         description: plan.description ?? null,
         modifiedSteps: steps.map((s) => ({
           type: s.type,
@@ -412,7 +428,7 @@ export function AiBuilderPage({
         setBusy(false)
         setSuccess({
           definitionId: result.definitionId,
-          title: planTitle.trim() || plan.title,
+          title: nameToUse,
           stepCount: steps.length,
         })
         setPhase("success")
@@ -429,6 +445,18 @@ export function AiBuilderPage({
           return
         }
         if (error instanceof ApiError && error.status === 409) {
+          // A test with this name already exists. This is a USER CHOICE, not a hard
+          // block: surface the existing test (when the backend identifies it) so the
+          // user can open it or continue creating a new one under a different name.
+          const body = error.body ?? {}
+          const rawId = body["existingDefinitionId"]
+          setDuplicateInfo({
+            existingDefinitionId: typeof rawId === "number" ? rawId : undefined,
+            existingName:
+              typeof body["existingName"] === "string" ? (body["existingName"] as string) : undefined,
+            existingStatus:
+              typeof body["existingStatus"] === "string" ? (body["existingStatus"] as string) : undefined,
+          })
           confirmKeyRef.current = null
           setPhase("duplicate")
           return
@@ -819,6 +847,17 @@ export function AiBuilderPage({
             )}
           >
             <DuplicateView
+              info={duplicateInfo}
+              onContinueAsNew={() => {
+                const base = (planTitle.trim() || plan?.title || "Test").slice(0, 110)
+                const suffix = Date.now().toString(36).slice(-4)
+                confirmDraft(`${base} (${suffix})`)
+              }}
+              onOpenExisting={
+                duplicateInfo?.existingDefinitionId != null
+                  ? () => onOpenDefinition(duplicateInfo.existingDefinitionId as number)
+                  : undefined
+              }
               onViewDrafts={onViewDrafts}
               onBack={() => setPhase("idle")}
             />
@@ -950,15 +989,26 @@ function AuthRequiredView({
 }
 
 function DuplicateView({
+  info,
+  onContinueAsNew,
+  onOpenExisting,
   onViewDrafts,
   onBack,
 }: {
+  info?: {
+    existingDefinitionId?: number
+    existingName?: string
+    existingStatus?: string
+  } | null
+  onContinueAsNew: () => void
+  onOpenExisting?: () => void
   onViewDrafts: () => void
   onBack: () => void
 }) {
   const { t } = useLang()
+  const existingName = info?.existingName
   return (
-    <div className="flex flex-col items-center py-16 text-center">
+    <div className="flex flex-col items-center py-16 text-center" data-testid="ai-duplicate-view">
       <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 dark:bg-amber-900/30">
         <IconSparkle className="h-8 w-8 text-amber-500 dark:text-amber-400" />
       </div>
@@ -966,10 +1016,30 @@ function DuplicateView({
         {t("pr10c.duplicate.title")}
       </h2>
       <p className="mb-8 max-w-sm text-[14px] text-slate-500 dark:text-slate-400">
-        {t("pr10c.duplicate.body")}
+        {existingName
+          ? t("pr10c.duplicate.bodyNamed", { name: existingName })
+          : t("pr10c.duplicate.body")}
       </p>
-      <div className="flex items-center gap-3">
-        <Button variant="primary" size="md" onClick={onViewDrafts}>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <Button
+          variant="primary"
+          size="md"
+          onClick={onContinueAsNew}
+          data-testid="ai-duplicate-continue-new"
+        >
+          {t("pr10c.duplicate.continueAsNew")}
+        </Button>
+        {onOpenExisting && (
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={onOpenExisting}
+            data-testid="ai-duplicate-open-existing"
+          >
+            {t("pr10c.duplicate.openExisting")}
+          </Button>
+        )}
+        <Button variant="ghost" size="md" onClick={onViewDrafts}>
           {t("pr10c.success.viewDrafts")}
         </Button>
         <Button variant="ghost" size="md" onClick={onBack}>

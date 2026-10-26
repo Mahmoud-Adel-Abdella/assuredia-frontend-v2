@@ -4,6 +4,8 @@ import {
   ApiError,
   apiActivateTestDefinitionVersion,
   apiArchiveTestDefinitionVersion,
+  apiArchiveTestDefinition,
+  apiDeleteTestDefinition,
   apiCreateFlow,
   apiCreateTestDefinition,
   apiDownloadTestDefinitionArtifact,
@@ -183,6 +185,33 @@ test("Test Definition API bindings and run normalization", async (t) => {
     }))
     const result = await apiArchiveTestDefinitionVersion(CLIENT_ID, DEFINITION_ID, VERSION_ID)
     assert.match(calls[0].url, /\/archive$/)
+    assert.equal(result.aggregateArchived, true)
+  })
+
+  /* ---- Delete Draft (lifecycle-cleanup phase) ------------------------ */
+
+  await t.test("Delete draft issues DELETE to the definition route and returns the result", async () => {
+    const calls = stub(() => ({ json: { deleted: true, definitionId: DEFINITION_ID } }))
+    const result = await apiDeleteTestDefinition(CLIENT_ID, DEFINITION_ID)
+    assert.equal(calls[0].method, "DELETE")
+    assert.equal(calls[0].url.endsWith(PATHS.definition), true)
+    assert.equal(result.deleted, true)
+    assert.equal(result.definitionId, DEFINITION_ID)
+  })
+
+  await t.test("Delete draft surfaces a 409 conflict as an ApiError (backend lifecycle guard)", async () => {
+    stub(() => ({ status: 409, json: { error: "Active tests cannot be deleted; archive the test instead" } }))
+    await assert.rejects(
+      () => apiDeleteTestDefinition(CLIENT_ID, DEFINITION_ID),
+      (err: unknown) => err instanceof ApiError && err.status === 409,
+    )
+  })
+
+  await t.test("Archive active test posts to the aggregate archive route", async () => {
+    const calls = stub(() => ({ json: { definitionId: DEFINITION_ID, aggregateArchived: true } }))
+    const result = await apiArchiveTestDefinition(CLIENT_ID, DEFINITION_ID)
+    assert.equal(calls[0].method, "POST")
+    assert.equal(calls[0].url.endsWith(`${PATHS.definition}/archive`), true)
     assert.equal(result.aggregateArchived, true)
   })
 
