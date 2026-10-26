@@ -2913,6 +2913,37 @@ export async function apiArchiveTestDefinitionVersion(
 }
 
 /**
+ * DELETE …/{definitionId} — permanently deletes a Draft (a test that has never been
+ * activated and is not archived). The backend rejects Active/Archived tests with a 409;
+ * Active tests must be archived instead. Tenant-scoped (a cross-tenant id is a 404).
+ */
+export async function apiDeleteTestDefinition(
+  clientId: number,
+  definitionId: number,
+): Promise<{ deleted: boolean; definitionId: number }> {
+  return request<{ deleted: boolean; definitionId: number }>(
+    `${testDefinitionsPath(clientId)}/${definitionId}`,
+    { method: "DELETE" },
+  )
+}
+
+/**
+ * POST …/{definitionId}/archive — aggregate-level archive of an ACTIVE test: removes it
+ * from Active Tests while preserving versions, run history and evidence. Tenant-user action.
+ * The backend rejects a Draft (delete it instead) or an already-archived test with a 409.
+ * Distinct from the admin, READY-only, version-level {@link apiArchiveTestDefinitionVersion}.
+ */
+export async function apiArchiveTestDefinition(
+  clientId: number,
+  definitionId: number,
+): Promise<{ definitionId: number; aggregateArchived: boolean }> {
+  return request<{ definitionId: number; aggregateArchived: boolean }>(
+    `${testDefinitionsPath(clientId)}/${definitionId}/archive`,
+    { method: "POST" },
+  )
+}
+
+/**
  * POST …/versions/{versionId}/activate — operational activation of a reviewed test
  * (Draft-Activation phase).
  *
